@@ -14,6 +14,7 @@ import { Hero } from '@/components/Hero';
 import { TrackList } from '@/components/TrackList';
 import { PlayButton } from '@/components/PlayButton';
 import { LikeButton } from '@/components/LikeButton';
+import { OfflineToggle } from '@/components/OfflineToggle';
 import { EmptyState } from '@/components/EmptyState';
 import { TrackListSkeleton } from '@/components/Skeleton';
 import { Cover } from '@/components/Cover';
@@ -68,6 +69,7 @@ export default function Playlist() {
         {isOwner && <button className="icon-btn" title={t('editPlaylist')} onClick={() => setEditor({ id: pl.id, initial: { title: pl.title, description: pl.description, isPublic: pl.isPublic } })}><Pencil size={20} /></button>}
         {isOwner && <><button className="btn btn-ghost !h-9" onClick={() => fileRef.current?.click()}>{t('uploadCover')}</button><input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => e.target.files?.[0] && uploadCover(e.target.files[0])} /></>}
         {user && pl.tracks.length > 0 && <a className="icon-btn" href={playlistZipUrl(pl.id)} title={t('downloadAll')}><Download size={22} /></a>}
+        <OfflineToggle tracks={pl.tracks} />
         <button className="icon-btn" onClick={(e) => openMenu(e.clientX, e.clientY, { kind: 'playlist', playlist: pl })}><MoreHorizontal size={22} /></button>
       </Hero>
       <div className="page">

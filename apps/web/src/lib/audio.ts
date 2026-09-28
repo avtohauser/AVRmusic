@@ -17,6 +17,9 @@ export function getAudio(): HTMLAudioElement {
     audio = new Audio();
     audio.preload = 'auto';
     (audio as any).playsInline = true;
+    audio.setAttribute('data-avr-player', '');
+    audio.style.display = 'none';
+    document.body.appendChild(audio); // in-DOM element: more reliable background playback on Android WebView/TWA
     bind(audio);
   }
   return audio;

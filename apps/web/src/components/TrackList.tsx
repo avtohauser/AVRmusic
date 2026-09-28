@@ -7,7 +7,9 @@ import { useUI } from '@/stores/ui';
 import { fmtMs, fmtDate } from '@/lib/format';
 import { useI18n } from '@/lib/i18n';
 import { useOfflineIds } from '@/lib/hooks';
-import { Clock, MoreHorizontal, Play, Pause, Mic2, Clapperboard, CheckCircle2 } from 'lucide-react';
+import { Clock, MoreHorizontal, Play, Pause, Mic2, Clapperboard, CheckCircle2, Download } from 'lucide-react';
+import { downloadUrl } from '@/lib/api';
+import { useAuth } from '@/stores/auth';
 
 interface Props {
   tracks: Track[];
@@ -29,6 +31,7 @@ export function TrackList({ tracks, context, showAlbum = true, showCover = true,
   const menuTrack = useUI((s) => (s.menu?.target.kind === 'track' ? s.menu.target.track.id : null));
   const offline = useOfflineIds();
   const lang = useI18n((s) => s.lang);
+  const user = useAuth((s) => s.user);
 
   const play = (i: number) => {
     const p = usePlayer.getState();
@@ -92,6 +95,7 @@ export function TrackList({ tracks, context, showAlbum = true, showCover = true,
             <div className="hidden md:block text-sm text-muted tabular-nums text-right pr-2">{fmtMs(track.durationMs)}</div>
             <div className="flex items-center gap-0.5 justify-end">
               <LikeButton type="track" id={track.id} />
+              {user && <a className="icon-btn row-actions" href={downloadUrl(track.id)} download title={lang === 'en' ? 'Download' : 'Скачать'} onClick={(e) => e.stopPropagation()}><Download size={17} /></a>}
               <button className="icon-btn row-actions" aria-label="menu" onClick={(e) => { e.stopPropagation(); openMenu(e.clientX, e.clientY, { kind: 'track', track, playlistId, canRemove }); }}><MoreHorizontal size={18} /></button>
             </div>
           </div>

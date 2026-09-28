@@ -6,6 +6,7 @@ import { useI18n, useT } from '@/lib/i18n';
 import { fmtDurationLong, tracksWord } from '@/lib/format';
 import { TrackList } from '@/components/TrackList';
 import { PlayButton } from '@/components/PlayButton';
+import { OfflineToggle } from '@/components/OfflineToggle';
 import { EmptyState } from '@/components/EmptyState';
 import { TrackListSkeleton } from '@/components/Skeleton';
 
@@ -35,6 +36,7 @@ export default function Liked() {
           <div className="page flex items-center gap-3 mt-6 justify-center sm:justify-start">
             <PlayButton size="lg" playing={isThis && playing} onClick={() => (isThis ? p.toggle() : p.playTracks(tracks, 0, 'liked'))} />
             <button className="icon-btn" onClick={() => { if (!p.shuffle) p.toggleShuffle(); p.playTracks(tracks, Math.floor(Math.random() * tracks.length), 'liked'); }}><Shuffle size={22} /></button>
+            <OfflineToggle tracks={tracks} />
           </div>
         )}
       </div>

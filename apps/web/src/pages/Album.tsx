@@ -11,6 +11,7 @@ import { Hero } from '@/components/Hero';
 import { TrackList } from '@/components/TrackList';
 import { PlayButton } from '@/components/PlayButton';
 import { LikeButton } from '@/components/LikeButton';
+import { OfflineToggle } from '@/components/OfflineToggle';
 import { Shelf } from '@/components/Shelf';
 import { AlbumCard } from '@/components/Cards';
 import { TrackListSkeleton } from '@/components/Skeleton';
@@ -52,6 +53,7 @@ export default function Album() {
         <button className="icon-btn" title={t('shuffle')} onClick={() => { if (!p.shuffle) p.toggleShuffle(); p.playTracks(album.tracks, Math.floor(Math.random() * album.tracks.length), `album:${album.id}`); }}><Shuffle size={22} /></button>
         <LikeButton type="album" id={album.id} size={24} alwaysVisible />
         {user && <a className="icon-btn" href={albumZipUrl(album.id)} title={t('downloadAll')}><Download size={22} /></a>}
+        <OfflineToggle tracks={album.tracks} />
         <button className="icon-btn" onClick={(e) => openMenu(e.clientX, e.clientY, { kind: 'album', album })}><MoreHorizontal size={22} /></button>
       </Hero>
       <div className="page">

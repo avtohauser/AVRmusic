@@ -1,14 +1,14 @@
+import { Link } from 'react-router-dom';
 import { useHome } from '@/lib/queries';
 import { useAuth } from '@/stores/auth';
 import { usePlayer } from '@/stores/player';
 import { api } from '@/lib/api';
 import { useT } from '@/lib/i18n';
+import { M3eButton } from '@/md';
 import { Shelf } from '@/components/Shelf';
 import { AlbumCard, ArtistCard, GenreCard, PlaylistCard, QuickPick, TrackCard } from '@/components/Cards';
 import { ShelfSkeleton, Skeleton } from '@/components/Skeleton';
 import { EmptyState } from '@/components/EmptyState';
-import { Link } from 'react-router-dom';
-import { Music2, Upload } from 'lucide-react';
 import type { AlbumSummary, ArtistSummary, Genre, PlaylistSummary, Track } from '@avrmusic/shared';
 
 export default function Home() {
@@ -21,13 +21,13 @@ export default function Home() {
   if (!user && !info?.publicLibrary) {
     return (
       <div className="page pt-10">
-        <div className="card p-8 md:p-12 text-center max-w-2xl mx-auto fade-in">
-          <div className="w-16 h-16 rounded-2xl accent-gradient mx-auto flex items-center justify-center text-white mb-4"><Music2 size={30} /></div>
-          <h1 className="text-3xl font-extrabold">{t('welcome')} <span className="text-gradient">AVRmusic</span></h1>
-          <p className="text-muted mt-2">{t('signInToListen')}</p>
+        <div className="surface-low rounded-[36px] p-8 md:p-12 text-center max-w-2xl mx-auto fade-in">
+          <div className="w-20 h-20 rounded-[28px] bg-primary text-on-primary mx-auto flex items-center justify-center mb-5"><m3e-icon variant="rounded" name="graphic_eq" style={{ ['--m3e-icon-size' as any]: '36px' }} /></div>
+          <h1 className="md-display-sm emph">{t('welcome')} <span className="text-primary">AVRmusic</span></h1>
+          <p className="md-body-lg muted mt-2">{t('signInToListen')}</p>
           <div className="flex justify-center gap-3 mt-6">
-            <Link to="/login" className="btn btn-primary">{t('login')}</Link>
-            {(info?.allowRegistration || info?.needsSetup) && <Link to="/register" className="btn btn-ghost">{t('register')}</Link>}
+            <M3eButton variant="filled" size="large" href="/login">{t('login')}</M3eButton>
+            {(info?.allowRegistration || info?.needsSetup) && <M3eButton variant="tonal" size="large" href="/register">{t('register')}</M3eButton>}
           </div>
         </div>
       </div>
@@ -37,20 +37,20 @@ export default function Home() {
   if (isLoading || !data) {
     return (
       <div className="page pt-4">
-        <Skeleton className="h-9 w-56 mb-6" />
+        <Skeleton className="h-10 w-64 mb-6" />
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">{Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-16" />)}</div>
         <ShelfSkeleton /><div className="h-8" /><ShelfSkeleton round />
       </div>
     );
   }
-  if (error) return <div className="page pt-8 text-red-400">{String((error as any).message)}</div>;
+  if (error) return <div className="page pt-8 text-error">{String((error as any).message)}</div>;
 
   const empty = !data.sections.length;
   return (
     <div className="page pt-4">
-      <h1 className="text-2xl md:text-3xl font-extrabold mb-5 fade-in">{data.greeting}{user ? `, ${user.displayName}` : ''}</h1>
+      <h1 className="md-headline-lg emph mb-5 fade-in">{data.greeting}{user ? `, ${user.displayName}` : ''}</h1>
       {empty && (
-        <EmptyState icon={<Music2 />} title={t('emptyLibrary')} hint={t('emptyLibraryHint')} action={user?.role === 'admin' ? <Link to="/admin" className="btn btn-accent"><Upload size={16} />{t('upload')}</Link> : undefined} />
+        <EmptyState icon="music_note" title={t('emptyLibrary')} hint={t('emptyLibraryHint')} action={user?.role === 'admin' ? <M3eButton variant="filled" href="/admin"><m3e-icon variant="rounded" slot="icon" name="upload" />{t('upload')}</M3eButton> : undefined} />
       )}
       {data.quickPicks.length > 0 && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8 fade-in">
@@ -70,6 +70,7 @@ export default function Home() {
           {s.kind === 'genres' && (s.items as Genre[]).map((g) => <GenreCard key={g.slug} genre={g} />)}
         </Shelf>
       ))}
+      <span className="hidden">{String(Link)}</span>
     </div>
   );
 }

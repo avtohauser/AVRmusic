@@ -43,6 +43,11 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         runtimeCaching: [
           {
+            urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\//,
+            handler: 'CacheFirst',
+            options: { cacheName: 'avr-fonts', expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 365 }, cacheableResponse: { statuses: [0, 200] } },
+          },
+          {
             urlPattern: /\/media\/(covers|avatars)\//,
             handler: 'CacheFirst',
             options: { cacheName: 'avr-images', expiration: { maxEntries: 600, maxAgeSeconds: 60 * 60 * 24 * 60 } },

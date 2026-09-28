@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { AlbumSummary, PlaylistSummary, Track } from '@avrmusic/shared';
+import { M3eSnackbar } from '@/md';
 
 export type Theme = 'dark' | 'light';
 export interface Toast { id: number; text: string; kind?: 'info' | 'error' | 'success' }
@@ -33,19 +34,12 @@ interface UIState {
   setInstallPrompt: (p: any | null) => void;
 }
 
-const initialTheme = ((): Theme => { try { return (localStorage.getItem('avr.theme') as Theme) || 'dark'; } catch { return 'dark'; } })();
-document.documentElement.dataset.theme = initialTheme;
+const initialTheme: Theme = 'dark';
 
 let toastId = 0;
 export const useUI = create<UIState>((set, get) => ({
   theme: initialTheme,
-  setTheme(theme) {
-    try { localStorage.setItem('avr.theme', theme); } catch { /* ignore */ }
-    document.documentElement.dataset.theme = theme;
-    const meta = document.querySelector('meta[name=theme-color]');
-    if (meta) meta.setAttribute('content', theme === 'light' ? '#f6f6fa' : '#0b0b10');
-    set({ theme });
-  },
+  setTheme(theme) { set({ theme }); },
   nowPlayingOpen: false,
   setNowPlayingOpen: (v) => set({ nowPlayingOpen: v }),
   queueOpen: false,
@@ -59,6 +53,7 @@ export const useUI = create<UIState>((set, get) => ({
   toast(text, kind = 'info') {
     const id = ++toastId;
     set({ toasts: [...get().toasts, { id, text, kind }] });
+    try { M3eSnackbar.open((kind === 'error' ? '⚠ ' : '') + text, { duration: kind === 'error' ? 5000 : 3200 }); } catch { /* snackbar host not ready */ }
     setTimeout(() => get().dismissToast(id), 3200);
   },
   dismissToast: (id) => set({ toasts: get().toasts.filter((t) => t.id !== id) }),

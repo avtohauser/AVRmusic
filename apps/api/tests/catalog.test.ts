@@ -43,20 +43,35 @@ dz.get('/track/1002', async () => T2);
 dz.get('/track/1003', async () => T3);
 dz.get('/track/9999', async () => ({ error: { type: 'DataException', message: 'no data', code: 800 } }));
 
+// ---- fake Audius + Internet Archive (direct-file sources) ----
+const srcSrv = Fastify();
+let wavPathForSources = '';
+srcSrv.get('/v1/tracks/search', async (req: any) => ({ data: /second song/i.test(req.query.query) ? [{ id: 'aud1', title: 'Second Song (feat. Guest Star)', duration: 181, user: { name: 'Fake Artist' }, is_downloadable: false, permalink: '/fake/second' }] : [] }));
+srcSrv.get('/v1/tracks/aud1/stream', async (_req, reply) => reply.header('content-type', 'audio/wav').send(fs.createReadStream(wavPathForSources)));
+srcSrv.get('/advancedsearch.php', async (req: any) => ({ response: { docs: /fake song/i.test(req.query.q) ? [{ identifier: 'fake-live-2020', title: 'Fake Artist Live 2020', creator: 'Fake Artist', downloads: 10 }] : [] } }));
+srcSrv.get('/metadata/fake-live-2020/files', async () => ({ result: [{ name: '01 Fake Song.flac', format: 'Flac', length: '181.00', title: 'Fake Song', size: '1000' }, { name: '01 Fake Song.mp3', format: 'VBR MP3', length: '181', title: 'Fake Song' }] }));
+srcSrv.get('/download/fake-live-2020/:file', async (_req, reply) => reply.header('content-type', 'audio/wav').send(fs.createReadStream(wavPathForSources)));
+
 let app: Awaited<ReturnType<typeof buildApp>>;
 let access = '';
 
 before(async () => {
   await dz.listen({ port: 0, host: '127.0.0.1' });
   (config as any).deezerApi = `http://127.0.0.1:${(dz.server.address() as any).port}`;
+  await srcSrv.listen({ port: 0, host: '127.0.0.1' });
+  const srcBase = `http://127.0.0.1:${(srcSrv.server.address() as any).port}`;
+  (config as any).audiusApi = srcBase;
+  (config as any).archiveApi = srcBase;
+  (config as any).acquireSources = ['youtube', 'audius', 'archive'];
   const wavPath = path.join(process.env.DATA_DIR!, 'fake.wav');
   fs.writeFileSync(wavPath, synthesize({ bpm: 120, bars: 2, root: 57, scale: SCALES.major, progression: [0, 3], lead: 'sine', pad: 'sine', drums: false, swing: 0, seed: 11 }).wav);
   process.env.FAKE_WAV = wavPath;
+  wavPathForSources = wavPath;
   app = await buildApp({ db: openDatabase(':memory:'), logger: false });
   const r = await app.inject({ method: 'POST', url: '/api/auth/register', payload: { email: 'a@b.co', username: 'admin', password: 'secret1' } });
   access = r.json().accessToken;
 });
-after(async () => { await app.close(); await dz.close(); fs.rmSync(process.env.DATA_DIR!, { recursive: true, force: true }); });
+after(async () => { await app.close(); await dz.close(); await srcSrv.close(); fs.rmSync(process.env.DATA_DIR!, { recursive: true, force: true }); });
 
 test('invite code is required for the second account', async () => {
   const info = await app.inject({ method: 'GET', url: '/api/info' });
@@ -82,6 +97,26 @@ test('candidate scoring prefers official topic audio with matching duration', ()
   const video = scoreCandidate({ id: 'd', title: 'Fake Artist - Fake Song (Official Video)', duration: 183, channel: 'FakeArtistVEVO' }, want);
   assert.ok(topic > video && video > cover && cover > live, `${topic} ${video} ${cover} ${live}`);
   assert.ok(live < 25);
+  const flac = scoreCandidate({ source: 'archive', title: 'Fake Song', duration: 181, artist: 'Fake Artist', quality: { lossless: true } }, want);
+  const yt = scoreCandidate({ source: 'youtube', title: 'Fake Song', duration: 181, channel: 'Fake Artist' }, want);
+  assert.ok(flac > yt, 'lossless file outranks a plain lossy match');
+});
+
+test('findCandidates merges every source and ranks lossless first', async () => {
+  const { findCandidates } = await import('../src/services/acquire.js');
+  const ranked = await findCandidates({ title: 'Fake Song', artist: 'Fake Artist', durationSec: 181 });
+  const sources = new Set(ranked.map((r) => r.c.source));
+  assert.ok(sources.has('youtube') && sources.has('archive'), [...sources].join(','));
+  assert.equal(ranked[0].c.source, 'youtube', 'official YouTube audio wins with the default order');
+  // with the archive preferred in config, its lossless file wins
+  const prev = (config as any).acquireSources;
+  (config as any).acquireSources = ['archive', 'audius', 'youtube'];
+  const ranked2 = await findCandidates({ title: 'Fake Song', artist: 'Fake Artist', durationSec: 181 });
+  (config as any).acquireSources = prev;
+  assert.equal(ranked2[0].c.source, 'archive');
+  assert.equal(ranked2[0].c.quality?.lossless, true);
+  const only = await findCandidates({ title: 'Second Song', artist: 'Fake Artist', durationSec: 181 });
+  assert.ok(only.some((r) => r.c.source === 'audius'));
 });
 
 test('catalog search maps artists, albums, tracks and features', async () => {

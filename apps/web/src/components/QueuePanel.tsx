@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { GripVertical, ListX, X } from 'lucide-react';
+import { M3eIconButton } from '@/md';
 import { usePlayer } from '@/stores/player';
 import { Cover } from './Cover';
 import { useT } from '@/lib/i18n';
@@ -17,24 +17,24 @@ export function QueuePanel({ onClose, embedded = false }: { onClose?: () => void
   const current = queue[index];
   const upcoming = queue.slice(index + 1);
   return (
-    <div className={`flex flex-col h-full ${embedded ? '' : 'glass border-l border-line'}`}>
+    <div className="flex flex-col h-full">
       {!embedded && (
-        <div className="flex items-center justify-between px-4 py-3 border-b border-line">
-          <h3 className="font-bold">{t('queue')}</h3>
+        <div className="flex items-center justify-between px-4 py-3">
+          <h3 className="md-title-md emph">{t('queue')}</h3>
           <div className="flex gap-1">
-            <button className="icon-btn" title="clear" onClick={clear}><ListX size={18} /></button>
-            {onClose && <button className="icon-btn" onClick={onClose}><X size={18} /></button>}
+            <M3eIconButton aria-label="clear" onClick={clear}><m3e-icon variant="rounded" name="playlist_remove" /></M3eIconButton>
+            {onClose && <M3eIconButton aria-label="close" onClick={onClose}><m3e-icon variant="rounded" name="close" /></M3eIconButton>}
           </div>
         </div>
       )}
       <div className="flex-1 overflow-y-auto p-2">
         {current && (
           <>
-            <p className="text-xs uppercase tracking-wider text-muted px-2 pt-2 pb-1">{t('nowPlaying')}</p>
+            <p className="md-label-md muted px-2 pt-2 pb-1 uppercase tracking-wider">{t('nowPlaying')}</p>
             <Row cover={current.coverUrl} title={current.title} artist={current.artist.name} duration={current.durationMs} active />
           </>
         )}
-        {upcoming.length > 0 && <p className="text-xs uppercase tracking-wider text-muted px-2 pt-4 pb-1">{t('next')}</p>}
+        {upcoming.length > 0 && <p className="md-label-md muted px-2 pt-4 pb-1 uppercase tracking-wider">{t('next')}</p>}
         {upcoming.map((tr, i) => {
           const qi = index + 1 + i;
           return (
@@ -43,7 +43,7 @@ export function QueuePanel({ onClose, embedded = false }: { onClose?: () => void
             </div>
           );
         })}
-        {!queue.length && <p className="text-muted text-center py-10">—</p>}
+        {!queue.length && <p className="muted text-center py-10">—</p>}
       </div>
     </div>
   );
@@ -51,15 +51,15 @@ export function QueuePanel({ onClose, embedded = false }: { onClose?: () => void
 
 function Row({ cover, title, artist, duration, active, onClick, onRemove }: { cover: string | null; title: string; artist: string; duration: number; active?: boolean; onClick?: () => void; onRemove?: () => void }) {
   return (
-    <div className={`group flex items-center gap-3 p-2 rounded-xl hover:bg-surface ${onClick ? 'cursor-pointer' : ''}`} onClick={onClick}>
-      {onRemove && <GripVertical size={14} className="text-muted opacity-0 group-hover:opacity-100 cursor-grab" />}
-      <Cover src={cover} className="w-10 h-10" />
+    <div className={`group flex items-center gap-3 p-2 rounded-[20px] state-layer ${active ? 'bg-secondary-container text-on-secondary-container' : ''} ${onClick ? 'cursor-pointer' : ''}`} onClick={onClick}>
+      {onRemove && <m3e-icon variant="rounded" name="drag_handle" className="muted opacity-0 group-hover:opacity-100 cursor-grab" />}
+      <Cover src={cover} className="w-10 h-10 !rounded-[12px]" />
       <div className="min-w-0 flex-1">
-        <div className={`font-medium line-clamp-1 ${active ? 'text-accent' : ''}`}>{title}</div>
-        <div className="text-sm text-muted line-clamp-1">{artist}</div>
+        <div className={`md-title-sm line-1 ${active ? 'text-primary' : ''}`}>{title}</div>
+        <div className="md-body-sm muted line-1">{artist}</div>
       </div>
-      <span className="text-xs text-muted tabular-nums">{fmtMs(duration)}</span>
-      {onRemove && <button className="icon-btn opacity-0 group-hover:opacity-100" onClick={(e) => { e.stopPropagation(); onRemove(); }}><X size={16} /></button>}
+      <span className="md-label-sm muted tabular-nums">{fmtMs(duration)}</span>
+      {onRemove && <M3eIconButton size="extra-small" className="opacity-0 group-hover:opacity-100" aria-label="remove" onClick={(e: any) => { e.stopPropagation(); onRemove(); }}><m3e-icon variant="rounded" name="close" /></M3eIconButton>}
     </div>
   );
 }

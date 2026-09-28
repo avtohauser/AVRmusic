@@ -1,4 +1,4 @@
-import { Heart, Shuffle } from 'lucide-react';
+import { M3eIconButton } from '@/md';
 import { useLikedTracks } from '@/lib/queries';
 import { usePlayer } from '@/stores/player';
 import { useAuth } from '@/stores/auth';
@@ -23,25 +23,25 @@ export default function Liked() {
   return (
     <div>
       <div className="relative -mt-16 pt-16 mb-6">
-        <div className="hero-bg" style={{ ['--hero' as any]: '#6d3df0' }} />
+        <div className="hero-bg" />
         <div className="page pt-6 md:pt-10 flex flex-col sm:flex-row sm:items-end gap-6">
-          <div className="w-44 h-44 md:w-56 md:h-56 rounded-xl accent-gradient flex items-center justify-center text-white shadow-2xl mx-auto sm:mx-0"><Heart size={80} fill="currentColor" /></div>
+          <div className="w-44 h-44 md:w-56 md:h-56 rounded-[28px] bg-primary text-on-primary flex items-center justify-center elev-3 mx-auto sm:mx-0"><m3e-icon variant="rounded" name="favorite" filled style={{ ['--m3e-icon-size' as any]: '96px' }} /></div>
           <div className="text-center sm:text-left">
-            <div className="text-xs uppercase tracking-wider font-semibold">{t('playlist')}</div>
-            <h1 className="text-4xl md:text-6xl font-extrabold mt-1">{t('likedSongs')}</h1>
-            <div className="text-sm mt-3 text-fg/80"><span className="font-semibold">{user?.displayName}</span> · {tracksWord(tracks.length, lang)}{tracks.length ? `, ${fmtDurationLong(tracks.reduce((s, x) => s + x.durationMs, 0), lang)}` : ''}</div>
+            <div className="md-label-lg muted uppercase tracking-wider">{t('playlist')}</div>
+            <h1 className="md-display-md emph mt-1">{t('likedSongs')}</h1>
+            <div className="md-body-md mt-3"><span className="md-title-sm">{user?.displayName}</span> · {tracksWord(tracks.length, lang)}{tracks.length ? `, ${fmtDurationLong(tracks.reduce((s, x) => s + x.durationMs, 0), lang)}` : ''}</div>
           </div>
         </div>
         {tracks.length > 0 && (
           <div className="page flex items-center gap-3 mt-6 justify-center sm:justify-start">
             <PlayButton size="lg" playing={isThis && playing} onClick={() => (isThis ? p.toggle() : p.playTracks(tracks, 0, 'liked'))} />
-            <button className="icon-btn" onClick={() => { if (!p.shuffle) p.toggleShuffle(); p.playTracks(tracks, Math.floor(Math.random() * tracks.length), 'liked'); }}><Shuffle size={22} /></button>
+            <M3eIconButton variant="tonal" size="medium" title={t('shuffle')} onClick={() => { if (!p.shuffle) p.toggleShuffle(); p.playTracks(tracks, Math.floor(Math.random() * tracks.length), 'liked'); }}><m3e-icon variant="rounded" name="shuffle" /></M3eIconButton>
             <OfflineToggle tracks={tracks} />
           </div>
         )}
       </div>
       <div className="page">
-        {isLoading ? <TrackListSkeleton /> : tracks.length ? <TrackList tracks={tracks} context="liked" showAddedAt /> : <EmptyState icon={<Heart />} title={t('emptyLiked')} hint={t('emptyLikedHint')} />}
+        {isLoading ? <TrackListSkeleton /> : tracks.length ? <TrackList tracks={tracks} context="liked" showAddedAt /> : <EmptyState icon="favorite" title={t('emptyLiked')} hint={t('emptyLikedHint')} />}
       </div>
     </div>
   );

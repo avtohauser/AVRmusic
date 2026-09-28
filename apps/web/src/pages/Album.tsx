@@ -1,5 +1,6 @@
+import { useEffect } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { Download, MoreHorizontal, Shuffle } from 'lucide-react';
+import { M3eIconButton } from '@/md';
 import { useAlbum, useArtist } from '@/lib/queries';
 import { usePlayer } from '@/stores/player';
 import { useAuth } from '@/stores/auth';
@@ -15,7 +16,6 @@ import { OfflineToggle } from '@/components/OfflineToggle';
 import { Shelf } from '@/components/Shelf';
 import { AlbumCard } from '@/components/Cards';
 import { TrackListSkeleton } from '@/components/Skeleton';
-import { useEffect } from 'react';
 
 export default function Album() {
   const { id } = useParams();
@@ -45,20 +45,20 @@ export default function Album() {
     <div>
       <Hero kind={kind} title={album.title} cover={album.coverUrl} description={album.description}
         meta={<>
-          <Link to={`/artist/${album.artist.id}`} className="font-semibold hover:underline flex items-center gap-1.5">{album.artist.name}</Link>
+          <Link to={`/artist/${album.artist.id}`} className="md-title-sm hover:underline">{album.artist.name}</Link>
           {album.year && <span>· {album.year}</span>}
           <span>· {tracksWord(album.trackCount, lang)}, {fmtDurationLong(album.durationMs, lang)}</span>
         </>}>
         <PlayButton size="lg" playing={isThis && playing} onClick={() => (isThis ? p.toggle() : p.playTracks(album.tracks, 0, `album:${album.id}`))} />
-        <button className="icon-btn" title={t('shuffle')} onClick={() => { if (!p.shuffle) p.toggleShuffle(); p.playTracks(album.tracks, Math.floor(Math.random() * album.tracks.length), `album:${album.id}`); }}><Shuffle size={22} /></button>
-        <LikeButton type="album" id={album.id} size={24} alwaysVisible />
-        {user && <a className="icon-btn" href={albumZipUrl(album.id)} title={t('downloadAll')}><Download size={22} /></a>}
+        <M3eIconButton variant="tonal" size="medium" title={t('shuffle')} onClick={() => { if (!p.shuffle) p.toggleShuffle(); p.playTracks(album.tracks, Math.floor(Math.random() * album.tracks.length), `album:${album.id}`); }}><m3e-icon variant="rounded" name="shuffle" /></M3eIconButton>
+        <LikeButton type="album" id={album.id} alwaysVisible buttonSize="medium" />
+        {user && <M3eIconButton variant="outlined" size="medium" href={albumZipUrl(album.id)} title={t('downloadAll')}><m3e-icon variant="rounded" name="download" /></M3eIconButton>}
         <OfflineToggle tracks={album.tracks} />
-        <button className="icon-btn" onClick={(e) => openMenu(e.clientX, e.clientY, { kind: 'album', album })}><MoreHorizontal size={22} /></button>
+        <M3eIconButton size="medium" aria-label="menu" onClick={(e: any) => openMenu(e.clientX, e.clientY, { kind: 'album', album })}><m3e-icon variant="rounded" name="more_vert" /></M3eIconButton>
       </Hero>
       <div className="page">
         <TrackList tracks={album.tracks} context={`album:${album.id}`} showAlbum={false} showCover={false} />
-        {album.label && <p className="text-xs text-muted mt-6">© {album.label}</p>}
+        {album.label && <p className="md-body-sm muted mt-6">© {album.label}</p>}
         {others.length > 0 && <div className="mt-10"><Shelf title={`${t('more')} · ${album.artist.name}`} to={`/artist/${album.artist.id}`}>{others.map((a) => <AlbumCard key={a.id} album={a} />)}</Shelf></div>}
       </div>
     </div>

@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { Download, Globe, Lock, MoreHorizontal, Pencil, Shuffle, Search, X } from 'lucide-react';
+import { useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
+import { M3eButton, M3eIconButton, M3eSearchBar } from '@/md';
 import { usePlaylist, useSearch } from '@/lib/queries';
 import { usePlayer } from '@/stores/player';
 import { useAuth } from '@/stores/auth';
@@ -49,9 +49,9 @@ export default function Playlist() {
     toast(t('saved'), 'success');
   };
   const addTrack = async (trackId: string) => {
-    const r = await api.post<{ added: number }>(`/api/playlists/${pl.id}/tracks`, { trackIds: [trackId] });
+    await api.post<{ added: number }>(`/api/playlists/${pl.id}/tracks`, { trackIds: [trackId] });
     qc.invalidateQueries({ queryKey: ['playlist', pl.id] }); qc.invalidateQueries({ queryKey: ['playlists'] });
-    toast(r.added ? t('added') : t('added'), 'success');
+    toast(t('added'), 'success');
   };
   const inList = new Set(pl.tracks.map((x) => x.id));
 
@@ -59,41 +59,39 @@ export default function Playlist() {
     <div>
       <Hero kind={t('playlist')} title={pl.title} cover={pl.coverUrl} mosaic={pl.mosaic} description={pl.description}
         meta={<>
-          <span className="font-semibold">{pl.owner.displayName}</span>
+          <span className="md-title-sm">{pl.owner.displayName}</span>
           <span>· {tracksWord(pl.trackCount, lang)}{pl.durationMs ? `, ${fmtDurationLong(pl.durationMs, lang)}` : ''}</span>
-          <span className="inline-flex items-center gap-1 text-muted">· {pl.isPublic ? <Globe size={13} /> : <Lock size={13} />}</span>
+          <m3e-icon variant="rounded" name={pl.isPublic ? 'public' : 'lock'} className="muted" style={{ ['--m3e-icon-size' as any]: '16px' }} />
         </>}>
         {pl.tracks.length > 0 && <PlayButton size="lg" playing={isThis && playing} onClick={() => (isThis ? p.toggle() : p.playTracks(pl.tracks, 0, `playlist:${pl.id}`))} />}
-        {pl.tracks.length > 0 && <button className="icon-btn" title={t('shuffle')} onClick={() => { if (!p.shuffle) p.toggleShuffle(); p.playTracks(pl.tracks, Math.floor(Math.random() * pl.tracks.length), `playlist:${pl.id}`); }}><Shuffle size={22} /></button>}
-        {user && !isOwner && <LikeButton type="playlist" id={pl.id} size={24} alwaysVisible />}
-        {isOwner && <button className="icon-btn" title={t('editPlaylist')} onClick={() => setEditor({ id: pl.id, initial: { title: pl.title, description: pl.description, isPublic: pl.isPublic } })}><Pencil size={20} /></button>}
-        {isOwner && <><button className="btn btn-ghost !h-9" onClick={() => fileRef.current?.click()}>{t('uploadCover')}</button><input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => e.target.files?.[0] && uploadCover(e.target.files[0])} /></>}
-        {user && pl.tracks.length > 0 && <a className="icon-btn" href={playlistZipUrl(pl.id)} title={t('downloadAll')}><Download size={22} /></a>}
+        {pl.tracks.length > 0 && <M3eIconButton variant="tonal" size="medium" title={t('shuffle')} onClick={() => { if (!p.shuffle) p.toggleShuffle(); p.playTracks(pl.tracks, Math.floor(Math.random() * pl.tracks.length), `playlist:${pl.id}`); }}><m3e-icon variant="rounded" name="shuffle" /></M3eIconButton>}
+        {user && !isOwner && <LikeButton type="playlist" id={pl.id} alwaysVisible buttonSize="medium" />}
+        {isOwner && <M3eIconButton size="medium" title={t('editPlaylist')} onClick={() => setEditor({ id: pl.id, initial: { title: pl.title, description: pl.description, isPublic: pl.isPublic } })}><m3e-icon variant="rounded" name="edit" /></M3eIconButton>}
+        {isOwner && <><M3eButton variant="tonal" onClick={() => fileRef.current?.click()}><m3e-icon variant="rounded" slot="icon" name="image" />{t('uploadCover')}</M3eButton><input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => e.target.files?.[0] && uploadCover(e.target.files[0])} /></>}
+        {user && pl.tracks.length > 0 && <M3eIconButton variant="outlined" size="medium" href={playlistZipUrl(pl.id)} title={t('downloadAll')}><m3e-icon variant="rounded" name="download" /></M3eIconButton>}
         <OfflineToggle tracks={pl.tracks} />
-        <button className="icon-btn" onClick={(e) => openMenu(e.clientX, e.clientY, { kind: 'playlist', playlist: pl })}><MoreHorizontal size={22} /></button>
+        <M3eIconButton size="medium" aria-label="menu" onClick={(e: any) => openMenu(e.clientX, e.clientY, { kind: 'playlist', playlist: pl })}><m3e-icon variant="rounded" name="more_vert" /></M3eIconButton>
       </Hero>
       <div className="page">
-        {pl.tracks.length ? <TrackList tracks={pl.tracks} context={`playlist:${pl.id}`} showAddedAt playlistId={pl.id} canRemove={isOwner} /> : <EmptyState title={t('emptyPlaylist')} hint={t('emptyPlaylistHint')} />}
+        {pl.tracks.length ? <TrackList tracks={pl.tracks} context={`playlist:${pl.id}`} showAddedAt playlistId={pl.id} canRemove={isOwner} /> : <EmptyState icon="queue_music" title={t('emptyPlaylist')} hint={t('emptyPlaylistHint')} />}
         {isOwner && (
           <section className="mt-10 max-w-3xl">
-            <h2 className="text-xl font-bold mb-3">{t('addToPlaylist')}</h2>
-            <div className="relative">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-              <input className="input !pl-9 !rounded-full" placeholder={t('searchPlaceholder')} value={q} onChange={(e) => setQ(e.target.value)} />
-              {q && <button className="icon-btn absolute right-1 top-1/2 -translate-y-1/2" onClick={() => setQ('')}><X size={14} /></button>}
-            </div>
+            <h2 className="md-headline-sm emph mb-3">{t('addToPlaylist')}</h2>
+            <M3eSearchBar clearable className="!max-w-none" onClear={() => setQ('')}>
+              <m3e-icon variant="rounded" slot="leading" name="search" />
+              <input slot="input" className="md-input md-body-lg" placeholder={t('searchPlaceholder')} value={q} onChange={(e) => setQ(e.target.value)} />
+            </M3eSearchBar>
             <div className="mt-2 space-y-0.5">
               {(found?.tracks ?? []).filter((x) => !inList.has(x.id)).slice(0, 10).map((x) => (
-                <div key={x.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-surface">
-                  <Cover src={x.coverUrl} className="w-10 h-10" />
-                  <div className="min-w-0 flex-1"><div className="font-medium line-clamp-1">{x.title}</div><div className="text-sm text-muted line-clamp-1">{x.artist.name}{x.album ? ` · ${x.album.title}` : ''}</div></div>
-                  <button className="btn btn-outline !h-8" onClick={() => addTrack(x.id)}>{t('added').replace(/о$/, 'ить').replace('Added', 'Add')}</button>
+                <div key={x.id} className="flex items-center gap-3 p-2 rounded-[20px] state-layer">
+                  <Cover src={x.coverUrl} className="w-11 h-11 !rounded-[12px]" />
+                  <div className="min-w-0 flex-1"><div className="md-title-sm line-1">{x.title}</div><div className="md-body-sm muted line-1">{x.artist.name}{x.album ? ` · ${x.album.title}` : ''}</div></div>
+                  <M3eButton variant="tonal" onClick={() => addTrack(x.id)}><m3e-icon variant="rounded" slot="icon" name="add" />{t('add')}</M3eButton>
                 </div>
               ))}
             </div>
           </section>
         )}
-        <div className="hidden">{String(Link)}</div>
       </div>
     </div>
   );

@@ -190,6 +190,7 @@ export interface ServerInfo {
   /** Users may request tracks to be fetched into the library ('user' = everyone, 'admin' = admins only, 'off') */
   acquire: 'user' | 'admin' | 'off';
   acquireSource: 'youtube' | 'soundcloud';
+  acquireSources: string[];
 }
 
 /* ---------- Global catalogue (metadata provider) ---------- */

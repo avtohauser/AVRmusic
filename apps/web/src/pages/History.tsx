@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { Clock, Trash2 } from 'lucide-react';
+import { M3eButton } from '@/md';
 import { useHistory } from '@/lib/queries';
 import { api } from '@/lib/api';
 import { useI18n, useT } from '@/lib/i18n';
@@ -21,13 +21,13 @@ export default function History() {
   return (
     <div className="page pt-4">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl md:text-3xl font-extrabold flex items-center gap-3"><Clock />{t('history')}</h1>
-        {!!data?.length && <button className="btn btn-ghost !h-9" onClick={async () => { if (!confirm(t('confirmDelete'))) return; await api.del('/api/me/history'); qc.invalidateQueries({ queryKey: ['history'] }); qc.invalidateQueries({ queryKey: ['home'] }); }}><Trash2 size={16} />{t('clearHistory')}</button>}
+        <h1 className="md-headline-md emph flex items-center gap-3"><m3e-icon variant="rounded" name="history" />{t('history')}</h1>
+        {!!data?.length && <M3eButton variant="tonal" onClick={async () => { if (!confirm(t('confirmDelete'))) return; await api.del('/api/me/history'); qc.invalidateQueries({ queryKey: ['history'] }); qc.invalidateQueries({ queryKey: ['home'] }); }}><m3e-icon variant="rounded" slot="icon" name="delete" />{t('clearHistory')}</M3eButton>}
       </div>
-      {isLoading ? <TrackListSkeleton /> : !data?.length ? <EmptyState icon={<Clock />} title={t('nothingFound')} /> : (
+      {isLoading ? <TrackListSkeleton /> : !data?.length ? <EmptyState icon="history" title={t('nothingFound')} /> : (
         [...groups.entries()].map(([day, items]) => (
           <section key={day} className="mb-6">
-            <h2 className="font-bold capitalize mb-2 text-muted">{day}</h2>
+            <h2 className="md-title-md emph capitalize mb-2 muted">{day}</h2>
             <TrackList tracks={items!.map((h) => h.track)} context="history" numbered={false} header={false} />
           </section>
         ))

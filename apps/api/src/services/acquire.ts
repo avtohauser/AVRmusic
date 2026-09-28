@@ -1,6 +1,5 @@
-// Acquisition pipeline: catalogue track → best matching audio on YouTube/SoundCloud via yt-dlp → tagged library track.
-// (The same approach spotDL / ytmdl use: metadata from a catalogue, audio from a public video platform.)
-import { spawn } from 'node:child_process';
+// Acquisition pipeline: catalogue track → best matching audio from the configured sources
+// (YouTube/SoundCloud via yt-dlp, Audius, Internet Archive, Jamendo) → tagged library track.
 import fs from 'node:fs';
 import path from 'node:path';
 import { parseFile } from 'music-metadata';
@@ -8,30 +7,29 @@ import type { DB } from '../lib/db.js';
 import type { Track } from '@avrmusic/shared';
 import { config } from '../config.js';
 import { hashFile, nameKey, newId } from '../lib/util.js';
-import { capabilities } from './ytdlp.js';
 import { rawAlbum, rawArtistAlbums, rawTrack, parseFeaturing } from './catalog.js';
 import { saveCover } from './importer.js';
 import { indexAlbum, indexArtist, indexTrack } from './search.js';
 import { getTracksByIds } from './library.js';
 import { fetchLyricsForTrack } from './lrclib.js';
 import type { Job } from './jobs.js';
+import { enabledSources, type CancelRef, type Source, type SourceCandidate, type Want } from './sources/index.js';
 
 type JobApi = { log: (s: string) => void; progress: (p: number) => void; onCancel: (fn: () => void) => void };
-
-export interface Candidate { id: string; title: string; duration?: number | null; channel?: string | null; uploader?: string | null; url?: string }
-export interface Want { title: string; artist: string; durationSec: number; featuring?: string[] }
+export type Candidate = SourceCandidate;
+export type { Want };
 
 const BAD = /\b(live|cover|karaoke|instrumental|remix|reaction|slowed|sped ?up|nightcore|8d|tutorial|lesson|lyrics? video|dance video|choreo|parody|mashup|edit|extended|acoustic|версия|кавер|минус|караоке|ремикс)\b/i;
 const norm = (s: string) => nameKey(s).replace(/\s+/g, ' ');
 
 /** Higher is better. Exposed for tests. */
-export function scoreCandidate(c: Candidate, w: Want): number {
+export function scoreCandidate(c: Pick<SourceCandidate, 'title' | 'duration' | 'channel' | 'uploader' | 'artist' | 'quality' | 'source'>, w: Want): number {
   let s = 0;
   const t = norm(c.title);
   const title = norm(w.title);
   const artist = norm(w.artist);
   if (t.includes(title)) s += 30; else { const words = title.split(' ').filter(Boolean); const hit = words.filter((x) => t.includes(x)).length; s += (hit / Math.max(1, words.length)) * 20; }
-  const ch = norm(`${c.channel ?? ''} ${c.uploader ?? ''}`);
+  const ch = norm(`${c.channel ?? ''} ${c.uploader ?? ''} ${c.artist ?? ''}`);
   if (t.includes(artist) || ch.includes(artist)) s += 20;
   if (/ - topic$/i.test(c.channel ?? '') || /provided to youtube/i.test(c.title)) s += 15; // auto-generated official audio
   if (/official audio|official|официаль/i.test(c.title)) s += 6;
@@ -42,51 +40,34 @@ export function scoreCandidate(c: Candidate, w: Want): number {
   const wantBad = BAD.test(w.title);
   if (!wantBad && BAD.test(c.title)) s -= 35;
   if (/\bvideo\b|клип/i.test(c.title) && !/audio/i.test(c.title)) s -= 4;
+  if (c.quality?.lossless) s += 12;
+  else if ((c.quality?.bitrate ?? 0) >= 256) s += 4;
+  const order = config.acquireSources.indexOf(c.source as any);
+  if (order >= 0) s += Math.max(0, 6 - order * 2); // configured preference
   return s;
 }
 
-function run(bin: string, args: string[], onLine?: (l: string) => void, cancelRef?: { cancel?: () => void }): Promise<{ code: number; stdout: string; stderr: string }> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(bin, args, { stdio: ['ignore', 'pipe', 'pipe'] });
-    let out = '', err = '';
-    child.stdout.on('data', (d) => { const s = d.toString(); out += s; if (onLine) s.split(/\r?\n|\r/).forEach((l: string) => l.trim() && onLine(l.trim())); });
-    child.stderr.on('data', (d) => { const s = d.toString(); err += s; if (onLine) s.split(/\r?\n/).forEach((l: string) => l.trim() && onLine(l.trim())); });
-    child.on('error', (e) => reject(new Error(`Не удалось запустить ${bin}: ${e.message}`)));
-    child.on('close', (code) => resolve({ code: code ?? -1, stdout: out, stderr: err }));
-    if (cancelRef) cancelRef.cancel = () => child.kill('SIGTERM');
+/** Query every enabled source in parallel and rank the merged candidates. */
+export async function findCandidates(w: Want, log?: (s: string) => void): Promise<Array<{ c: SourceCandidate; s: number; src: Source }>> {
+  const sources = enabledSources();
+  const results = await Promise.allSettled(sources.map(async (src) => {
+    const a = await src.available();
+    if (!a.ok) return { src, cands: [] as SourceCandidate[] };
+    return { src, cands: await src.search(w) };
+  }));
+  const ranked: Array<{ c: SourceCandidate; s: number; src: Source }> = [];
+  results.forEach((r, i) => {
+    if (r.status === 'rejected') { log?.(`   ${sources[i].label}: ${r.reason?.message ?? r.reason}`); return; }
+    for (const c of r.value.cands) ranked.push({ c, s: scoreCandidate(c, w), src: r.value.src });
   });
+  return ranked.sort((a, b) => b.s - a.s);
 }
 
-export async function searchCandidates(w: Want, n = 8): Promise<Candidate[]> {
-  const prefix = config.acquireSource === 'soundcloud' ? 'scsearch' : 'ytsearch';
-  const q = `${w.artist} - ${w.title}${w.featuring?.length ? ` feat. ${w.featuring.join(', ')}` : ''}`;
-  const r = await run(config.ytdlpPath, [`${prefix}${n}:${q}`, '--flat-playlist', '--dump-single-json', '--no-warnings', '--ignore-errors']);
-  const jsonStart = r.stdout.indexOf('{');
-  if (jsonStart < 0) return [];
-  let parsed: any;
-  try { parsed = JSON.parse(r.stdout.slice(jsonStart)); } catch { return []; }
-  return ((parsed.entries ?? []) as any[]).filter(Boolean).map((e) => ({ id: e.id, title: e.title ?? '', duration: e.duration ?? null, channel: e.channel ?? e.uploader ?? null, uploader: e.uploader ?? null, url: e.url ?? e.webpage_url }));
-}
-
-async function downloadCandidate(c: Candidate, dir: string, log: (s: string) => void, cancelRef: { cancel?: () => void }, meta: { title: string; artist: string; album?: string; track?: number; year?: number }): Promise<string> {
-  const caps = await capabilities();
-  fs.mkdirSync(dir, { recursive: true });
-  const url = config.acquireSource === 'soundcloud' ? (c.url ?? c.id) : `https://www.youtube.com/watch?v=${c.id}`;
-  const args = ['-f', 'bestaudio/best', '--no-playlist', '--no-warnings', '--newline', '-o', path.join(dir, '%(id)s.%(ext)s')];
-  if (caps.ffmpeg) {
-    args.push('-x', '--audio-format', 'best', '--audio-quality', '0', '--embed-metadata');
-    const lit = (s: string) => s.replace(/%/g, '%%').replace(/:/g, ' ');
-    args.push('--parse-metadata', `${lit(meta.title)}:(?P<meta_title>.+)`, '--parse-metadata', `${lit(meta.artist)}:(?P<meta_artist>.+)`);
-    if (meta.album) args.push('--parse-metadata', `${lit(meta.album)}:(?P<meta_album>.+)`);
-    if (meta.track) args.push('--parse-metadata', `${meta.track}:(?P<meta_track>.+)`);
-    if (meta.year) args.push('--parse-metadata', `${meta.year}:(?P<meta_date>.+)`);
-  }
-  args.push(url);
-  const r = await run(config.ytdlpPath, args, (l) => { if (!/\[download\]\s+\d/.test(l)) log(l); }, cancelRef);
-  if (r.code !== 0) throw new Error(`yt-dlp завершился с кодом ${r.code}`);
-  const files = fs.readdirSync(dir).filter((f) => !f.endsWith('.part') && !f.endsWith('.json'));
-  if (!files.length) throw new Error('файл не скачан');
-  return path.join(dir, files[0]);
+/** Search a single source (used by the URL/legacy path and tests). */
+export async function searchCandidates(w: Want, n = 8): Promise<SourceCandidate[]> {
+  const src = enabledSources()[0];
+  if (!src) return [];
+  return (await src.search(w)).slice(0, n);
 }
 
 async function fetchToCover(url: string | null | undefined): Promise<string | null> {
@@ -145,33 +126,35 @@ export async function acquireTrack(db: DB, deezerTrackId: number, api: JobApi, c
   const byName = db.prepare('SELECT t.id FROM tracks t JOIN artists a ON a.id = t.artist_id WHERE a.name_key = ? AND lower(t.title) = lower(?)').get(nameKey(artistName), title) as any;
   if (byName) { db.prepare('UPDATE tracks SET deezer_id = COALESCE(deezer_id, ?) WHERE id = ?').run(deezerTrackId, byName.id); return { status: 'exists', trackId: byName.id }; }
 
-  const caps = await capabilities();
-  if (!caps.ytdlp) throw new Error('yt-dlp не установлен на сервере');
-  const want: Want = { title, artist: artistName, durationSec: Number(t.duration ?? 0), featuring: featNames };
+  const want: Want = { title, artist: artistName, durationSec: Number(t.duration ?? 0), featuring: featNames, album: t.album?.title ?? null };
   api.log(`🔎 ${artistName} — ${title}`);
-  const cands = await searchCandidates(want);
-  if (!cands.length) return { status: 'notfound', message: 'ничего не найдено' };
-  const ranked = cands.map((c) => ({ c, s: scoreCandidate(c, want) })).sort((a, b) => b.s - a.s);
-  const best = ranked[0];
-  api.log(`   → ${best.c.title} [${best.c.channel ?? '?'}] ${best.c.duration ?? '?'}s (score ${best.s.toFixed(0)})`);
-  if (best.s < 25) return { status: 'notfound', message: `нет надёжного совпадения (лучшее: ${best.c.title})` };
-
-  const dir = path.join(config.tmpDir, `acq-${newId()}`);
-  let file: string;
-  try {
-    const album = albumRaw ?? (t.album?.id ? await rawAlbum(db, t.album.id).catch(() => t.album) : null);
-    file = await downloadCandidate(best.c, dir, api.log, cancelRef, { title, artist: artistName, album: album?.title, track: t.track_position ?? undefined, year: album?.release_date ? Number(String(album.release_date).slice(0, 4)) : undefined });
-    const trackId = await importAcquired(db, file, t, album, best.c);
-    fs.rmSync(dir, { recursive: true, force: true });
-    try { if (await fetchLyricsForTrack(db, trackId)) api.log('   ♪ текст найден (LRCLIB)'); } catch { /* optional */ }
-    return { status: 'imported', trackId };
-  } catch (e: any) {
-    fs.rmSync(dir, { recursive: true, force: true });
-    return { status: 'error', message: e?.message ?? String(e) };
+  const ranked = await findCandidates(want, api.log);
+  if (!ranked.length) return { status: 'notfound', message: 'ничего не найдено ни в одном источнике' };
+  const good = ranked.filter((r) => r.s >= 25).slice(0, 3);
+  if (!good.length) { const b = ranked[0]; return { status: 'notfound', message: `нет надёжного совпадения (лучшее: ${b.c.title} · ${b.src.label}, score ${b.s.toFixed(0)})` }; }
+  const album = albumRaw ?? (t.album?.id ? await rawAlbum(db, t.album.id).catch(() => t.album) : null);
+  const meta = { title, artist: artistName, album: album?.title, track: t.track_position ?? undefined, year: album?.release_date ? Number(String(album.release_date).slice(0, 4)) : undefined };
+  let lastError = '';
+  for (const { c, s: score, src } of good) {
+    const dir = path.join(config.tmpDir, `acq-${newId()}`);
+    api.log(`   → ${src.label}: ${c.title} [${c.channel ?? c.artist ?? '?'}] ${c.duration ?? '?'}s${c.quality?.lossless ? ' · lossless' : c.quality?.bitrate ? ` · ${c.quality.bitrate}k` : ''} (score ${score.toFixed(0)})`);
+    try {
+      const file = await src.download(c, dir, api.log, cancelRef, meta);
+      const trackId = await importAcquired(db, file, t, album, c);
+      fs.rmSync(dir, { recursive: true, force: true });
+      try { if (await fetchLyricsForTrack(db, trackId)) api.log('   ♪ текст найден (LRCLIB)'); } catch { /* optional */ }
+      return { status: 'imported', trackId };
+    } catch (e: any) {
+      fs.rmSync(dir, { recursive: true, force: true });
+      lastError = e?.message ?? String(e);
+      api.log(`   ✗ ${src.label}: ${lastError}`);
+      if (/Отменено|abort/i.test(lastError)) break;
+    }
   }
+  return { status: 'error', message: lastError || 'не удалось скачать' };
 }
 
-async function importAcquired(db: DB, file: string, t: any, album: any, cand: Candidate): Promise<string> {
+async function importAcquired(db: DB, file: string, t: any, album: any, cand: SourceCandidate): Promise<string> {
   const { title, featuring: featNames } = parseFeaturing(t.title ?? '', t.title_short);
   const ext = path.extname(file).toLowerCase() || '.m4a';
   const id = newId();
@@ -196,7 +179,7 @@ async function importAcquired(db: DB, file: string, t: any, album: any, cand: Ca
     id, albumId, artistId, title, t.track_position ?? null, t.disk_number ?? null,
     Math.round((fmt?.duration ?? t.duration ?? 0) * 1000), dest, stat.size, hash, audioMime(dest),
     fmt?.bitrate ? Math.round(fmt.bitrate) : null, fmt?.sampleRate ?? null, fmt?.codec ?? fmt?.container ?? null,
-    t.explicit_lyrics ? 1 : 0, genre, t.id, t.isrc ?? null, `${config.acquireSource}:${cand.id}`,
+    t.explicit_lyrics ? 1 : 0, genre, t.id, t.isrc ?? null, `${cand.source}:${cand.id}`,
   );
   const feats = contributors.length ? contributors : featNames.map((n) => ({ id: null, name: n }));
   let pos = 0;

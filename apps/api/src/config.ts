@@ -48,6 +48,14 @@ export const config = {
   deezerApi: (process.env.DEEZER_API || 'https://api.deezer.com').replace(/\/$/, ''),
   acquireRole: ((['user', 'admin', 'off'].includes(process.env.ACQUIRE_ROLE || '') ? process.env.ACQUIRE_ROLE : 'user') as 'user' | 'admin' | 'off'),
   acquireSource: ((process.env.ACQUIRE_SOURCE === 'soundcloud' ? 'soundcloud' : 'youtube') as 'youtube' | 'soundcloud'),
+  /** Ordered list of audio sources for catalogue acquisition (first = preferred). */
+  acquireSources: ((process.env.ACQUIRE_SOURCES || process.env.ACQUIRE_SOURCE || 'youtube,audius,archive,soundcloud,jamendo')
+    .split(',').map((s) => s.trim().toLowerCase()).filter((s) => ['youtube', 'soundcloud', 'audius', 'jamendo', 'archive'].includes(s)) as Array<'youtube' | 'soundcloud' | 'audius' | 'jamendo' | 'archive'>),
+  audiusApi: (process.env.AUDIUS_API || '').replace(/\/$/, '') || null,
+  audiusAppName: process.env.AUDIUS_APP_NAME || 'AVRmusic',
+  jamendoClientId: process.env.JAMENDO_CLIENT_ID || '',
+  jamendoApi: (process.env.JAMENDO_API || 'https://api.jamendo.com').replace(/\/$/, ''),
+  archiveApi: (process.env.ARCHIVE_API || 'https://archive.org').replace(/\/$/, ''),
   isProd: process.env.NODE_ENV === 'production',
   accessTtl: '15m',
   refreshTtlDays: 30,

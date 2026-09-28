@@ -8,6 +8,8 @@ import { useUI } from '@/stores/ui';
 import { usePlayer } from '@/stores/player';
 import { initAudioEngine } from '@/lib/audio';
 import { useI18n } from '@/lib/i18n';
+import { getColorFromImage } from '@/md';
+import { useSeedColor, useTheme } from '@/stores/theme';
 import Home from '@/pages/Home';
 import Search from '@/pages/Search';
 import Library from '@/pages/Library';
@@ -76,12 +78,52 @@ function Boot() {
   return null;
 }
 
+/** Dynamic colour: derive the theme seed from the playing track's cover when enabled. */
+function CoverColorSync() {
+  const fromCover = useTheme((s) => s.fromCover);
+  const setCoverColor = useTheme((s) => s.setCoverColor);
+  const cover = usePlayer((s) => s.queue[s.index]?.coverUrl ?? null);
+  useEffect(() => {
+    if (!fromCover || !cover) { setCoverColor(null); return; }
+    let alive = true;
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => { getColorFromImage(img).then((c) => { if (alive) setCoverColor(c); }).catch(() => {}); };
+    img.src = cover;
+    return () => { alive = false; };
+  }, [fromCover, cover, setCoverColor]);
+  return null;
+}
+
+function ThemeRoot({ children }: { children: React.ReactNode }) {
+  const color = useSeedColor();
+  const variant = useTheme((s) => s.variant);
+  const scheme = useTheme((s) => s.scheme);
+  const contrast = useTheme((s) => s.contrast);
+  useEffect(() => {
+    const el = document.getElementById('root') as any;
+    if (!el) return;
+    el.color = color; el.variant = variant; el.scheme = scheme; el.contrast = contrast; el.motion = 'expressive'; el.strongFocus = true;
+    const sync = () => {
+      const meta = document.querySelector('meta[name=theme-color]');
+      const bg = getComputedStyle(el).getPropertyValue('--md-sys-color-surface').trim();
+      if (meta && bg) meta.setAttribute('content', bg);
+    };
+    const id = setTimeout(sync, 50);
+    el.addEventListener('change', sync);
+    return () => { clearTimeout(id); el.removeEventListener('change', sync); };
+  }, [color, variant, scheme, contrast]);
+  return <>{children}</>;
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={qc}>
       <BrowserRouter>
+        <CoverColorSync />
         <Boot />
-        <Suspense fallback={<div className="page pt-10 text-muted">…</div>}>
+        <ThemeRoot>
+        <Suspense fallback={<div className="page pt-10 muted">…</div>}>
           <Routes>
             <Route element={<Layout />}>
               <Route index element={<Home />} />
@@ -105,6 +147,7 @@ export default function App() {
             </Route>
           </Routes>
         </Suspense>
+        </ThemeRoot>
       </BrowserRouter>
     </QueryClientProvider>
   );

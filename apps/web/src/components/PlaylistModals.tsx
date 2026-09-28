@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Check, Lock, Globe } from 'lucide-react';
+import { M3eButton, M3eFormField, M3eSwitch } from '@/md';
 import { Modal } from './Modal';
 import { Cover } from './Cover';
 import { useUI } from '@/stores/ui';
@@ -34,16 +34,16 @@ export function AddToPlaylistModal() {
   };
   return (
     <Modal open={!!state} onClose={() => setState(null)} title={t('addToPlaylist')}>
-      <button className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-surface" onClick={() => { const ids = state!.trackIds; setState(null); setEditor({ initial: { title: '', description: '', isPublic: true }, ...( { trackIds: ids } as any) }); }}>
-        <span className="w-12 h-12 rounded-lg accent-gradient flex items-center justify-center text-white"><Plus /></span>
-        <span className="font-semibold">{t('newPlaylist')}</span>
+      <button className="w-full flex items-center gap-3 p-2 rounded-[20px] state-layer" onClick={() => { const ids = state!.trackIds; setState(null); setEditor({ initial: { title: '', description: '', isPublic: true }, ...({ trackIds: ids } as any) }); }}>
+        <span className="w-12 h-12 rounded-[16px] bg-primary text-on-primary flex items-center justify-center"><m3e-icon variant="rounded" name="add" /></span>
+        <span className="md-title-sm">{t('newPlaylist')}</span>
       </button>
       <div className="mt-2 max-h-[50vh] overflow-y-auto">
         {mine.map((p) => (
-          <button key={p.id} disabled={busy === p.id} className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-surface disabled:opacity-50" onClick={() => add(p.id)}>
-            <Cover src={p.coverUrl} mosaic={(p as any).mosaic} className="w-12 h-12" />
-            <span className="text-left flex-1 min-w-0"><span className="block font-medium line-clamp-1">{p.title}</span><span className="text-xs text-muted">{p.trackCount} {t('tracksCount')}</span></span>
-            {p.isPublic ? <Globe size={14} className="text-muted" /> : <Lock size={14} className="text-muted" />}
+          <button key={p.id} disabled={busy === p.id} className="w-full flex items-center gap-3 p-2 rounded-[20px] state-layer disabled:opacity-50" onClick={() => add(p.id)}>
+            <Cover src={p.coverUrl} mosaic={(p as any).mosaic} className="w-12 h-12 !rounded-[14px]" />
+            <span className="text-left flex-1 min-w-0"><span className="block md-title-sm line-1">{p.title}</span><span className="md-body-sm muted">{p.trackCount} {t('tracksCount')}</span></span>
+            <m3e-icon variant="rounded" name={p.isPublic ? 'public' : 'lock'} className="muted" />
           </button>
         ))}
       </div>
@@ -86,15 +86,21 @@ export function PlaylistEditorModal() {
   return (
     <Modal open={!!editor} onClose={() => setEditor(null)} title={editor?.id ? t('editPlaylist') : t('createPlaylist')}>
       <form onSubmit={submit} className="space-y-4">
-        <div><label className="label">{t('title')}</label><input className="input" value={title} onChange={(e) => setTitle(e.target.value)} autoFocus maxLength={120} required /></div>
-        <div><label className="label">{t('description')}</label><textarea className="input" value={desc} onChange={(e) => setDesc(e.target.value)} maxLength={500} rows={3} /></div>
-        <label className="flex items-center gap-3 cursor-pointer select-none">
-          <span className={`w-11 h-6 rounded-full p-0.5 transition-colors ${isPublic ? 'bg-accent' : 'bg-surface-2'}`} onClick={() => setPublic(!isPublic)}><span className={`block w-5 h-5 rounded-full bg-white transition-transform ${isPublic ? 'translate-x-5' : ''}`} /></span>
-          <span className="text-sm">{isPublic ? t('publicPlaylist') : t('privatePlaylist')}</span>
+        <M3eFormField variant="outlined" className="w-full block">
+          <span slot="label">{t('title')}</span>
+          <input value={title} onChange={(e) => setTitle(e.target.value)} autoFocus maxLength={120} required />
+        </M3eFormField>
+        <M3eFormField variant="outlined" className="w-full block">
+          <span slot="label">{t('description')}</span>
+          <textarea value={desc} onChange={(e) => setDesc(e.target.value)} maxLength={500} rows={3} />
+        </M3eFormField>
+        <label className="flex items-center justify-between gap-3 cursor-pointer select-none md-body-lg">
+          <span>{isPublic ? t('publicPlaylist') : t('privatePlaylist')}</span>
+          <M3eSwitch checked={isPublic || undefined} icons="selected" onChange={(e: Event) => setPublic(!!(e.target as any).checked)} />
         </label>
         <div className="flex justify-end gap-2 pt-2">
-          <button type="button" className="btn btn-ghost" onClick={() => setEditor(null)}>{t('cancel')}</button>
-          <button type="submit" className="btn btn-primary" disabled={busy || !title.trim()}><Check size={16} />{editor?.id ? t('save') : t('create')}</button>
+          <M3eButton variant="text" type="button" onClick={() => setEditor(null)}>{t('cancel')}</M3eButton>
+          <M3eButton variant="filled" type="submit" disabled={busy || !title.trim() || undefined}><m3e-icon variant="rounded" slot="icon" name="check" />{editor?.id ? t('save') : t('create')}</M3eButton>
         </div>
       </form>
     </Modal>

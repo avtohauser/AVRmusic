@@ -1,10 +1,10 @@
-import { Link } from 'react-router-dom';
+import { M3eButton } from '@/md';
 export default function NotFound() {
   return (
     <div className="page pt-20 text-center">
-      <div className="text-7xl font-extrabold text-gradient">404</div>
-      <p className="text-muted mt-2">Страница не найдена</p>
-      <Link to="/" className="btn btn-primary mt-6">На главную</Link>
+      <div className="md-display-lg emph text-primary">404</div>
+      <p className="md-body-lg muted mt-2">Страница не найдена</p>
+      <M3eButton variant="filled" className="mt-6" href="/">На главную</M3eButton>
     </div>
   );
 }

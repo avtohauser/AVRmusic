@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronDown, Download, ListMusic, Mic2, MoreHorizontal, Pause, Play, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, Volume2, VolumeX, Moon, Gauge } from 'lucide-react';
+import { M3eButtonSegment, M3eIconButton, M3eSegmentedButton, M3eSlider, M3eSliderThumb } from '@/md';
 import { usePlayer } from '@/stores/player';
 import { useUI } from '@/stores/ui';
 import { useAuth } from '@/stores/auth';
@@ -16,6 +16,7 @@ import { LikeButton } from './LikeButton';
 import { QueuePanel } from './QueuePanel';
 
 type Tab = 'cover' | 'lyrics' | 'queue';
+const thumbValue = (e: Event) => Number((e.target as any)?.value ?? 0);
 
 export function NowPlaying() {
   const open = useUI((s) => s.nowPlayingOpen);
@@ -37,7 +38,7 @@ export function NowPlaying() {
   const [tab, setTab] = useState<Tab>('cover');
   const [seeking, setSeeking] = useState<number | null>(null);
   const { data: lyrics, isLoading: lyricsLoading } = useLyrics(open && track ? track.id : null);
-  const tint = useDominantColor(track?.coverUrl, '#2a2a3d');
+  const tint = useDominantColor(track?.coverUrl, 'var(--md-sys-color-primary-container)');
 
   useEffect(() => {
     if (!open) return;
@@ -50,12 +51,10 @@ export function NowPlaying() {
 
   if (!open || !track) return null;
   const pos = seeking ?? position;
-  const pct = duration ? (pos / duration) * 100 : 0;
   const showCanvas = track.hasCanvas && tab === 'cover';
 
   return (
-    <div className="fixed inset-0 z-[70] slide-up text-white overflow-hidden" style={{ background: `linear-gradient(180deg, ${tint} 0%, #0b0b10 70%)` }}>
-      {/* Canvas backdrop */}
+    <div className="fixed inset-0 z-[70] slide-up overflow-hidden text-on-surface" style={{ background: `linear-gradient(180deg, ${tint} 0%, var(--md-sys-color-surface) 70%)` }}>
       {showCanvas && (
         <div className="absolute inset-0">
           <CanvasView track={track} className="w-full h-full opacity-90" />
@@ -63,96 +62,86 @@ export function NowPlaying() {
         </div>
       )}
       {!showCanvas && track.coverUrl && (
-        <div className="absolute inset-0 opacity-25 blur-3xl scale-125" style={{ backgroundImage: `url(${track.coverUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
+        <div className="absolute inset-0 opacity-20 blur-3xl scale-125" style={{ backgroundImage: `url(${track.coverUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
       )}
-
-      <div className="relative h-full flex flex-col max-w-6xl mx-auto px-4 md:px-8" style={{ paddingTop: 'calc(var(--safe-t) + 12px)', paddingBottom: 'calc(var(--safe-b) + 16px)' }}>
-        {/* Top bar */}
+      <div className={`relative h-full flex flex-col max-w-6xl mx-auto px-4 md:px-8 ${showCanvas ? 'text-white' : ''}`} style={{ paddingTop: 'calc(var(--safe-t) + 12px)', paddingBottom: 'calc(var(--safe-b) + 16px)' }}>
         <div className="flex items-center justify-between">
-          <button className="icon-btn text-white" onClick={() => setOpen(false)} aria-label={t('close')}><ChevronDown size={26} /></button>
+          <M3eIconButton aria-label={t('close')} onClick={() => setOpen(false)}><m3e-icon variant="rounded" name="keyboard_arrow_down" /></M3eIconButton>
           <div className="text-center min-w-0">
-            <div className="text-[11px] uppercase tracking-widest opacity-70">{t('nowPlaying')}</div>
-            {track.album && <Link to={`/album/${track.album.id}`} onClick={() => setOpen(false)} className="text-sm font-semibold line-clamp-1 hover:underline">{track.album.title}</Link>}
+            <div className="md-label-md uppercase tracking-widest opacity-70">{t('nowPlaying')}</div>
+            {track.album && <Link to={`/album/${track.album.id}`} onClick={() => setOpen(false)} className="md-title-sm line-1 hover:underline">{track.album.title}</Link>}
           </div>
-          <button className="icon-btn text-white" onClick={(e) => openMenu(e.clientX, e.clientY, { kind: 'track', track })} aria-label="menu"><MoreHorizontal size={22} /></button>
+          <M3eIconButton aria-label="menu" onClick={(e: any) => openMenu(e.clientX, e.clientY, { kind: 'track', track })}><m3e-icon variant="rounded" name="more_vert" /></M3eIconButton>
         </div>
 
-        {/* Tabs */}
-        <div className="flex justify-center gap-2 mt-3">
-          {(['cover', 'lyrics', 'queue'] as Tab[]).map((k) => (
-            <button key={k} className="chip !bg-white/10 data-[active=true]:!bg-white data-[active=true]:!text-black" data-active={tab === k} onClick={() => setTab(k)} disabled={k === 'lyrics' && !track.hasLyrics && !lyrics?.plain}>
-              {k === 'cover' ? t('canvas') : k === 'lyrics' ? t('lyrics') : t('queue')}
-            </button>
-          ))}
+        <div className="flex justify-center mt-3">
+          <M3eSegmentedButton onChange={(e: Event) => { const v = (e.target as any)?.value as Tab | undefined; if (v) setTab(v); }}>
+            <M3eButtonSegment value="cover" checked={tab === 'cover' || undefined}><m3e-icon variant="rounded" slot="icon" name="movie" />{t('canvas')}</M3eButtonSegment>
+            <M3eButtonSegment value="lyrics" checked={tab === 'lyrics' || undefined} disabled={(!track.hasLyrics && !lyrics?.plain) || undefined}><m3e-icon variant="rounded" slot="icon" name="lyrics" />{t('lyrics')}</M3eButtonSegment>
+            <M3eButtonSegment value="queue" checked={tab === 'queue' || undefined}><m3e-icon variant="rounded" slot="icon" name="queue_music" />{t('queue')}</M3eButtonSegment>
+          </M3eSegmentedButton>
         </div>
 
-        {/* Body */}
         <div className="flex-1 min-h-0 grid md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-6 md:gap-10 items-center mt-4 overflow-hidden">
           <div className={`min-h-0 h-full flex items-center justify-center ${tab !== 'cover' ? 'hidden md:flex' : ''}`}>
             {showCanvas ? (
               <>
-                {/* On phones the full-screen backdrop *is* the canvas; the framed 9:16 box is for wide screens */}
-                <div className="hidden md:block canvas-box rounded-2xl overflow-hidden shadow-2xl shadow-black/50 relative">
+                <div className="hidden md:block canvas-box overflow-hidden elev-3 relative" style={{ borderRadius: 28 }}>
                   <CanvasView track={track} className="w-full h-full" />
-                  <div className="absolute left-3 bottom-3"><Cover src={track.coverUrl} className="w-12 h-12 shadow-lg" /></div>
+                  <div className="absolute left-3 bottom-3"><Cover src={track.coverUrl} className="w-12 h-12 elev-2" /></div>
                 </div>
                 <div className="md:hidden flex-1" />
               </>
             ) : (
-              <Cover src={track.coverUrl} alt={track.title} className="cover-box shadow-2xl shadow-black/60 !rounded-2xl" />
+              <Cover src={track.coverUrl} alt={track.title} className="cover-box elev-3 !rounded-[28px]" />
             )}
           </div>
           <div className={`min-h-0 h-full ${tab === 'cover' ? 'hidden md:block' : ''}`}>
             {tab === 'queue' ? (
-              <div className="h-full rounded-2xl bg-black/25 overflow-hidden"><QueuePanel embedded /></div>
+              <div className="h-full rounded-[28px] bg-black/25 overflow-hidden"><QueuePanel embedded /></div>
             ) : (
               <div className="h-full"><Lyrics lyrics={lyrics} loading={lyricsLoading} big /></div>
             )}
           </div>
         </div>
 
-        {/* Track info + controls */}
         <div className="mt-4 md:mt-6 md:max-w-2xl md:mx-auto w-full">
           <div className="flex items-center gap-3">
             <div className="min-w-0 flex-1">
-              <div className="text-xl md:text-2xl font-bold line-clamp-1">{track.title}</div>
-              <div className="opacity-80 line-clamp-1">
+              <div className="md-headline-sm emph line-1">{track.title}</div>
+              <div className="md-body-lg opacity-80 line-1">
                 <Link to={`/artist/${track.artist.id}`} onClick={() => setOpen(false)} className="hover:underline">{track.artist.name}</Link>
                 {track.featuring.map((f) => <span key={f.id}>, <Link to={`/artist/${f.id}`} onClick={() => setOpen(false)} className="hover:underline">{f.name}</Link></span>)}
               </div>
             </div>
-            {track.hasLyrics && <button className="icon-btn text-white" data-active={tab === 'lyrics'} onClick={() => setTab(tab === 'lyrics' ? 'cover' : 'lyrics')} aria-label={t('lyrics')}><Mic2 size={20} /></button>}
-            <LikeButton type="track" id={track.id} size={22} alwaysVisible className="text-white" />
+            {track.hasLyrics && <M3eIconButton toggle selected={tab === 'lyrics' || undefined} aria-label={t('lyrics')} onClick={() => setTab(tab === 'lyrics' ? 'cover' : 'lyrics')}><m3e-icon variant="rounded" name="lyrics" /><m3e-icon variant="rounded" slot="selected" name="lyrics" filled /></M3eIconButton>}
+            <LikeButton type="track" id={track.id} alwaysVisible buttonSize="medium" />
           </div>
-          <div className="mt-4">
-            <input type="range" min={0} max={duration || 0} step={0.1} value={pos} className="slider" style={{ ['--p' as any]: `${pct}%` }}
-              onChange={(e) => setSeeking(Number(e.target.value))}
-              onMouseUp={() => { if (seeking != null) p.seek(seeking); setSeeking(null); }}
-              onTouchEnd={() => { if (seeking != null) p.seek(seeking); setSeeking(null); }}
-              onKeyUp={() => { if (seeking != null) p.seek(seeking); setSeeking(null); }} />
-            <div className="flex justify-between text-xs opacity-70 tabular-nums mt-1"><span>{fmtTime(pos)}</span><span>-{fmtTime(Math.max(0, duration - pos))}</span></div>
+          <div className="mt-3">
+            <M3eSlider className="seek" size="small" min={0} max={Math.max(1, duration || 1)} step={0.1} onInput={(e: Event) => setSeeking(thumbValue(e))} onChange={(e: Event) => { p.seek(thumbValue(e)); setSeeking(null); }}>
+              <M3eSliderThumb value={pos} />
+            </M3eSlider>
+            <div className="flex justify-between md-label-md opacity-70 tabular-nums"><span>{fmtTime(pos)}</span><span>-{fmtTime(Math.max(0, duration - pos))}</span></div>
           </div>
-          <div className="flex items-center justify-between mt-3">
-            <button className="icon-btn text-white" data-active={shuffle} onClick={p.toggleShuffle} aria-label={t('shuffle')}><Shuffle size={20} /></button>
-            <div className="flex items-center gap-4 md:gap-6">
-              <button className="icon-btn text-white" onClick={p.prev} aria-label={t('prev')}><SkipBack size={28} fill="currentColor" /></button>
-              <button className="w-16 h-16 rounded-full bg-white text-black flex items-center justify-center hover:scale-105 active:scale-95 transition-transform" onClick={p.toggle} aria-label={playing ? t('pause') : t('play')}>
-                {playing ? <Pause size={30} fill="currentColor" /> : <Play size={30} fill="currentColor" className="ml-1" />}
-              </button>
-              <button className="icon-btn text-white" onClick={() => p.next()} aria-label={t('next')}><SkipForward size={28} fill="currentColor" /></button>
+          <div className="flex items-center justify-between mt-2">
+            <M3eIconButton toggle selected={shuffle || undefined} aria-label={t('shuffle')} onClick={p.toggleShuffle}><m3e-icon variant="rounded" name="shuffle" /><m3e-icon variant="rounded" slot="selected" name="shuffle" filled style={{ color: 'var(--md-sys-color-primary)' }} /></M3eIconButton>
+            <div className="flex items-center gap-3 md:gap-5">
+              <M3eIconButton size="large" aria-label={t('prev')} onClick={p.prev}><m3e-icon variant="rounded" name="skip_previous" filled /></M3eIconButton>
+              <M3eIconButton variant="filled" size="large" width="wide" aria-label={playing ? t('pause') : t('play')} onClick={p.toggle}><m3e-icon variant="rounded" name={playing ? 'pause' : 'play_arrow'} filled /></M3eIconButton>
+              <M3eIconButton size="large" aria-label={t('next')} onClick={() => p.next()}><m3e-icon variant="rounded" name="skip_next" filled /></M3eIconButton>
             </div>
-            <button className="icon-btn text-white" data-active={repeat !== 'off'} onClick={p.cycleRepeat} aria-label={t('repeat')}>{repeat === 'one' ? <Repeat1 size={20} /> : <Repeat size={20} />}</button>
+            <M3eIconButton toggle selected={repeat !== 'off' || undefined} aria-label={t('repeat')} onClick={p.cycleRepeat}><m3e-icon variant="rounded" name="repeat" /><m3e-icon variant="rounded" slot="selected" name={repeat === 'one' ? 'repeat_one' : 'repeat'} filled style={{ color: 'var(--md-sys-color-primary)' }} /></M3eIconButton>
           </div>
-          <div className="hidden md:flex items-center justify-between mt-3 text-white/80">
-            <div className="flex items-center gap-2 w-40">
-              <button className="icon-btn text-white" onClick={p.toggleMute}>{muted || volume === 0 ? <VolumeX size={18} /> : <Volume2 size={18} />}</button>
-              <input type="range" min={0} max={1} step={0.01} value={muted ? 0 : volume} onChange={(e) => p.setVolume(Number(e.target.value))} className="slider" style={{ ['--p' as any]: `${(muted ? 0 : volume) * 100}%` }} />
+          <div className="hidden md:flex items-center justify-between mt-3 opacity-90">
+            <div className="flex items-center gap-2 w-44">
+              <M3eIconButton size="small" aria-label={t('mute')} onClick={p.toggleMute}><m3e-icon variant="rounded" name={muted || volume === 0 ? 'volume_off' : 'volume_up'} /></M3eIconButton>
+              <M3eSlider className="flex-1" size="extra-small" min={0} max={1} step={0.01} onInput={(e: Event) => p.setVolume(thumbValue(e))}><M3eSliderThumb value={muted ? 0 : volume} /></M3eSlider>
             </div>
             <div className="flex items-center gap-1">
-              <button className="icon-btn text-white text-xs font-bold w-auto px-2" title={t('speed')} onClick={() => p.setRate(rate >= 2 ? 0.75 : Math.round((rate + 0.25) * 100) / 100)}><Gauge size={16} className="mr-1" />{rate}×</button>
-              <button className="icon-btn text-white" data-active={!!sleepAt} title={t('sleepTimer')} onClick={() => p.setSleep(sleepAt ? null : 30)}><Moon size={18} /></button>
-              {user && <a className="icon-btn text-white" href={downloadUrl(track.id)} download title={t('download')}><Download size={18} /></a>}
-              <button className="icon-btn text-white" data-active={tab === 'queue'} onClick={() => setTab(tab === 'queue' ? 'cover' : 'queue')} title={t('queue')}><ListMusic size={18} /></button>
+              <M3eIconButton size="small" width="wide" title={t('speed')} onClick={() => p.setRate(rate >= 2 ? 0.75 : Math.round((rate + 0.25) * 100) / 100)}><span className="md-label-md">{rate}×</span></M3eIconButton>
+              <M3eIconButton size="small" toggle selected={!!sleepAt || undefined} title={t('sleepTimer')} onClick={() => p.setSleep(sleepAt ? null : 30)}><m3e-icon variant="rounded" name="bedtime" /><m3e-icon variant="rounded" slot="selected" name="bedtime" filled style={{ color: 'var(--md-sys-color-primary)' }} /></M3eIconButton>
+              {user && <M3eIconButton size="small" href={downloadUrl(track.id)} download="" title={t('download')}><m3e-icon variant="rounded" name="download" /></M3eIconButton>}
+              <M3eIconButton size="small" toggle selected={tab === 'queue' || undefined} title={t('queue')} onClick={() => setTab(tab === 'queue' ? 'cover' : 'queue')}><m3e-icon variant="rounded" name="queue_music" /><m3e-icon variant="rounded" slot="selected" name="queue_music" filled style={{ color: 'var(--md-sys-color-primary)' }} /></M3eIconButton>
             </div>
           </div>
         </div>

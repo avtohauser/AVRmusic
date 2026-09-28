@@ -10,7 +10,7 @@ import { guessFromFilename, importAudioFile, saveCover } from './importer.js';
 import { indexTrack } from './search.js';
 import type { Job } from './jobs.js';
 
-export interface Capabilities { ytdlp: boolean; ytdlpVersion: string | null; ffmpeg: boolean; musicDir: string | null; mediaDir: string }
+export interface Capabilities { ytdlp: boolean; ytdlpVersion: string | null; ffmpeg: boolean; musicDir: string | null; mediaDir: string; sources?: Array<{ name: string; label: string; enabled: boolean; ok: boolean; reason?: string }> }
 
 function which(bin: string, args: string[]): Promise<string | null> {
   return new Promise((resolve) => {

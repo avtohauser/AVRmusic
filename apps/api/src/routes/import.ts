@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { badRequest, notFound } from '../lib/errors.js';
+import { config } from '../config.js';
 import { enqueue, listJobs, removeJob } from '../services/jobs.js';
 import { capabilities, runUrlImport } from '../services/ytdlp.js';
 import { fetchLyricsForTrack } from '../services/lrclib.js';
@@ -10,7 +11,13 @@ export default async function importRoutes(app: FastifyInstance) {
   const db = app.db;
   const admin = { preHandler: app.requireAdmin };
 
-  app.get('/api/admin/import/capabilities', admin, async () => capabilities());
+  app.get('/api/admin/import/capabilities', admin, async () => {
+    const caps = await capabilities();
+    const { allSources } = await import('../services/sources/index.js');
+    const enabled = new Set(config.acquireSources as string[]);
+    const sources = await Promise.all(allSources().map(async (s) => { const a = await s.available(); return { name: s.name, label: s.label, enabled: enabled.has(s.name), ok: a.ok, reason: a.reason }; }));
+    return { ...caps, sources };
+  });
   app.get('/api/admin/import/jobs', admin, async () => listJobs());
   app.delete('/api/admin/import/jobs/:id', admin, async (req) => { if (!removeJob((req.params as any).id)) throw notFound('Задача не найдена'); return { ok: true }; });
 

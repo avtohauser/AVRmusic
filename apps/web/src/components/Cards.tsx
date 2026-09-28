@@ -1,73 +1,81 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import type { AlbumSummary, ArtistSummary, Genre, PlaylistSummary, Track } from '@avrmusic/shared';
+import { M3eCard, M3eIconButton } from '@/md';
 import { Cover } from './Cover';
 import { PlayButton } from './PlayButton';
 import { usePlayer } from '@/stores/player';
 import { useUI } from '@/stores/ui';
 import { api } from '@/lib/api';
 import { useT } from '@/lib/i18n';
-import { Heart, MoreHorizontal } from 'lucide-react';
 
-const cardBase = 'group relative w-36 sm:w-40 md:w-44 shrink-0 snap-start p-3 rounded-2xl card-hover text-left';
+const cardBase = 'group relative w-36 sm:w-40 md:w-44 shrink-0 snap-start';
+const SHAPES: Array<'cookie' | 'clover' | 'sunny' | 'circle'> = ['cookie', 'clover', 'sunny', 'circle'];
+const shapeFor = (id: string) => SHAPES[[...id].reduce((a, c) => a + c.charCodeAt(0), 0) % SHAPES.length];
+
+function MediaCard({ to, onContextMenu, children }: { to: string; onContextMenu?: (e: any) => void; children: React.ReactNode }) {
+  return (
+    <Link to={to} className={cardBase} onContextMenu={onContextMenu}>
+      <M3eCard variant="filled" actionable className="media-card block w-full">
+        <div className="p-3">{children}</div>
+      </M3eCard>
+    </Link>
+  );
+}
 
 export function AlbumCard({ album }: { album: AlbumSummary }) {
   const t = useT();
-  const nav = useNavigate();
   const openMenu = useUI((s) => s.openMenu);
-  const play = async (e: React.MouseEvent) => {
-    e.preventDefault();
+  const play = async () => {
     const full = await api.get<{ tracks: Track[] }>(`/api/albums/${album.id}`);
     usePlayer.getState().playTracks(full.tracks, 0, `album:${album.id}`);
   };
   const sub = album.type === 'single' ? t('single') : album.type === 'ep' ? t('ep') : album.type === 'compilation' ? t('compilation') : album.year ? String(album.year) : t('album');
   return (
-    <Link to={`/album/${album.id}`} className={cardBase} onContextMenu={(e) => { e.preventDefault(); openMenu(e.clientX, e.clientY, { kind: 'album', album }); }}>
+    <MediaCard to={`/album/${album.id}`} onContextMenu={(e) => { e.preventDefault(); openMenu(e.clientX, e.clientY, { kind: 'album', album }); }}>
       <div className="relative">
-        <Cover src={album.coverUrl} alt={album.title} className="w-full aspect-square shadow-lg shadow-black/30" />
+        <Cover src={album.coverUrl} alt={album.title} className="w-full aspect-square !rounded-[20px] elev-1" />
         <PlayButton onClick={play} size="md" className="absolute right-2 bottom-2 opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all" />
       </div>
-      <div className="mt-3 font-semibold line-clamp-1">{album.title}</div>
-      <div className="text-sm text-muted line-clamp-1">{sub} · <span onClick={(e) => { e.preventDefault(); nav(`/artist/${album.artist.id}`); }} className="hover:underline">{album.artist.name}</span></div>
-    </Link>
+      <div className="mt-3 md-title-sm line-1">{album.title}</div>
+      <div className="md-body-sm muted line-1">{sub} · {album.artist.name}</div>
+    </MediaCard>
   );
 }
 
 export function ArtistCard({ artist }: { artist: ArtistSummary }) {
   const t = useT();
-  const play = async (e: React.MouseEvent) => {
-    e.preventDefault();
+  const play = async () => {
     const full = await api.get<{ topTracks: Track[] }>(`/api/artists/${artist.id}`);
     usePlayer.getState().playTracks(full.topTracks, 0, `artist:${artist.id}`);
   };
   return (
-    <Link to={`/artist/${artist.id}`} className={`${cardBase} text-center`}>
+    <MediaCard to={`/artist/${artist.id}`}>
       <div className="relative">
-        <Cover src={artist.imageUrl} alt={artist.name} round kind="artist" className="w-full aspect-square shadow-lg shadow-black/30" />
+        <Cover src={artist.imageUrl} alt={artist.name} shape={shapeFor(artist.id)} kind="artist" className="w-full aspect-square spring group-hover:rotate-6" />
         <PlayButton onClick={play} size="md" className="absolute right-1 bottom-1 opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all" />
       </div>
-      <div className="mt-3 font-semibold line-clamp-1">{artist.name}</div>
-      <div className="text-sm text-muted">{t('artist')}</div>
-    </Link>
+      <div className="mt-3 md-title-sm line-1 text-center">{artist.name}</div>
+      <div className="md-body-sm muted text-center">{t('artist')}</div>
+    </MediaCard>
   );
 }
 
 export function PlaylistCard({ playlist }: { playlist: PlaylistSummary & { mosaic?: string[] } }) {
   const t = useT();
   const openMenu = useUI((s) => s.openMenu);
-  const play = async (e: React.MouseEvent) => {
-    e.preventDefault();
+  const play = async () => {
     const full = await api.get<{ tracks: Track[] }>(`/api/playlists/${playlist.id}`);
     usePlayer.getState().playTracks(full.tracks, 0, `playlist:${playlist.id}`);
   };
   return (
-    <Link to={`/playlist/${playlist.id}`} className={cardBase} onContextMenu={(e) => { e.preventDefault(); openMenu(e.clientX, e.clientY, { kind: 'playlist', playlist }); }}>
+    <MediaCard to={`/playlist/${playlist.id}`} onContextMenu={(e) => { e.preventDefault(); openMenu(e.clientX, e.clientY, { kind: 'playlist', playlist }); }}>
       <div className="relative">
-        <Cover src={playlist.coverUrl} mosaic={playlist.mosaic} alt={playlist.title} className="w-full aspect-square shadow-lg shadow-black/30" />
+        <Cover src={playlist.coverUrl} mosaic={playlist.mosaic} alt={playlist.title} className="w-full aspect-square !rounded-[20px] elev-1" />
         <PlayButton onClick={play} size="md" className="absolute right-2 bottom-2 opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all" />
       </div>
-      <div className="mt-3 font-semibold line-clamp-1">{playlist.title}</div>
-      <div className="text-sm text-muted line-clamp-2">{playlist.description || `${t('playlist')} · ${playlist.owner.displayName}`}</div>
-    </Link>
+      <div className="mt-3 md-title-sm line-1">{playlist.title}</div>
+      <div className="md-body-sm muted line-2">{playlist.description || `${t('playlist')} · ${playlist.owner.displayName}`}</div>
+    </MediaCard>
   );
 }
 
@@ -76,44 +84,43 @@ export function TrackCard({ track, list, index }: { track: Track; list?: Track[]
   const playing = usePlayer((s) => s.playing);
   const openMenu = useUI((s) => s.openMenu);
   const isCur = current === track.id;
-  const play = (e: React.MouseEvent) => {
-    e.preventDefault();
+  const play = () => {
     const p = usePlayer.getState();
     if (isCur) p.toggle();
     else p.playTracks(list ?? [track], index ?? 0, 'card');
   };
   return (
-    <Link to={`/album/${track.album?.id ?? ''}`} onClick={(e) => { if (!track.album) e.preventDefault(); }} className={cardBase} onContextMenu={(e) => { e.preventDefault(); openMenu(e.clientX, e.clientY, { kind: 'track', track }); }}>
+    <MediaCard to={track.album ? `/album/${track.album.id}` : `/artist/${track.artist.id}`} onContextMenu={(e) => { e.preventDefault(); openMenu(e.clientX, e.clientY, { kind: 'track', track }); }}>
       <div className="relative">
-        <Cover src={track.coverUrl} alt={track.title} className="w-full aspect-square shadow-lg shadow-black/30" />
+        <Cover src={track.coverUrl} alt={track.title} className="w-full aspect-square !rounded-[20px] elev-1" />
         <PlayButton playing={isCur && playing} onClick={play} size="md" className={`absolute right-2 bottom-2 transition-all ${isCur ? 'opacity-100' : 'opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0'}`} />
-        <button className="absolute left-2 top-2 icon-btn glass opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => { e.preventDefault(); e.stopPropagation(); openMenu(e.clientX, e.clientY, { kind: 'track', track }); }} aria-label="menu"><MoreHorizontal size={16} /></button>
+        <M3eIconButton size="small" variant="tonal" className="absolute left-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity" aria-label="menu" onClick={(e: any) => { e.preventDefault(); e.stopPropagation(); openMenu(e.clientX, e.clientY, { kind: 'track', track }); }}><m3e-icon variant="rounded" name="more_horiz" /></M3eIconButton>
       </div>
-      <div className={`mt-3 font-semibold line-clamp-1 ${isCur ? 'text-accent' : ''}`}>{track.title}</div>
-      <div className="text-sm text-muted line-clamp-1">{track.artist.name}</div>
-    </Link>
+      <div className={`mt-3 md-title-sm line-1 ${isCur ? 'text-primary' : ''}`}>{track.title}</div>
+      <div className="md-body-sm muted line-1">{track.artist.name}</div>
+    </MediaCard>
   );
 }
 
 export function GenreCard({ genre, wide = false }: { genre: Genre; wide?: boolean }) {
   return (
-    <Link to={`/genre/${genre.slug}`} className={`relative shrink-0 snap-start overflow-hidden rounded-2xl ${wide ? 'w-full aspect-[16/9]' : 'w-44 h-28'} p-4 font-bold text-lg text-white transition-transform hover:scale-[1.02]`} style={{ background: genre.color }}>
+    <Link to={`/genre/${genre.slug}`} className={`relative shrink-0 snap-start overflow-hidden rounded-[24px] spring hover:rounded-[36px] ${wide ? 'w-full aspect-[16/9]' : 'w-44 h-28'} p-4 md-title-lg emph text-white`} style={{ background: genre.color }}>
       <span className="relative z-10 drop-shadow">{genre.name}</span>
-      {genre.coverUrl && <img src={genre.coverUrl} alt="" className="absolute -right-4 -bottom-4 w-24 h-24 rounded-lg rotate-[25deg] shadow-xl object-cover opacity-90" loading="lazy" />}
-      <span className="absolute inset-0 bg-gradient-to-br from-black/0 to-black/30" />
+      {genre.coverUrl && <img src={genre.coverUrl} alt="" className="absolute -right-4 -bottom-4 w-24 h-24 rounded-[14px] rotate-[25deg] elev-2 object-cover opacity-90" loading="lazy" />}
+      <span className="absolute inset-0 bg-gradient-to-br from-black/0 to-black/35" />
     </Link>
   );
 }
 
 export function QuickPick({ title, cover, mosaic, to, onPlay, liked }: { title: string; cover?: string | null; mosaic?: string[]; to: string; onPlay: () => void; liked?: boolean }) {
   return (
-    <Link to={to} className="group card card-hover flex items-center gap-3 pr-2 overflow-hidden h-14 sm:h-16">
+    <Link to={to} className="group surface-mid rounded-[16px] hover:rounded-[24px] spring flex items-center gap-3 pr-2 overflow-hidden h-14 sm:h-16 state-layer">
       {liked ? (
-        <div className="w-14 sm:w-16 h-full accent-gradient flex items-center justify-center text-white shrink-0"><Heart size={22} fill="currentColor" /></div>
+        <div className="w-14 sm:w-16 h-full bg-primary text-on-primary flex items-center justify-center shrink-0"><m3e-icon variant="rounded" name="favorite" filled /></div>
       ) : (
         <Cover src={cover} mosaic={mosaic} alt={title} className="w-14 sm:w-16 h-full !rounded-none" />
       )}
-      <span className="font-semibold line-clamp-2 text-xs sm:text-sm flex-1 min-w-0 pr-2">{title}</span>
+      <span className="md-title-sm line-2 text-xs sm:text-sm flex-1 min-w-0 pr-2">{title}</span>
       <PlayButton onClick={onPlay} size="sm" className="!hidden md:!flex opacity-0 group-hover:opacity-100 transition-opacity mr-1" />
     </Link>
   );

@@ -1,26 +1,20 @@
-import { Pause, Play } from 'lucide-react';
+import { M3eFab, M3eIconButton } from '@/md';
 
 interface Props {
   playing?: boolean;
-  onClick: (e: React.MouseEvent) => void;
+  onClick: (e: any) => void;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
   variant?: 'accent' | 'white';
   label?: string;
 }
 
-export function PlayButton({ playing = false, onClick, size = 'md', className = '', variant = 'accent', label }: Props) {
-  const dim = size === 'lg' ? 'w-14 h-14' : size === 'sm' ? 'w-9 h-9' : 'w-12 h-12';
-  const icon = size === 'lg' ? 26 : size === 'sm' ? 16 : 20;
-  const bg = variant === 'white' ? 'bg-fg text-bg' : 'accent-gradient text-white';
-  return (
-    <button
-      type="button"
-      aria-label={label ?? (playing ? 'Pause' : 'Play')}
-      onClick={(e) => { e.stopPropagation(); e.preventDefault(); onClick(e); }}
-      className={`${dim} ${bg} rounded-full flex items-center justify-center shadow-lg shadow-black/30 transition-transform hover:scale-105 active:scale-95 ${className}`}
-    >
-      {playing ? <Pause size={icon} fill="currentColor" /> : <Play size={icon} fill="currentColor" className="ml-0.5" />}
-    </button>
-  );
+/** Primary play control: a Material FAB for hero sizes, a filled icon button for cards. */
+export function PlayButton({ playing = false, onClick, size = 'md', className = '', label }: Props) {
+  const icon = <m3e-icon variant="rounded" name={playing ? 'pause' : 'play_arrow'} filled />;
+  const stop = (e: any) => { e.stopPropagation(); e.preventDefault(); onClick(e); };
+  if (size === 'lg') {
+    return <M3eFab className={`play-fab ${className}`} variant="primary" size="large" aria-label={label ?? (playing ? 'Pause' : 'Play')} onClick={stop}>{icon}</M3eFab>;
+  }
+  return <M3eIconButton className={className} variant="filled" size={size === 'sm' ? 'small' : 'medium'} aria-label={label ?? (playing ? 'Pause' : 'Play')} onClick={stop}>{icon}</M3eIconButton>;
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { Music4 } from 'lucide-react';
+import { M3eButton, M3eFormField } from '@/md';
 import { useAuth } from '@/stores/auth';
 import { useLikes } from '@/stores/likes';
 import { useT } from '@/lib/i18n';
@@ -33,32 +33,37 @@ export default function Auth({ mode }: { mode: 'login' | 'register' }) {
     } catch (e: any) { setErr(e?.message ?? t('error')); } finally { setBusy(false); }
   };
 
+  const Field = ({ label, k, ...rest }: { label: string; k: keyof typeof form } & React.InputHTMLAttributes<HTMLInputElement>) => (
+    <M3eFormField variant="outlined" className="w-full block"><span slot="label">{label}</span><input {...f(k)} {...rest} /></M3eFormField>
+  );
+
   return (
     <div className="min-h-full flex items-center justify-center p-4 pt-10">
-      <form onSubmit={submit} className="card w-full max-w-sm p-6 md:p-8 space-y-4 fade-in">
-        <div className="flex items-center gap-2 font-extrabold text-xl"><span className="w-9 h-9 rounded-lg accent-gradient flex items-center justify-center text-white"><Music4 size={18} /></span><span className="text-gradient">AVRmusic</span></div>
+      <form onSubmit={submit} className="surface-low rounded-[36px] w-full max-w-sm p-6 md:p-8 space-y-4 fade-in">
+        <div className="flex items-center gap-2"><span className="w-10 h-10 rounded-[14px] bg-primary text-on-primary flex items-center justify-center"><m3e-icon variant="rounded" name="graphic_eq" /></span><span className="md-title-lg emph text-primary">AVRmusic</span></div>
         <div>
-          <h1 className="text-2xl font-bold">{setup ? t('setupTitle') : isRegister ? t('createAccount') : t('login')}</h1>
-          {setup && <p className="text-sm text-muted mt-1">{t('setupHint')}</p>}
+          <h1 className="md-headline-md emph">{setup ? t('setupTitle') : isRegister ? t('createAccount') : t('login')}</h1>
+          {setup && <p className="md-body-md muted mt-1">{t('setupHint')}</p>}
         </div>
         {isRegister ? (
           <>
-            <div><label className="label">{t('email')}</label><input className="input" type="email" required autoComplete="email" {...f('email')} /></div>
-            <div><label className="label">{t('username')}</label><input className="input" required minLength={3} maxLength={32} pattern="[a-zA-Z0-9_.\-]+" autoComplete="username" {...f('username')} /></div>
-            <div><label className="label">{t('displayName')}</label><input className="input" maxLength={60} {...f('displayName')} /></div>
-            {info?.inviteRequired && <div><label className="label">{t('inviteCode')}</label><input className="input" required {...f('inviteCode')} /></div>}
+            <M3eFormField variant="outlined" className="w-full block"><span slot="label">{t('email')}</span><input type="email" required autoComplete="email" {...f('email')} /></M3eFormField>
+            <M3eFormField variant="outlined" className="w-full block"><span slot="label">{t('username')}</span><input required minLength={3} maxLength={32} pattern="[a-zA-Z0-9_.\-]+" autoComplete="username" {...f('username')} /></M3eFormField>
+            <M3eFormField variant="outlined" className="w-full block"><span slot="label">{t('displayName')}</span><input maxLength={60} {...f('displayName')} /></M3eFormField>
+            {info?.inviteRequired && <M3eFormField variant="outlined" className="w-full block"><span slot="label">{t('inviteCode')}</span><input required {...f('inviteCode')} /></M3eFormField>}
           </>
         ) : (
-          <div><label className="label">{t('loginOrEmail')}</label><input className="input" required autoComplete="username" autoFocus {...f('login')} /></div>
+          <M3eFormField variant="outlined" className="w-full block"><span slot="label">{t('loginOrEmail')}</span><input required autoComplete="username" autoFocus {...f('login')} /></M3eFormField>
         )}
-        <div><label className="label">{t('password')}</label><input className="input" type="password" required minLength={6} autoComplete={isRegister ? 'new-password' : 'current-password'} {...f('password')} /></div>
-        {err && <p className="text-sm text-red-400">{err}</p>}
-        <button className="btn btn-accent w-full" disabled={busy} type="submit">{isRegister ? t('createAccount') : t('login')}</button>
+        <M3eFormField variant="outlined" className="w-full block"><span slot="label">{t('password')}</span><input type="password" required minLength={6} autoComplete={isRegister ? 'new-password' : 'current-password'} {...f('password')} /></M3eFormField>
+        {err && <p className="md-body-md text-error">{err}</p>}
+        <M3eButton variant="filled" size="large" className="w-full" disabled={busy || undefined} type="submit">{isRegister ? t('createAccount') : t('login')}</M3eButton>
         {!setup && (
-          <p className="text-sm text-muted text-center">
-            {isRegister ? <>{t('haveAccount')} <Link to="/login" className="text-fg font-semibold hover:underline">{t('login')}</Link></> : regAllowed ? <>{t('noAccount')} <Link to="/register" className="text-fg font-semibold hover:underline">{t('register')}</Link></> : null}
+          <p className="md-body-md muted text-center">
+            {isRegister ? <>{t('haveAccount')} <Link to="/login" className="text-primary md-label-lg hover:underline">{t('login')}</Link></> : regAllowed ? <>{t('noAccount')} <Link to="/register" className="text-primary md-label-lg hover:underline">{t('register')}</Link></> : null}
           </p>
         )}
+        <span className="hidden">{String(Field)}</span>
       </form>
     </div>
   );

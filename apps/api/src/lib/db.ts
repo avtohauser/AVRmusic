@@ -170,6 +170,27 @@ const MIGRATIONS: string[] = [
     used_at TEXT
   );
   `,
+  // 4: persistent job queue (survives restarts/deploys)
+  `
+  CREATE TABLE jobs (
+    id TEXT PRIMARY KEY,
+    kind TEXT NOT NULL,
+    title TEXT,
+    url TEXT,
+    mode TEXT,
+    requested_by TEXT,
+    status TEXT NOT NULL,
+    progress INTEGER NOT NULL DEFAULT 0,
+    log TEXT NOT NULL DEFAULT '[]',
+    imported TEXT NOT NULL DEFAULT '[]',
+    stats TEXT,
+    error TEXT,
+    created_at TEXT NOT NULL,
+    finished_at TEXT,
+    payload TEXT NOT NULL DEFAULT '{}'
+  );
+  CREATE INDEX idx_jobs_created ON jobs(created_at);
+  `,
 ];
 
 export function openDatabase(dbPath = config.dbPath): DB {

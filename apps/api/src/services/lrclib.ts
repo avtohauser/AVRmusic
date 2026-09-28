@@ -52,3 +52,20 @@ export async function fetchLyricsForTrack(db: DB, trackId: string): Promise<bool
   }
   return true;
 }
+
+/** Batch job: look up lyrics for every track that has none. */
+export async function runLyricsBatch(db: DB, job: { stats?: Record<string, number> }, api: { log: (s: string) => void; progress: (p: number) => void; onCancel: (fn: () => void) => void }) {
+  const ids = (db.prepare(`SELECT id FROM tracks WHERE lyrics_synced IS NULL AND lyrics_plain IS NULL AND (codec IS NULL OR codec <> 'video')`).all() as any[]).map((r) => r.id);
+  job.stats = { missing: ids.length, found: 0, checked: 0 };
+  let cancelled = false;
+  api.onCancel(() => { cancelled = true; });
+  for (const id of ids) {
+    if (cancelled) throw new Error('Отменено');
+    try {
+      if (await fetchLyricsForTrack(db, id)) { job.stats.found++; const t = db.prepare('SELECT t.title, a.name AS artist FROM tracks t JOIN artists a ON a.id = t.artist_id WHERE t.id = ?').get(id) as any; if (t) api.log(`✓ ${t.artist} — ${t.title}`); }
+    } catch (e: any) { api.log(`! ${id}: ${e?.message ?? e}`); }
+    job.stats.checked++;
+    api.progress((job.stats.checked / Math.max(1, ids.length)) * 100);
+    await new Promise((r) => setTimeout(r, 250)); // be polite to the public API
+  }
+}

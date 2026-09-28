@@ -16,16 +16,19 @@ import { PlayButton } from '@/components/PlayButton';
 import { EmptyState } from '@/components/EmptyState';
 import { TrackListSkeleton } from '@/components/Skeleton';
 import type { AlbumSummary, ArtistSummary, PlaylistSummary, Track } from '@avrmusic/shared';
+import { rememberSearch } from '@/lib/nav';
 
 const RECENT_KEY = 'avr.recentSearches';
 const loadRecent = (): string[] => { try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); } catch { return []; } };
+const SCOPE_KEY = 'avr.searchScope';
+const loadScope = (): 'library' | 'catalog' => { try { return localStorage.getItem(SCOPE_KEY) === 'catalog' ? 'catalog' : 'library'; } catch { return 'library'; } };
 type Type = 'all' | 'track' | 'album' | 'artist' | 'playlist';
 
 export default function Search() {
   const [params, setParams] = useSearchParams();
   const initial = params.get('q') ?? '';
   const info = useAuth((s) => s.info);
-  const [scope, setScope] = useState<'library' | 'catalog'>(params.get('scope') === 'catalog' ? 'catalog' : 'library');
+  const [scope, setScope] = useState<'library' | 'catalog'>(params.get('scope') === 'catalog' ? 'catalog' : params.get('scope') === 'library' ? 'library' : loadScope());
   const [q, setQ] = useState(initial);
   const [type, setType] = useState<Type>('all');
   const dq = useDebounced(q, 250);
@@ -47,6 +50,9 @@ export default function Search() {
       try { localStorage.setItem(RECENT_KEY, JSON.stringify(r)); } catch { /* ignore */ }
       setRecent(r);
     } else setParams(scope === 'catalog' ? { scope } : {}, { replace: true });
+    try { localStorage.setItem(SCOPE_KEY, scope); } catch { /* ignore */ }
+    const sp = new URLSearchParams(); if (dq.trim()) sp.set('q', dq.trim()); sp.set('scope', scope);
+    rememberSearch(`?${sp.toString()}`);
   }, [dq, scope]);
 
   const tabs: Array<[Type, string]> = [['all', t('all')], ['track', t('tracks')], ['artist', t('artists')], ['album', t('albums')], ['playlist', t('playlists')]];

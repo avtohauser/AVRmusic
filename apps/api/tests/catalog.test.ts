@@ -233,6 +233,23 @@ test('canvas: an acquired track gets a slice of the official clip automatically'
   assert.equal(missing.statusCode, 200);
 });
 
+test('job queue is persistent: an unfinished job resumes after a restart', async () => {
+  const { initJobs } = await import('../src/services/jobs.js');
+  const trackId = (await app.inject({ method: 'GET', url: '/api/catalog/search?q=fake', headers: { authorization: `Bearer ${access}` } })).json().tracks[1].libraryTrackId;
+  const id = 'resume-test-1';
+  app.db.prepare('INSERT INTO jobs(id, kind, title, status, progress, log, imported, created_at, payload) VALUES (?,?,?,?,?,?,?,?,?)')
+    .run(id, 'canvas', 'Канвас: resumed', 'running', 40, '["…"]', '[]', new Date().toISOString(), JSON.stringify({ trackIds: [trackId], force: true }));
+  initJobs(app.db); // what a fresh process does at boot
+  const j = await waitJob(id);
+  assert.equal(j.status, 'done', JSON.stringify(j.log));
+  assert.ok(j.log.some((l: string) => l.includes('перезапустился')));
+  assert.equal(j.stats.found, 1);
+  assert.equal((app.db.prepare('SELECT status FROM jobs WHERE id = ?').get(id) as any).status, 'done');
+  // finished jobs are stored with their log, so the queue history survives too
+  const stored = app.db.prepare("SELECT COUNT(*) c FROM jobs WHERE status = 'done'").get() as any;
+  assert.ok(stored.c >= 2);
+});
+
 test('acquire an album: existing skipped, missing reported, others imported', async () => {
   const r = await app.inject({ method: 'POST', url: '/api/catalog/acquire', headers: { authorization: `Bearer ${access}` }, payload: { kind: 'album', id: 500 } });
   const job = await waitJob(r.json().jobId);

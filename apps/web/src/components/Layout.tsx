@@ -14,6 +14,7 @@ import { AddToPlaylistModal, PlaylistEditorModal } from './PlaylistModals';
 import { QueuePanel } from './QueuePanel';
 import { Cover } from './Cover';
 import { TopBarQueueIndicator } from './Catalog';
+import { lastSearchUrl } from '@/lib/nav';
 
 export function Layout() {
   const user = useAuth((s) => s.user);
@@ -94,7 +95,7 @@ function Rail() {
         )}
       </div>
       {items.map(([path, icon, label, end]) => (
-        <M3eNavItem key={path} selected={active(path, end) || undefined} onClick={() => nav(path)}>
+        <M3eNavItem key={path} selected={active(path, end) || undefined} onClick={() => nav(path === '/search' ? lastSearchUrl() : path)}>
           <m3e-icon variant="rounded" slot="icon" name={icon} />
           <m3e-icon variant="rounded" slot="selected-icon" name={icon} filled />
           {label}
@@ -145,9 +146,9 @@ function TopBar() {
       </div>
       {!onSearch && (
         <div slot="title" className="hidden sm:block w-full max-w-[560px]">
-          <M3eSearchBar clearable onClear={() => setQ('')} onClick={() => { if (!onSearch) nav('/search'); }}>
+          <M3eSearchBar clearable onClear={() => setQ('')} onClick={() => { if (!onSearch) nav(lastSearchUrl()); }}>
             <m3e-icon variant="rounded" slot="leading" name="search" />
-            <input ref={inputRef} slot="input" className="md-input md-body-lg" placeholder={t('searchPlaceholder')} value={q} onChange={(e) => setQ(e.target.value)} onFocus={() => nav('/search')} onKeyDown={(e) => { if (e.key === 'Enter' && q.trim()) nav(`/search?q=${encodeURIComponent(q.trim())}`); }} />
+            <input ref={inputRef} slot="input" className="md-input md-body-lg" placeholder={t('searchPlaceholder')} value={q} onChange={(e) => setQ(e.target.value)} onFocus={() => { if (!onSearch) nav(lastSearchUrl()); }} onKeyDown={(e) => { if (e.key === 'Enter' && q.trim()) nav(`/search?q=${encodeURIComponent(q.trim())}`); }} />
           </M3eSearchBar>
         </div>
       )}
@@ -187,7 +188,7 @@ function BottomNav({ user }: { user: boolean }) {
     <div className="floating-nav z-[65]">
       <M3eNavBar>
         {items.map(([path, icon, label, end]) => (
-          <M3eNavItem key={path} selected={active(path, end) || undefined} onClick={() => nav(path)}>
+          <M3eNavItem key={path} selected={active(path, end) || undefined} onClick={() => nav(path === '/search' ? lastSearchUrl() : path)}>
             <m3e-icon variant="rounded" slot="icon" name={icon} />
             <m3e-icon variant="rounded" slot="selected-icon" name={icon} filled />
             {label}

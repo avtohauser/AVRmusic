@@ -29,7 +29,7 @@ export const useCatalogArtist = (id: number | undefined) => useQuery({ queryKey:
 export const useCatalogAlbum = (id: number | undefined) => useQuery({ queryKey: ['catalog', 'album', id], queryFn: () => api.get<CatalogAlbumPage>(`/api/catalog/albums/${id}`), enabled: !!id, staleTime: 10 * 60_000 });
 export const useAcquireJobs = () => {
   const user = useAuth((s) => s.user);
-  return useQuery({ queryKey: ['acquire-jobs'], queryFn: () => api.get<AcquireJob[]>('/api/catalog/jobs'), enabled: !!user && !!useAuth.getState().info?.catalog, refetchInterval: (q) => ((q.state.data ?? []).some((j) => j.status === 'queued' || j.status === 'running') ? 2000 : 15000) });
+  return useQuery({ queryKey: ['acquire-jobs'], queryFn: () => api.get<AcquireJob[]>('/api/catalog/jobs'), enabled: !!user && !!useAuth.getState().info?.catalog, refetchInterval: (q) => ((q.state.data ?? []).some((j) => j.status === 'queued' || j.status === 'running') ? 2000 : 15000), refetchIntervalInBackground: true, refetchOnWindowFocus: true });
 };
 
 export function useInvalidate() {

@@ -9,7 +9,7 @@ import { config } from '../config.js';
 import { newId } from '../lib/util.js';
 import { notFound } from '../lib/errors.js';
 import { capabilities } from './ytdlp.js';
-import { enqueue, type Job } from './jobs.js';
+import { enqueue, type Job, type JobApi } from './jobs.js';
 
 export interface VideoCandidate { id: string; title: string; duration: number | null; channel: string | null; viewCount: number | null }
 export interface WantVideo { title: string; artist: string; durationSec: number }
@@ -149,23 +149,27 @@ export async function fetchCanvasForTrack(db: DB, trackId: string, log: Log, can
 
 /** Queue a canvas job for the given tracks (those that already have one are skipped unless `force`). */
 export function enqueueCanvasJob(db: DB, trackIds: string[], title: string, opts: { force?: boolean; requestedBy?: string | null } = {}): Job {
-  return enqueue({ kind: 'canvas', title, requestedBy: opts.requestedBy ?? null }, async (job, api) => {
-    const cancelRef: CancelRef = {};
-    let cancelled = false;
-    api.onCancel(() => { cancelled = true; cancelRef.cancel?.(); });
-    const ids = trackIds.filter((id) => {
-      const r = db.prepare("SELECT canvas_path, codec FROM tracks WHERE id = ?").get(id) as any;
-      return r && r.codec !== 'video' && (opts.force || !r.canvas_path);
-    });
-    job.stats = { total: ids.length, found: 0, checked: 0 };
-    for (const id of ids) {
-      if (cancelled) throw new Error('Отменено');
-      try { if (await fetchCanvasForTrack(db, id, api.log, cancelRef)) job.stats.found++; }
-      catch (e: any) { if (/Отменено/.test(e?.message ?? '')) throw e; api.log(`   ! ${e?.message ?? e}`); }
-      job.stats.checked++;
-      api.progress((job.stats.checked / Math.max(1, ids.length)) * 100);
-    }
+  void db;
+  return enqueue({ kind: 'canvas', title, requestedBy: opts.requestedBy ?? null }, { trackIds, force: !!opts.force });
+}
+
+/** Runner for canvas jobs (also used when the queue resumes after a restart). */
+export async function runCanvasJob(db: DB, job: Job, payload: { trackIds?: string[]; force?: boolean }, api: JobApi) {
+  const cancelRef: CancelRef = {};
+  let cancelled = false;
+  api.onCancel(() => { cancelled = true; cancelRef.cancel?.(); });
+  const ids = (payload.trackIds ?? []).filter((id) => {
+    const r = db.prepare('SELECT canvas_path, codec FROM tracks WHERE id = ?').get(id) as any;
+    return r && r.codec !== 'video' && (payload.force || !r.canvas_path);
   });
+  job.stats = { total: ids.length, found: 0, checked: 0 };
+  for (const id of ids) {
+    if (cancelled) throw new Error('Отменено');
+    try { if (await fetchCanvasForTrack(db, id, api.log, cancelRef)) job.stats.found++; }
+    catch (e: any) { if (/Отменено/.test(e?.message ?? '')) throw e; api.log(`   ! ${e?.message ?? e}`); }
+    job.stats.checked++;
+    api.progress((job.stats.checked / Math.max(1, ids.length)) * 100);
+  }
 }
 
 /** After a catalogue acquisition: fetch canvases for the imported tracks in a follow-up job. */

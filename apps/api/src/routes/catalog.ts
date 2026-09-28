@@ -4,7 +4,6 @@ import { config } from '../config.js';
 import { forbidden, notFound } from '../lib/errors.js';
 import { catalogAlbum, catalogArtist, catalogTrack, rawAlbum, rawArtist, rawTrack, searchCatalog } from '../services/catalog.js';
 import { enqueue, getJob, listJobs, removeJob } from '../services/jobs.js';
-import { runAcquireAlbum, runAcquireArtist, runAcquireTrack } from '../services/acquire.js';
 import { clamp, parseIntSafe } from '../lib/util.js';
 import { enqueueCanvasJob } from '../services/canvas.js';
 
@@ -36,8 +35,7 @@ export default async function catalogRoutes(app: FastifyInstance) {
     else { const a = await rawArtist(db, body.id); title = `${a.name} — дискография`; }
     const dup = listJobs().find((j) => j.kind === 'acquire' && (j.status === 'queued' || j.status === 'running') && j.title === title);
     if (dup) return { jobId: dup.id, job: dup, duplicate: true };
-    const job = enqueue({ kind: 'acquire', title, requestedBy: req.userId }, (j, api) =>
-      body.kind === 'track' ? runAcquireTrack(db, j, body.id, api) : body.kind === 'album' ? runAcquireAlbum(db, j, body.id, api) : runAcquireArtist(db, j, body.id, api));
+    const job = enqueue({ kind: 'acquire', title, requestedBy: req.userId }, { kind: body.kind, id: body.id });
     return { jobId: job.id, job };
   });
 

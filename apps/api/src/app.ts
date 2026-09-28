@@ -19,6 +19,7 @@ import meRoutes from './routes/me.js';
 import adminRoutes from './routes/admin.js';
 import importRoutes from './routes/import.js';
 import catalogRoutes from './routes/catalog.js';
+import { registerRunners } from './services/runners.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -34,6 +35,7 @@ export async function buildApp(opts: { db?: DB; logger?: boolean } = {}): Promis
     trustProxy: true,
   });
   app.decorate('db', opts.db ?? openDatabase());
+  registerRunners(app.db);
 
   await app.register(cors, { origin: true, credentials: true, exposedHeaders: ['Content-Disposition', 'Content-Range', 'Accept-Ranges', 'Content-Length'] });
   await app.register(jwt, { secret: config.jwtSecret });

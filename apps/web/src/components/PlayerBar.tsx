@@ -33,7 +33,7 @@ export function PlayerBar() {
   return (
     <div className="fixed left-0 right-0 z-[60] md:px-3 md:pb-3" style={{ bottom: 'calc(var(--nav-h) + var(--safe-b))' }} data-playerbar>
       {/* Phone: compact card */}
-      <div className="md:hidden mx-3 mb-2 surface-high rounded-[24px] overflow-hidden elev-2" onClick={() => setOpen(true)}>
+      <div className="md:hidden mini-card surface-high rounded-[28px] overflow-hidden elev-2" onClick={() => setOpen(true)}>
         <div className="flex items-center gap-3 p-2 pr-2">
           <Cover src={track.coverUrl} className="w-12 h-12 !rounded-[14px]" />
           <div className="min-w-0 flex-1">

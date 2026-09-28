@@ -155,6 +155,7 @@ img { display: block; }
 
 /* ---- Cards / shelves ---- */
 .page { padding: 0 1rem 2rem; max-width: 1440px; margin: 0 auto; }
+[data-playerbar] .mini-card { margin: 0 12px 8px; }
 @media (min-width: 768px) { .page { padding: 0 1.5rem 3rem; } }
 .hero-bg { position: absolute; inset: 0; z-index: -1; background: linear-gradient(to bottom, color-mix(in oklab, var(--hero, var(--md-sys-color-primary-container)) 70%, transparent) 0%, transparent 100%); height: 480px; pointer-events: none; }
 .cover-box { height: min(42vh, 480px); max-width: 100%; aspect-ratio: 1 / 1; }
@@ -169,6 +170,13 @@ m3e-slider.seek { --m3e-slider-active-track-color: var(--md-sys-color-primary); 
 m3e-card.media-card { --m3e-card-container-shape: 24px; }
 m3e-linear-progress-indicator.mini { --m3e-linear-progress-indicator-track-height: 4px; }
 input.md-input { width: 100%; background: transparent; border: 0; outline: none; padding: 0; }
-/* Phones: five destinations must fit the navigation bar */
-m3e-nav-bar { --m3e-nav-bar-vertical-item-width: 64px; --m3e-nav-bar-height: 80px; overflow-x: hidden; }
+/* Phones: floating island navigation bar, five destinations must fit */
+.floating-nav {
+  position: fixed; left: 12px; right: 12px; bottom: calc(12px + var(--safe-b));
+  border-radius: 28px; overflow: hidden;
+  background: color-mix(in oklab, var(--md-sys-color-surface-container-high) 92%, transparent);
+  backdrop-filter: blur(20px) saturate(140%); -webkit-backdrop-filter: blur(20px) saturate(140%);
+  box-shadow: 0 6px 16px rgba(0,0,0,.28), 0 2px 4px rgba(0,0,0,.2);
+}
+m3e-nav-bar { --m3e-nav-bar-vertical-item-width: 64px; --m3e-nav-bar-height: 72px; --m3e-nav-bar-container-color: transparent; overflow-x: hidden; }
 m3e-nav-bar m3e-nav-item { min-width: 0; }

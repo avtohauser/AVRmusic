@@ -178,3 +178,23 @@ android/      конфиг Bubblewrap для TWA
 ## Лицензия
 
 MIT
+
+## Развёртывание на сервере (домен + HTTPS)
+
+На чистом Ubuntu/Debian достаточно одной команды под root (ставит Docker, клонирует репозиторий, поднимает
+AVRmusic и Caddy с автоматическим сертификатом Let's Encrypt для домена):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/avtohauser/AVRmusic/claude/music-service-streaming-nfpgvx/deploy/install.sh | bash -s -- music.avthsr.space
+```
+
+Скрипт создаст `/opt/avrmusic/.env` (случайный `JWT_SECRET`, код приглашения `INVITE_CODE`), данные положит в
+`/srv/avrmusic/{data,media,music}`. Первый зарегистрированный аккаунт — администратор. Обновление:
+
+```bash
+cd /opt/avrmusic && git pull && docker compose -f docker-compose.prod.yml up -d --build
+```
+
+Автодеплой по push: workflow `.github/workflows/deploy.yml` заходит на сервер по SSH. В настройках репозитория
+добавьте secrets `SERVER_HOST`, `SERVER_USER`, `SERVER_PASSWORD` (или `SERVER_SSH_KEY`) и variable `DOMAIN`.
+Хранилище на вашем ПК подключается так же, как описано выше: смонтируйте диск и укажите `MEDIA_PATH` в `.env`.

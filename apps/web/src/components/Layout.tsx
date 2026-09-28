@@ -27,7 +27,7 @@ export function Layout() {
   useEffect(() => { document.querySelector('main')?.scrollTo({ top: 0 }); }, [loc.pathname]);
 
   return (
-    <div className="h-full flex flex-col bg-background text-on-background" style={{ ['--player-h' as any]: hasTrack ? '96px' : '0px', ['--nav-h' as any]: isDesktop ? '0px' : '80px' }}>
+    <div className="h-full flex flex-col bg-background text-on-background" style={{ ['--player-h' as any]: hasTrack ? '96px' : '0px', ['--nav-h' as any]: isDesktop ? '0px' : '92px' }}>
       <div className="flex-1 flex min-h-0">
         {isDesktop && <Rail />}
         <main className="flex-1 min-w-0 overflow-y-auto relative" style={{ paddingBottom: 'calc(var(--player-h) + var(--nav-h) + var(--safe-b) + 16px)' }}>
@@ -176,15 +176,18 @@ function BottomNav({ user }: { user: boolean }) {
     user ? ['/downloads', 'download', t('downloads'), false] : ['/login', 'login', t('login'), false], ['/profile', 'person', t('profile'), false],
   ];
   const active = (path: string, end: boolean) => (end ? loc.pathname === path : loc.pathname.startsWith(path));
+  // Floating "island" navigation bar (Material 3 Expressive): inset from the edges, pill-shaped, elevated.
   return (
-    <M3eNavBar className="fixed bottom-0 left-0 right-0 z-[65]" style={{ paddingBottom: 'var(--safe-b)' }}>
-      {items.map(([path, icon, label, end]) => (
-        <M3eNavItem key={path} selected={active(path, end) || undefined} onClick={() => nav(path)}>
-          <m3e-icon variant="rounded" slot="icon" name={icon} />
-          <m3e-icon variant="rounded" slot="selected-icon" name={icon} filled />
-          {label}
-        </M3eNavItem>
-      ))}
-    </M3eNavBar>
+    <div className="floating-nav z-[65]">
+      <M3eNavBar>
+        {items.map(([path, icon, label, end]) => (
+          <M3eNavItem key={path} selected={active(path, end) || undefined} onClick={() => nav(path)}>
+            <m3e-icon variant="rounded" slot="icon" name={icon} />
+            <m3e-icon variant="rounded" slot="selected-icon" name={icon} filled />
+            {label}
+          </M3eNavItem>
+        ))}
+      </M3eNavBar>
+    </div>
   );
 }

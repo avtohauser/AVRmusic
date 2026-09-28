@@ -1,0 +1,19 @@
+# Reverse proxy with automatic HTTPS (Let's Encrypt). DOMAIN comes from .env (docker-compose.prod.yml).
+{$DOMAIN} {
+	encode zstd gzip
+	reverse_proxy avrmusic:8080 {
+		# long uploads / big downloads
+		transport http {
+			read_timeout 30m
+			write_timeout 30m
+		}
+	}
+	request_body {
+		max_size 4GB
+	}
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+}

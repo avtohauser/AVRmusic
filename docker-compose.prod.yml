@@ -1,0 +1,55 @@
+# Production: AVRmusic + Caddy (automatic HTTPS for $DOMAIN).
+#   cp deploy/.env.prod.example .env  → edit → docker compose -f docker-compose.prod.yml up -d --build
+services:
+  avrmusic:
+    build: .
+    image: avrmusic:latest
+    restart: unless-stopped
+    expose:
+      - "8080"
+    environment:
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      PUBLIC_URL: https://${DOMAIN:?set DOMAIN in .env}
+      ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-true}
+      INVITE_CODE: ${INVITE_CODE:-}
+      PUBLIC_LIBRARY: ${PUBLIC_LIBRARY:-false}
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-2048}
+      DATA_DIR: /data
+      MEDIA_DIR: /media
+      MUSIC_DIR: /music
+      CATALOG_ENABLED: ${CATALOG_ENABLED:-true}
+      ACQUIRE_ROLE: ${ACQUIRE_ROLE:-user}
+      ACQUIRE_SOURCES: ${ACQUIRE_SOURCES:-youtube,audius,archive,soundcloud,jamendo}
+      JAMENDO_CLIENT_ID: ${JAMENDO_CLIENT_ID:-}
+      AUDIUS_APP_NAME: ${AUDIUS_APP_NAME:-AVRmusic}
+      ANDROID_PACKAGE: ${ANDROID_PACKAGE:-app.avrmusic.twa}
+      ANDROID_SHA256: ${ANDROID_SHA256:-}
+    volumes:
+      - ${DATA_PATH:-./data}:/data
+      - ${MEDIA_PATH:-./media}:/media
+      - ${MUSIC_PATH:-./music}:/music:ro
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - avrmusic
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

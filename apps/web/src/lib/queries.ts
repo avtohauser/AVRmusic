@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { Album, AlbumSummary, Artist, ArtistSummary, Genre, HistoryEntry, HomeFeed, Lyrics, Paginated, Playlist, PlaylistSummary, SearchResult, Track } from '@avrmusic/shared';
+import type { AcquireJob, Album, AlbumSummary, Artist, ArtistSummary, CatalogAlbumPage, CatalogArtistPage, CatalogSearchResult, Genre, HistoryEntry, HomeFeed, Lyrics, Paginated, Playlist, PlaylistSummary, SearchResult, Track } from '@avrmusic/shared';
 import { api } from './api';
 import { useAuth } from '@/stores/auth';
 
@@ -23,6 +23,14 @@ export const useLyrics = (id: string | null | undefined) => useQuery({ queryKey:
 export const useHistory = () => { const user = useAuth((s) => s.user); return useQuery({ queryKey: ['history', user?.id], queryFn: () => api.get<HistoryEntry[]>('/api/me/history?limit=100'), enabled: !!user }); };
 export const useAlbums = (sort = 'new') => useQuery({ queryKey: ['albums', sort], queryFn: () => api.get<Paginated<AlbumSummary>>(`/api/albums?sort=${sort}&limit=100`), enabled: canBrowse() });
 export const useArtists = (sort = 'popular') => useQuery({ queryKey: ['artists', sort], queryFn: () => api.get<Paginated<ArtistSummary>>(`/api/artists?sort=${sort}&limit=100`), enabled: canBrowse() });
+
+export const useCatalogSearch = (q: string) => useQuery({ queryKey: ['catalog', 'search', q], queryFn: () => api.get<CatalogSearchResult>(`/api/catalog/search?q=${encodeURIComponent(q)}&limit=12`), enabled: q.trim().length > 1 && canBrowse(), staleTime: 5 * 60_000, placeholderData: (p) => p });
+export const useCatalogArtist = (id: number | undefined) => useQuery({ queryKey: ['catalog', 'artist', id], queryFn: () => api.get<CatalogArtistPage>(`/api/catalog/artists/${id}`), enabled: !!id, staleTime: 10 * 60_000 });
+export const useCatalogAlbum = (id: number | undefined) => useQuery({ queryKey: ['catalog', 'album', id], queryFn: () => api.get<CatalogAlbumPage>(`/api/catalog/albums/${id}`), enabled: !!id, staleTime: 10 * 60_000 });
+export const useAcquireJobs = () => {
+  const user = useAuth((s) => s.user);
+  return useQuery({ queryKey: ['acquire-jobs'], queryFn: () => api.get<AcquireJob[]>('/api/catalog/jobs'), enabled: !!user && !!useAuth.getState().info?.catalog, refetchInterval: (q) => ((q.state.data ?? []).some((j) => j.status === 'queued' || j.status === 'running') ? 2000 : 15000) });
+};
 
 export function useInvalidate() {
   const qc = useQueryClient();

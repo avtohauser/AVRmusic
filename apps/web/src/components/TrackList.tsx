@@ -77,10 +77,10 @@ export function TrackList({ tracks, context, showAlbum = true, showCover = true,
               {showCover && <Cover src={track.coverUrl} alt="" className={compact ? 'w-9 h-9' : 'w-10 h-10 md:w-11 md:h-11'} />}
               <div className="min-w-0">
                 <div className={`track-title font-medium line-clamp-1 ${isCur ? 'text-accent' : ''}`}>{track.title}{track.explicit && <span className="ml-1.5 text-[10px] px-1 rounded bg-surface-2 text-muted align-middle">E</span>}</div>
-                <div className="text-sm text-muted flex items-center gap-1.5 whitespace-nowrap overflow-hidden [&>a]:truncate">
-                  {offline.has(track.id) && <CheckCircle2 size={13} className="text-emerald-400 shrink-0" />}
-                  {track.hasSyncedLyrics && <Mic2 size={12} className="shrink-0 opacity-70" />}
-                  {track.hasCanvas && <Clapperboard size={12} className="shrink-0 opacity-70" />}
+                <div className="text-sm text-muted truncate">
+                  {offline.has(track.id) && <CheckCircle2 size={13} className="text-emerald-400 inline align-[-2px] mr-1" />}
+                  {track.hasSyncedLyrics && <Mic2 size={12} className="inline align-[-1px] mr-1 opacity-70" />}
+                  {track.hasCanvas && <Clapperboard size={12} className="inline align-[-1px] mr-1 opacity-70" />}
                   <Link to={`/artist/${track.artist.id}`} className="hover:underline hover:text-fg" onClick={(e) => e.stopPropagation()}>{track.artist.name}</Link>
                   {track.featuring.map((f) => (<span key={f.id}>, <Link to={`/artist/${f.id}`} className="hover:underline hover:text-fg" onClick={(e) => e.stopPropagation()}>{f.name}</Link></span>))}
                   {!showAlbum && track.album && <span className="md:hidden">· {track.album.title}</span>}

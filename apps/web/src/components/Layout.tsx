@@ -13,6 +13,7 @@ import { Toasts } from './Toasts';
 import { AddToPlaylistModal, PlaylistEditorModal } from './PlaylistModals';
 import { QueuePanel } from './QueuePanel';
 import { Cover } from './Cover';
+import { TopBarQueueIndicator } from './Catalog';
 
 export function Layout() {
   const user = useAuth((s) => s.user);
@@ -128,6 +129,7 @@ function TopBar() {
         </form>
       )}
       <div className="ml-auto flex items-center gap-2">
+        <TopBarQueueIndicator />
         {installPrompt && (
           <button className="btn btn-outline !h-9 hidden sm:inline-flex" onClick={async () => { installPrompt.prompt(); const r = await installPrompt.userChoice; if (r?.outcome === 'accepted') toast(t('installed'), 'success'); setInstallPrompt(null); }}><Download size={16} />{t('installApp')}</button>
         )}

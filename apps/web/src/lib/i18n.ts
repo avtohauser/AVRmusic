@@ -25,6 +25,7 @@ const ru = {
   volume: 'Громкость', mute: 'Без звука', fullscreen: 'На весь экран', close: 'Закрыть', sleepTimer: 'Таймер сна', speed: 'Скорость', keyboard: 'Горячие клавиши',
   quickPicks: 'Быстрый доступ', madeForYou: 'Подобрано для вас', newReleases: 'Новые релизы', recentlyPlayed: 'Недавно слушали', communityPlaylists: 'Плейлисты сообщества',
   offline: 'Офлайн', online: 'В сети',
+  catalog: 'Каталог', myLibrary: 'Моя библиотека', inLibrary: 'В библиотеке', addToLibrary: 'Добавить в библиотеку', addAlbum: 'Добавить альбом', addDiscography: 'Скачать дискографию', acquiring: 'Загружается…', acquireQueued: 'Добавлено в очередь загрузки', queued: 'В очереди', queueEmpty: 'Очередь пуста', acquiredN: 'загружено', alreadyN: 'уже было', failedN: 'не найдено', fans: 'поклонников', releases: 'релизов', openInLibrary: 'Открыть в библиотеке', openInCatalog: 'Открыть в каталоге', preview: 'Превью 30 сек', libraryQueue: 'Очередь загрузки из каталога', inviteCode: 'Код приглашения', catalogHint: 'Поиск по мировому каталогу: исполнители, альбомы, треки. Нажмите «+», и трек появится в библиотеке.',
 };
 export type Dict = typeof ru;
 
@@ -51,6 +52,7 @@ const en: Dict = {
   volume: 'Volume', mute: 'Mute', fullscreen: 'Fullscreen', close: 'Close', sleepTimer: 'Sleep timer', speed: 'Speed', keyboard: 'Keyboard shortcuts',
   quickPicks: 'Quick picks', madeForYou: 'Made for you', newReleases: 'New releases', recentlyPlayed: 'Recently played', communityPlaylists: 'Community playlists',
   offline: 'Offline', online: 'Online',
+  catalog: 'Catalogue', myLibrary: 'My library', inLibrary: 'In library', addToLibrary: 'Add to library', addAlbum: 'Add album', addDiscography: 'Get discography', acquiring: 'Fetching…', acquireQueued: 'Queued for download', queued: 'Queued', queueEmpty: 'Queue is empty', acquiredN: 'fetched', alreadyN: 'already there', failedN: 'not found', fans: 'fans', releases: 'releases', openInLibrary: 'Open in library', openInCatalog: 'Open in catalogue', preview: '30s preview', libraryQueue: 'Catalogue download queue', inviteCode: 'Invite code', catalogHint: 'Search the world catalogue: artists, albums, tracks. Press “+” and the track lands in your library.',
 };
 
 const dicts: Record<Lang, Dict> = { ru, en };

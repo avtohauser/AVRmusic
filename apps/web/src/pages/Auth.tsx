@@ -13,7 +13,7 @@ export default function Auth({ mode }: { mode: 'login' | 'register' }) {
   const t = useT();
   const nav = useNavigate();
   const loc = useLocation();
-  const [form, setForm] = useState({ login: '', email: '', username: '', password: '', displayName: '' });
+  const [form, setForm] = useState({ login: '', email: '', username: '', password: '', displayName: '', inviteCode: '' });
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   if (user) return <Navigate to="/" replace />;
@@ -26,7 +26,7 @@ export default function Auth({ mode }: { mode: 'login' | 'register' }) {
     e.preventDefault();
     setErr(''); setBusy(true);
     try {
-      if (isRegister) await register({ email: form.email, username: form.username, password: form.password, displayName: form.displayName || undefined });
+      if (isRegister) await register({ email: form.email, username: form.username, password: form.password, displayName: form.displayName || undefined, inviteCode: form.inviteCode || undefined });
       else await login(form.login, form.password);
       useLikes.getState().load();
       nav((loc.state as any)?.from ?? '/', { replace: true });
@@ -46,6 +46,7 @@ export default function Auth({ mode }: { mode: 'login' | 'register' }) {
             <div><label className="label">{t('email')}</label><input className="input" type="email" required autoComplete="email" {...f('email')} /></div>
             <div><label className="label">{t('username')}</label><input className="input" required minLength={3} maxLength={32} pattern="[a-zA-Z0-9_.\-]+" autoComplete="username" {...f('username')} /></div>
             <div><label className="label">{t('displayName')}</label><input className="input" maxLength={60} {...f('displayName')} /></div>
+            {info?.inviteRequired && <div><label className="label">{t('inviteCode')}</label><input className="input" required {...f('inviteCode')} /></div>}
           </>
         ) : (
           <div><label className="label">{t('loginOrEmail')}</label><input className="input" required autoComplete="username" autoFocus {...f('login')} /></div>

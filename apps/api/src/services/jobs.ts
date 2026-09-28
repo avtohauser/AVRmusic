@@ -4,9 +4,12 @@ import { newId } from '../lib/util.js';
 
 export interface Job {
   id: string;
-  kind: 'url' | 'lyrics';
+  kind: 'url' | 'lyrics' | 'acquire';
   url?: string;
   mode?: 'audio' | 'video';
+  /** Human-readable label (acquire jobs) */
+  title?: string;
+  requestedBy?: string | null;
   status: 'queued' | 'running' | 'done' | 'error';
   progress: number;
   log: string[];
@@ -40,7 +43,7 @@ export function removeJob(id: string): boolean {
   return true;
 }
 
-export function enqueue(init: Pick<Job, 'kind' | 'url' | 'mode'>, run: Runner): Job {
+export function enqueue(init: Pick<Job, 'kind' | 'url' | 'mode' | 'title' | 'requestedBy'>, run: Runner): Job {
   const job: Job = { id: newId(), status: 'queued', progress: 0, log: [], imported: [], createdAt: new Date().toISOString(), ...init };
   jobs.set(job.id, job);
   queue.push({ job, run });

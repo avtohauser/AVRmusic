@@ -142,6 +142,22 @@ const MIGRATIONS: string[] = [
     tokenize = 'unicode61 remove_diacritics 2'
   );
   `,
+  // 2: global catalogue links + response cache
+  `
+  ALTER TABLE artists ADD COLUMN deezer_id INTEGER;
+  ALTER TABLE albums ADD COLUMN deezer_id INTEGER;
+  ALTER TABLE tracks ADD COLUMN deezer_id INTEGER;
+  ALTER TABLE tracks ADD COLUMN isrc TEXT;
+  ALTER TABLE tracks ADD COLUMN source TEXT;
+  CREATE INDEX idx_artists_deezer ON artists(deezer_id);
+  CREATE INDEX idx_albums_deezer ON albums(deezer_id);
+  CREATE INDEX idx_tracks_deezer ON tracks(deezer_id);
+  CREATE TABLE catalog_cache (
+    key TEXT PRIMARY KEY,
+    json TEXT NOT NULL,
+    fetched_at INTEGER NOT NULL
+  );
+  `,
 ];
 
 export function openDatabase(dbPath = config.dbPath): DB {

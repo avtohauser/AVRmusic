@@ -41,3 +41,6 @@ export function tracksWord(n: number, lang = 'ru'): string {
   if (lang === 'en') return `${n} ${n === 1 ? 'track' : 'tracks'}`;
   return `${n} ${plural(n, ['трек', 'трека', 'треков'])}`;
 }
+export function fmtCompact(n: number, lang = 'ru'): string {
+  return new Intl.NumberFormat(lang === 'en' ? 'en-US' : 'ru-RU', { notation: 'compact', maximumFractionDigits: 1 }).format(n);
+}

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { BadgeCheck, Shuffle } from 'lucide-react';
+import { BadgeCheck, Shuffle, Globe } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useArtist } from '@/lib/queries';
 import { usePlayer } from '@/stores/player';
 import { useLikes } from '@/stores/likes';
@@ -20,6 +21,7 @@ export default function Artist() {
   const t = useT();
   const lang = useI18n((s) => s.lang);
   const user = useAuth((s) => s.user);
+  const info = useAuth((s) => s.info);
   const liked = useLikes((s) => (id ? s.ids.artist.has(id) : false));
   const toggle = useLikes((s) => s.toggle);
   const [showAll, setShowAll] = useState(false);
@@ -42,6 +44,7 @@ export default function Artist() {
         <PlayButton size="lg" playing={isThis && playing} onClick={() => (isThis ? p.toggle() : p.playTracks(a.topTracks, 0, `artist:${a.id}`))} />
         <button className="icon-btn" title={t('shuffle')} onClick={() => { if (!p.shuffle) p.toggleShuffle(); p.playTracks(a.topTracks, 0, `artist:${a.id}`); }}><Shuffle size={22} /></button>
         {user && <button className={`btn ${liked ? 'btn-primary' : 'btn-outline'} !h-9`} onClick={() => toggle('artist', a.id)}>{liked ? t('following') : t('follow')}</button>}
+        {info?.catalog && <Link to={a.deezerId ? `/catalog/artist/${a.deezerId}` : `/search?scope=catalog&q=${encodeURIComponent(a.name)}`} className="btn btn-ghost !h-9"><Globe size={16} />{t('openInCatalog')}</Link>}
       </Hero>
       <div className="page">
         <h2 className="text-xl font-bold mb-2">{t('popular')}</h2>

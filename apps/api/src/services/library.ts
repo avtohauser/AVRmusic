@@ -69,7 +69,7 @@ export function mapTracks(db: DB, rows: any[], userId?: string | null): Track[] 
 }
 
 export const ALBUM_SELECT = `
-  al.id, al.title, al.year, al.type, al.cover_path, al.description, al.release_date, al.label, al.created_at,
+  al.id, al.deezer_id, al.title, al.year, al.type, al.cover_path, al.description, al.release_date, al.label, al.created_at,
   ar.id AS artist_id, ar.name AS artist_name, ar.image_path AS artist_image,
   (SELECT COUNT(*) FROM tracks t WHERE t.album_id = al.id) AS track_count,
   (SELECT COALESCE(SUM(duration_ms),0) FROM tracks t WHERE t.album_id = al.id) AS duration_ms
@@ -79,6 +79,7 @@ export const ALBUM_FROM = `FROM albums al JOIN artists ar ON ar.id = al.artist_i
 export function mapAlbumSummary(r: any): AlbumSummary {
   return {
     id: r.id,
+    deezerId: r.deezer_id ?? null,
     title: r.title,
     year: r.year,
     type: r.type,
@@ -203,6 +204,7 @@ export function getArtist(db: DB, id: string, userId?: string | null): (Artist &
   }
   const artist: Artist & { albums: AlbumSummary[]; topTracks: Track[]; related: ArtistSummary[]; appearsOn: AlbumSummary[] } = {
     id: r.id,
+    deezerId: r.deezer_id ?? null,
     name: r.name,
     imageUrl: coverUrl(r.image_path),
     headerUrl: coverUrl(r.header_path),

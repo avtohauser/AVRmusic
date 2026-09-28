@@ -1,4 +1,7 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { AcquireQueue } from '@/components/Catalog';
+import { useAuth } from '@/stores/auth';
 import { HardDriveDownload, Trash2 } from 'lucide-react';
 import type { Track } from '@avrmusic/shared';
 import { listOffline, onOfflineChange, removeOffline, offlineUsage } from '@/lib/offline';
@@ -16,6 +19,9 @@ export default function Downloads() {
   const t = useT();
   const toast = useUI((s) => s.toast);
   const p = usePlayer.getState();
+  const [params, setParams] = useSearchParams();
+  const info = useAuth((s) => s.info);
+  const tab = params.get('tab') === 'queue' ? 'queue' : 'offline';
   const refresh = () => { listOffline().then(setItems); offlineUsage().then(setUsage); };
   useEffect(() => { refresh(); return onOfflineChange(refresh); }, []);
   const tracks = items.map((i) => i.track);
@@ -30,7 +36,13 @@ export default function Downloads() {
         {tracks.length > 0 && <PlayButton size="lg" onClick={() => p.playTracks(tracks, 0, 'offline')} />}
         {tracks.length > 0 && <button className="icon-btn" title={t('delete')} onClick={async () => { if (!confirm(t('confirmDelete'))) return; for (const i of items) await removeOffline(i.track.id); toast(t('removed')); }}><Trash2 size={20} /></button>}
       </div>
-      {tracks.length ? <TrackList tracks={tracks} context="offline" /> : <EmptyState icon={<HardDriveDownload />} title={t('emptyDownloads')} hint={t('emptyDownloadsHint')} />}
+      {info?.catalog && (
+        <div className="flex gap-2 mb-4">
+          <button className="chip" data-active={tab === 'offline'} onClick={() => setParams({})}>{t('downloadedTracks')}</button>
+          <button className="chip" data-active={tab === 'queue'} onClick={() => setParams({ tab: 'queue' })}>{t('libraryQueue')}</button>
+        </div>
+      )}
+      {tab === 'queue' ? <AcquireQueue /> : tracks.length ? <TrackList tracks={tracks} context="offline" /> : <EmptyState icon={<HardDriveDownload />} title={t('emptyDownloads')} hint={t('emptyDownloadsHint')} />}
     </div>
   );
 }

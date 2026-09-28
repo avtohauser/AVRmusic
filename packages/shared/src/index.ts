@@ -27,6 +27,7 @@ export interface ArtistSummary {
 }
 
 export interface Artist extends ArtistSummary {
+  deezerId?: number | null;
   bio: string | null;
   headerUrl: string | null;
   verified: boolean;
@@ -37,6 +38,7 @@ export interface Artist extends ArtistSummary {
 
 export interface AlbumSummary {
   id: string;
+  deezerId?: number | null;
   title: string;
   year: number | null;
   type: 'album' | 'single' | 'ep' | 'compilation';
@@ -179,9 +181,90 @@ export interface ServerInfo {
   name: string;
   version: string;
   allowRegistration: boolean;
+  inviteRequired: boolean;
   publicLibrary: boolean;
   maxUploadMb: number;
   needsSetup: boolean;
+  /** Global catalogue (Deezer metadata) browsing is enabled */
+  catalog: boolean;
+  /** Users may request tracks to be fetched into the library ('user' = everyone, 'admin' = admins only, 'off') */
+  acquire: 'user' | 'admin' | 'off';
+  acquireSource: 'youtube' | 'soundcloud';
+}
+
+/* ---------- Global catalogue (metadata provider) ---------- */
+
+export interface CatalogArtistSummary { id: number; name: string; imageUrl: string | null }
+export interface CatalogArtist extends CatalogArtistSummary {
+  fans: number;
+  albumCount: number;
+  /** Local artist id when at least one track of this artist is in the library */
+  libraryArtistId: string | null;
+}
+export interface CatalogAlbum {
+  id: number;
+  title: string;
+  coverUrl: string | null;
+  type: 'album' | 'single' | 'ep' | 'compilation';
+  year: number | null;
+  releaseDate: string | null;
+  trackCount: number;
+  explicit: boolean;
+  artist: CatalogArtistSummary;
+  libraryAlbumId: string | null;
+  /** How many of the album's tracks are already in the library */
+  inLibrary: number;
+}
+export interface CatalogTrack {
+  id: number;
+  title: string;
+  durationMs: number;
+  explicit: boolean;
+  previewUrl: string | null;
+  trackNo: number | null;
+  discNo: number | null;
+  artist: CatalogArtistSummary;
+  featuring: CatalogArtistSummary[];
+  album: { id: number; title: string; coverUrl: string | null } | null;
+  libraryTrackId: string | null;
+}
+export interface CatalogSearchResult {
+  query: string;
+  top: { kind: 'artist'; item: CatalogArtist } | { kind: 'album'; item: CatalogAlbum } | { kind: 'track'; item: CatalogTrack } | null;
+  artists: CatalogArtist[];
+  albums: CatalogAlbum[];
+  tracks: CatalogTrack[];
+}
+export interface CatalogArtistPage {
+  artist: CatalogArtist;
+  topTracks: CatalogTrack[];
+  albums: CatalogAlbum[];
+  singles: CatalogAlbum[];
+  compilations: CatalogAlbum[];
+  related: CatalogArtist[];
+  appearsOn: CatalogTrack[];
+}
+export interface CatalogAlbumPage extends CatalogAlbum {
+  label: string | null;
+  genres: string[];
+  durationMs: number;
+  contributors: Array<CatalogArtistSummary & { role: string }>;
+  tracks: CatalogTrack[];
+}
+export type AcquireKind = 'track' | 'album' | 'artist';
+export interface AcquireJob {
+  id: string;
+  kind: 'acquire';
+  status: 'queued' | 'running' | 'done' | 'error';
+  progress: number;
+  title: string;
+  requestedBy: string | null;
+  log: string[];
+  imported: Track[];
+  error?: string;
+  createdAt: string;
+  finishedAt?: string;
+  stats?: Record<string, number>;
 }
 
 export interface ApiError {

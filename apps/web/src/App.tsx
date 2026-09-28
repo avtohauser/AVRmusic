@@ -23,6 +23,8 @@ import Auth from '@/pages/Auth';
 import NotFound from '@/pages/NotFound';
 const Admin = lazy(() => import('@/pages/Admin'));
 const AdminTrack = lazy(() => import('@/pages/AdminTrack'));
+const CatalogArtist = lazy(() => import('@/pages/CatalogArtist'));
+const CatalogAlbum = lazy(() => import('@/pages/CatalogAlbum'));
 
 const qc = new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false, staleTime: 15_000 } } });
 
@@ -89,6 +91,8 @@ export default function App() {
               <Route path="/artist/:id" element={<Artist />} />
               <Route path="/playlist/:id" element={<Playlist />} />
               <Route path="/genre/:slug" element={<Genre />} />
+              <Route path="/catalog/artist/:id" element={<CatalogArtist />} />
+              <Route path="/catalog/album/:id" element={<CatalogAlbum />} />
               <Route path="/liked" element={<RequireAuth><Liked /></RequireAuth>} />
               <Route path="/downloads" element={<RequireAuth><Downloads /></RequireAuth>} />
               <Route path="/history" element={<RequireAuth><History /></RequireAuth>} />

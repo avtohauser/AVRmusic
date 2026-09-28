@@ -12,14 +12,19 @@ export default async function authRoutes(app: FastifyInstance) {
     name: 'AVRmusic',
     version: config.version,
     allowRegistration: config.allowRegistration,
+    inviteRequired: !!config.inviteCode && userCount(db) > 0,
     publicLibrary: config.publicLibrary,
     maxUploadMb: config.maxUploadMb,
     needsSetup: userCount(db) === 0,
+    catalog: config.catalogEnabled,
+    acquire: config.acquireRole,
+    acquireSource: config.acquireSource,
   }));
 
   app.post('/api/auth/register', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (req) => {
-    const body = z.object({ email: z.string(), username: z.string(), password: z.string(), displayName: z.string().optional() }).parse(req.body);
+    const body = z.object({ email: z.string(), username: z.string(), password: z.string(), displayName: z.string().optional(), inviteCode: z.string().optional() }).parse(req.body);
     if (!config.allowRegistration && userCount(db) > 0) throw forbidden('Регистрация отключена администратором');
+    if (config.inviteCode && userCount(db) > 0 && (body.inviteCode ?? '').trim() !== config.inviteCode) throw forbidden('Неверный код приглашения');
     const user = await register(db, body);
     return issueTokens(app, db, user);
   });

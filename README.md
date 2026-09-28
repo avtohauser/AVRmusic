@@ -1,3 +1,5 @@
+<p align="center"><img src="apps/web/public/logo.svg" width="96" alt="AVRmusic"></p>
+
 # AVRmusic
 
 Собственный музыкальный сервис: сайт + Android-приложение (PWA / Trusted Web Activity).

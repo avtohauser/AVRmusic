@@ -7,6 +7,7 @@ import { usePlayer } from '@/stores/player';
 import { useT } from '@/lib/i18n';
 import { useMyPlaylists } from '@/lib/queries';
 import { useMediaQuery } from '@/lib/hooks';
+import { Logo } from './Logo';
 import { PlayerBar } from './PlayerBar';
 import { NowPlaying } from './NowPlaying';
 import { ContextMenu } from './ContextMenu';
@@ -85,7 +86,7 @@ function Rail() {
       <div className="flex flex-col gap-2 px-2 pt-2">
         <M3eIconButton aria-label="menu" onClick={() => setExpanded(!expanded)} className="self-start"><m3e-icon variant="rounded" name={expanded ? 'menu_open' : 'menu'} /></M3eIconButton>
         <Link to="/" className="flex items-center gap-2 px-2 py-1">
-          <span className="w-9 h-9 rounded-[12px] bg-primary text-on-primary flex items-center justify-center shrink-0"><m3e-icon variant="rounded" name="graphic_eq" /></span>
+          <Logo className="w-9 h-9 shrink-0" />
           {expanded && <span className="md-title-lg emph text-primary">AVRmusic</span>}
         </Link>
         {user && (
@@ -142,7 +143,7 @@ function TopBar() {
           <M3eIconButton aria-label="back" onClick={() => nav(-1)}><m3e-icon variant="rounded" name="arrow_back" /></M3eIconButton>
           <M3eIconButton aria-label="forward" onClick={() => nav(1)}><m3e-icon variant="rounded" name="arrow_forward" /></M3eIconButton>
         </span>
-        <Link to="/" className="md:hidden flex items-center gap-2 pl-2"><span className="w-8 h-8 rounded-[10px] bg-primary text-on-primary flex items-center justify-center"><m3e-icon variant="rounded" name="graphic_eq" style={{ ['--m3e-icon-size' as any]: '18px' }} /></span><span className="md-title-md emph text-primary">AVRmusic</span></Link>
+        <Link to="/" className="md:hidden flex items-center gap-2 pl-2"><Logo className="w-8 h-8" /><span className="md-title-md emph text-primary">AVRmusic</span></Link>
       </div>
       {!onSearch && (
         <div slot="title" className="hidden sm:block w-full max-w-[560px]">

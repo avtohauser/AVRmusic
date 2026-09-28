@@ -6,6 +6,7 @@ import { api } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { M3eButton } from '@/md';
 import { Shelf } from '@/components/Shelf';
+import { Logo } from '@/components/Logo';
 import { AlbumCard, ArtistCard, GenreCard, PlaylistCard, QuickPick, TrackCard } from '@/components/Cards';
 import { ShelfSkeleton, Skeleton } from '@/components/Skeleton';
 import { EmptyState } from '@/components/EmptyState';
@@ -22,7 +23,7 @@ export default function Home() {
     return (
       <div className="page pt-10">
         <div className="surface-low rounded-[36px] p-8 md:p-12 text-center max-w-2xl mx-auto fade-in">
-          <div className="w-20 h-20 rounded-[28px] bg-primary text-on-primary mx-auto flex items-center justify-center mb-5"><m3e-icon variant="rounded" name="graphic_eq" style={{ ['--m3e-icon-size' as any]: '36px' }} /></div>
+          <Logo className="w-20 h-20 mx-auto mb-5" />
           <h1 className="md-display-sm emph">{t('welcome')} <span className="text-primary">AVRmusic</span></h1>
           <p className="md-body-lg muted mt-2">{t('signInToListen')}</p>
           <div className="flex justify-center gap-3 mt-6">

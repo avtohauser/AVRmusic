@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { M3eButton, M3eFormField } from '@/md';
+import { Logo } from '@/components/Logo';
 import { useAuth } from '@/stores/auth';
 import { useLikes } from '@/stores/likes';
 import { useT } from '@/lib/i18n';
@@ -42,7 +43,7 @@ export default function Auth({ mode }: { mode: 'login' | 'register' }) {
   return (
     <div className="auth-shell text-on-surface">
       <form onSubmit={submit} className="surface-low rounded-[32px] w-full max-w-[400px] p-5 sm:p-7 space-y-3 fade-in elev-2">
-        <div className="flex items-center gap-2"><span className="w-9 h-9 rounded-[12px] bg-primary text-on-primary flex items-center justify-center"><m3e-icon variant="rounded" name="graphic_eq" /></span><span className="md-title-lg emph text-primary">AVRmusic</span></div>
+        <div className="flex items-center gap-2"><Logo className="w-10 h-10" /><span className="md-title-lg emph text-primary">AVRmusic</span></div>
         <div>
           <h1 className="md-headline-sm emph">{setup ? t('setupTitle') : isRegister ? t('createAccount') : t('login')}</h1>
           {setup && <p className="md-body-md muted mt-1">{t('setupHint')}</p>}

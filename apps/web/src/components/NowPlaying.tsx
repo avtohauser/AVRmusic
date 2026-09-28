@@ -10,7 +10,7 @@ import { useT } from '@/lib/i18n';
 import { fmtTime } from '@/lib/format';
 import { downloadUrl } from '@/lib/api';
 import { Cover } from './Cover';
-import { CanvasView } from './CanvasView';
+import { CanvasView, GeneratedCanvas } from './CanvasView';
 import { Lyrics } from './Lyrics';
 import { LikeButton } from './LikeButton';
 import { QueuePanel } from './QueuePanel';
@@ -62,7 +62,7 @@ export function NowPlaying() {
         </div>
       )}
       {!showCanvas && track.coverUrl && (
-        <div className="absolute inset-0 opacity-20 blur-3xl scale-125" style={{ backgroundImage: `url(${track.coverUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
+        <GeneratedCanvas src={track.coverUrl} playing={playing} className="absolute inset-0 opacity-30" />
       )}
       <div className={`relative h-full flex flex-col max-w-6xl mx-auto px-4 md:px-8 ${showCanvas ? 'text-white' : ''}`} style={{ paddingTop: 'calc(var(--safe-t) + 12px)', paddingBottom: 'calc(var(--safe-b) + 16px)' }}>
         <div className="flex items-center justify-between">

@@ -188,3 +188,24 @@ input.md-input { width: 100%; background: transparent; border: 0; outline: none;
 }
 m3e-nav-bar { --m3e-nav-bar-vertical-item-width: 64px; --m3e-nav-bar-height: 72px; --m3e-nav-bar-container-color: transparent; overflow-x: hidden; }
 m3e-nav-bar m3e-nav-item { min-width: 0; }
+
+/* ---- Sign-in screen (outside the app shell) ---- */
+.auth-shell {
+  min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 16px;
+  background:
+    radial-gradient(60% 50% at 20% 10%, color-mix(in oklab, var(--md-sys-color-primary-container) 55%, transparent) 0%, transparent 70%),
+    radial-gradient(50% 45% at 90% 90%, color-mix(in oklab, var(--md-sys-color-tertiary-container) 45%, transparent) 0%, transparent 70%),
+    var(--md-sys-color-surface);
+}
+
+/* ---- Generated canvas: cover art that drifts, breathes and glows ---- */
+.gen-canvas { position: relative; overflow: hidden; background: #000; }
+.gen-canvas img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.gen-canvas-blur { filter: blur(32px) saturate(160%); transform: scale(1.5); animation: gc-drift 26s ease-in-out infinite alternate; }
+.gen-canvas-art { opacity: .85; animation: gc-zoom 18s ease-in-out infinite alternate; }
+.gen-canvas-glow { position: absolute; inset: -20%; background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.28), transparent 45%); mix-blend-mode: overlay; animation: gc-glow 12s ease-in-out infinite alternate; }
+.gen-canvas[data-paused="true"] * { animation-play-state: paused; }
+@keyframes gc-drift { from { transform: scale(1.5) translate(-3%, -2%) rotate(-2deg) } to { transform: scale(1.6) translate(3%, 3%) rotate(2deg) } }
+@keyframes gc-zoom { from { transform: scale(1.02) } to { transform: scale(1.16) translate(-2%, 2%) } }
+@keyframes gc-glow { from { transform: translate(-10%, -10%) } to { transform: translate(15%, 12%) } }
+@media (prefers-reduced-motion: reduce) { .gen-canvas * { animation: none !important; } }

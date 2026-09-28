@@ -125,6 +125,9 @@ export default function App() {
         <ThemeRoot>
         <Suspense fallback={<div className="page pt-10 muted">…</div>}>
           <Routes>
+            {/* Sign-in screens live outside the app shell: no rail, top bar or player */}
+            <Route path="/login" element={<Auth mode="login" />} />
+            <Route path="/register" element={<Auth mode="register" />} />
             <Route element={<Layout />}>
               <Route index element={<Home />} />
               <Route path="/search" element={<Search />} />
@@ -139,8 +142,6 @@ export default function App() {
               <Route path="/downloads" element={<RequireAuth><Downloads /></RequireAuth>} />
               <Route path="/history" element={<RequireAuth><History /></RequireAuth>} />
               <Route path="/profile" element={<Profile />} />
-              <Route path="/login" element={<Auth mode="login" />} />
-              <Route path="/register" element={<Auth mode="register" />} />
               <Route path="/admin" element={<RequireAuth admin><Admin /></RequireAuth>} />
               <Route path="/admin/track/:id" element={<RequireAuth admin><AdminTrack /></RequireAuth>} />
               <Route path="*" element={<NotFound />} />

@@ -40,11 +40,11 @@ export default function Auth({ mode }: { mode: 'login' | 'register' }) {
   );
 
   return (
-    <div className="min-h-full flex items-center justify-center p-4 pt-10">
-      <form onSubmit={submit} className="surface-low rounded-[36px] w-full max-w-sm p-6 md:p-8 space-y-4 fade-in">
-        <div className="flex items-center gap-2"><span className="w-10 h-10 rounded-[14px] bg-primary text-on-primary flex items-center justify-center"><m3e-icon variant="rounded" name="graphic_eq" /></span><span className="md-title-lg emph text-primary">AVRmusic</span></div>
+    <div className="auth-shell text-on-surface">
+      <form onSubmit={submit} className="surface-low rounded-[32px] w-full max-w-[400px] p-5 sm:p-7 space-y-3 fade-in elev-2">
+        <div className="flex items-center gap-2"><span className="w-9 h-9 rounded-[12px] bg-primary text-on-primary flex items-center justify-center"><m3e-icon variant="rounded" name="graphic_eq" /></span><span className="md-title-lg emph text-primary">AVRmusic</span></div>
         <div>
-          <h1 className="md-headline-md emph">{setup ? t('setupTitle') : isRegister ? t('createAccount') : t('login')}</h1>
+          <h1 className="md-headline-sm emph">{setup ? t('setupTitle') : isRegister ? t('createAccount') : t('login')}</h1>
           {setup && <p className="md-body-md muted mt-1">{t('setupHint')}</p>}
         </div>
         {isRegister ? (

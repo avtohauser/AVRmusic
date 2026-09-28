@@ -20,3 +20,15 @@ export function CanvasView({ track, className = '' }: { track: Track; className?
   }
   return <img key={track.id} src={src} alt="" className={`object-cover ${className}`} />;
 }
+
+/** Fallback "canvas" for tracks without a video: the cover art slowly drifts and breathes (paused with playback). */
+export function GeneratedCanvas({ src, playing, className = '' }: { src: string | null | undefined; playing: boolean; className?: string }) {
+  if (!src) return null;
+  return (
+    <div className={`gen-canvas ${className}`} data-paused={!playing} aria-hidden="true">
+      <img src={src} alt="" className="gen-canvas-blur" />
+      <img src={src} alt="" className="gen-canvas-art" />
+      <div className="gen-canvas-glow" />
+    </div>
+  );
+}

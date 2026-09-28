@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { M3eAppBar, M3eAvatar, M3eButton, M3eFab, M3eIconButton, M3eNavBar, M3eNavItem, M3eNavRail, M3eSearchBar } from '@/md';
 import { useAuth } from '@/stores/auth';
 import { useUI } from '@/stores/ui';
@@ -17,6 +17,8 @@ import { TopBarQueueIndicator } from './Catalog';
 
 export function Layout() {
   const user = useAuth((s) => s.user);
+  const ready = useAuth((s) => s.ready);
+  const info = useAuth((s) => s.info);
   const online = useUI((s) => s.online);
   const queueOpen = useUI((s) => s.queueOpen);
   const setQueueOpen = useUI((s) => s.setQueueOpen);
@@ -25,6 +27,9 @@ export function Layout() {
   const loc = useLocation();
   const isDesktop = useMediaQuery('(min-width: 768px)');
   useEffect(() => { document.querySelector('main')?.scrollTo({ top: 0 }); }, [loc.pathname]);
+  // Private library: guests never see the shell, they get the sign-in screen (a cached user renders at once).
+  if (!user && !ready) return null;
+  if (!user && info && !info.publicLibrary) return <Navigate to="/login" replace state={{ from: loc.pathname }} />;
 
   return (
     <div className="h-full flex flex-col bg-background text-on-background" style={{ ['--player-h' as any]: hasTrack ? '96px' : '0px', ['--nav-h' as any]: isDesktop ? '0px' : '92px' }}>

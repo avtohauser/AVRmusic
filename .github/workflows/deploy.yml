@@ -101,7 +101,8 @@ jobs:
             for i in $(seq 1 36); do
               # public URL first; the --resolve variant sidesteps hairpin-NAT on the VPS itself
               if curl -fsS -m 5 "https://$DOMAIN/api/health" || curl -fsS -m 5 --resolve "$DOMAIN:443:127.0.0.1" "https://$DOMAIN/api/health"; then
-                echo; echo "==> AVRmusic is live: https://$DOMAIN"; exit 0
+                echo; echo "==> AVRmusic is live: https://$DOMAIN"
+                echo "==> Served build: $(curl -s -m 5 --resolve "$DOMAIN:443:127.0.0.1" "https://$DOMAIN/" | grep -oE 'assets/index-[A-Za-z0-9_-]+\.js' | head -n1)"; exit 0
               fi
               sleep 5
             done

@@ -1,0 +1,16 @@
+node_modules/
+dist/
+build/
+.env
+*.log
+.DS_Store
+data/
+!data/.gitkeep
+apps/api/data/
+apps/web/dev-dist/
+android/app/build/
+android/.gradle/
+android/*.keystore
+*.tsbuildinfo
+.pnpm-store/
+coverage/

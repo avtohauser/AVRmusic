@@ -1,0 +1,19 @@
+{
+  "name": "avrmusic",
+  "private": true,
+  "version": "0.1.0",
+  "description": "AVRmusic — self-hosted music streaming service (web + Android PWA)",
+  "packageManager": "pnpm@10.33.0",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "dev": "pnpm -r --parallel --stream run dev",
+    "dev:api": "pnpm --filter @avrmusic/api dev",
+    "dev:web": "pnpm --filter @avrmusic/web dev",
+    "build": "pnpm --filter @avrmusic/shared build && pnpm --filter @avrmusic/web build && pnpm --filter @avrmusic/api build",
+    "start": "pnpm --filter @avrmusic/api start",
+    "seed": "pnpm --filter @avrmusic/api seed",
+    "scan": "pnpm --filter @avrmusic/api scan",
+    "typecheck": "pnpm -r run typecheck",
+    "test": "pnpm -r run test"
+  }
+}

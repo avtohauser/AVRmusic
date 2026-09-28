@@ -6,6 +6,7 @@ import { catalogAlbum, catalogArtist, catalogTrack, rawAlbum, rawArtist, rawTrac
 import { enqueue, getJob, listJobs, removeJob } from '../services/jobs.js';
 import { runAcquireAlbum, runAcquireArtist, runAcquireTrack } from '../services/acquire.js';
 import { clamp, parseIntSafe } from '../lib/util.js';
+import { enqueueCanvasJob } from '../services/canvas.js';
 
 export default async function catalogRoutes(app: FastifyInstance) {
   const db = app.db;
@@ -40,7 +41,19 @@ export default async function catalogRoutes(app: FastifyInstance) {
     return { jobId: job.id, job };
   });
 
-  app.get('/api/catalog/jobs', { preHandler: app.authenticate }, async () => listJobs().filter((j) => j.kind === 'acquire'));
+  /** Users with acquire rights can ask for a canvas (slice of the official clip) for any library track. */
+  app.post('/api/tracks/:id/canvas/fetch', { preHandler: canAcquire }, async (req) => {
+    const id = (req.params as any).id;
+    const t = db.prepare('SELECT t.title, a.name AS artist FROM tracks t JOIN artists a ON a.id = t.artist_id WHERE t.id = ?').get(id) as any;
+    if (!t) throw notFound('Трек не найден');
+    const title = `Канвас: ${t.artist} — ${t.title}`;
+    const dup = listJobs().find((j) => j.kind === 'canvas' && (j.status === 'queued' || j.status === 'running') && j.title === title);
+    if (dup) return { jobId: dup.id, job: dup, duplicate: true };
+    const job = enqueueCanvasJob(db, [id], title, { force: true, requestedBy: req.userId });
+    return { jobId: job.id, job };
+  });
+
+  app.get('/api/catalog/jobs', { preHandler: app.authenticate }, async () => listJobs().filter((j) => j.kind === 'acquire' || j.kind === 'canvas'));
   app.delete('/api/catalog/jobs/:id', { preHandler: app.authenticate }, async (req) => {
     const j = getJob((req.params as any).id);
     if (!j) throw notFound('Задача не найдена');

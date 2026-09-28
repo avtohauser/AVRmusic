@@ -81,6 +81,7 @@ export default function AdminTrack() {
             </div>
           )}
           <div className="flex gap-2 flex-wrap">
+            <M3eButton variant="filled" disabled={busy === 'canvas' || undefined} onClick={() => wrap('canvas', () => api.post(`/api/admin/tracks/${id}/canvas/fetch`, {}), t('canvasQueued'))}><m3e-icon variant="rounded" slot="icon" name="movie" />{t('findCanvas')}</M3eButton>
             <M3eButton variant="tonal" disabled={busy === 'canvas' || undefined} onClick={() => canvasRef.current?.click()}><m3e-icon variant="rounded" slot="icon" name={busy === 'canvas' ? 'hourglass_empty' : 'upload'} />{t('uploadCanvas')}</M3eButton>
             {track.hasCanvas && <M3eButton variant="text" style={{ color: 'var(--md-sys-color-error)' }} onClick={() => wrap('canvas', () => api.del(`/api/admin/tracks/${id}/canvas`), t('removed'))}><m3e-icon variant="rounded" slot="icon" name="delete" />{t('removeCanvas')}</M3eButton>}
           </div>

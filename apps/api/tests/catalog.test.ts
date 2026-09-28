@@ -8,7 +8,7 @@ import Fastify from 'fastify';
 process.env.DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'avrmusic-cat-'));
 process.env.JWT_SECRET = 'test-secret';
 process.env.YTDLP_PATH = path.join(process.cwd(), 'tests/fixtures/fake-ytdlp.sh');
-process.env.FFMPEG_PATH = '/nonexistent/ffmpeg';
+process.env.FFMPEG_PATH = path.join(process.cwd(), 'tests/fixtures/fake-ffmpeg.sh'); // copies input → output, enough for the canvas pipeline
 
 const { buildApp } = await import('../src/app.js');
 const { openDatabase } = await import('../src/lib/db.js');
@@ -188,6 +188,49 @@ test('acquire a single track: yt-dlp match → library track with catalogue meta
   const la = await app.inject({ method: 'GET', url: `/api/artists/${t.artist.id}`, headers: { authorization: `Bearer ${access}` } });
   assert.equal(la.json().deezerId, 100);
   assert.equal(la.json().verified, true);
+});
+
+test('canvas scoring: official clip beats lyric video, topic uploads and other songs', async () => {
+  const { scoreVideo } = await import('../src/services/canvas.js');
+  const want = { title: 'Second Song', artist: 'Fake Artist', durationSec: 181 };
+  const official = scoreVideo({ id: 'a', title: 'Fake Artist - Second Song (Official Video)', duration: 201, channel: 'FakeArtistVEVO', viewCount: 2_500_000 }, want);
+  const lyric = scoreVideo({ id: 'b', title: 'Fake Artist - Second Song (Lyric Video)', duration: 183, channel: 'Fake Artist', viewCount: 5000 }, want);
+  const topic = scoreVideo({ id: 'c', title: 'Second Song', duration: 181, channel: 'Fake Artist - Topic', viewCount: null }, want);
+  const other = scoreVideo({ id: 'd', title: 'Fake Artist - Completely Different (Official Video)', duration: 200, channel: 'FakeArtistVEVO', viewCount: 9_000_000 }, want);
+  const live = scoreVideo({ id: 'e', title: 'Fake Artist - Second Song (Live at Arena)', duration: 250, channel: 'Fake Artist', viewCount: 100000 }, want);
+  assert.ok(official >= 40, `official ${official}`);
+  assert.ok(lyric < 40 && lyric < official, `lyric ${lyric}`);
+  assert.ok(topic < official && topic < 40, `topic ${topic}`);
+  assert.ok(other < 0, `other song ${other}`);
+  assert.ok(live < 40, `live ${live}`);
+  // words that are part of the song title are not penalised ("Remix" in a remix track)
+  const remixWant = { title: 'Second Song (Remix)', artist: 'Fake Artist', durationSec: 181 };
+  assert.ok(scoreVideo({ id: 'f', title: 'Fake Artist - Second Song (Remix) [Official Video]', duration: 185, channel: 'Fake Artist', viewCount: 1000 }, remixWant) >= 40);
+});
+
+test('canvas: an acquired track gets a slice of the official clip automatically', async () => {
+  const jobs = (await app.inject({ method: 'GET', url: '/api/catalog/jobs', headers: { authorization: `Bearer ${access}` } })).json();
+  const cj = jobs.find((j: any) => j.kind === 'canvas' && j.title.includes('Second Song'));
+  assert.ok(cj, 'a canvas job follows the acquisition');
+  const done = await waitJob(cj.id);
+  assert.equal(done.status, 'done', JSON.stringify(done.log));
+  assert.equal(done.stats.found, 1, JSON.stringify(done.log));
+  assert.ok(done.log.some((l: string) => l.includes('Official Video')), 'the official clip was chosen');
+  assert.ok(!done.log.some((l: string) => l.includes('Lyric Video') && l.startsWith('   →')), 'the lyric video was not used');
+  const trackId = (await app.inject({ method: 'GET', url: '/api/catalog/search?q=fake', headers: { authorization: `Bearer ${access}` } })).json().tracks[1].libraryTrackId;
+  const t = (await app.inject({ method: 'GET', url: `/api/tracks/${trackId}`, headers: { authorization: `Bearer ${access}` } })).json();
+  assert.equal(t.hasCanvas, true);
+  assert.equal(t.canvasKind, 'video');
+  // manual re-fetch (user endpoint) replaces the canvas and is de-duplicated while running
+  const m = await app.inject({ method: 'POST', url: `/api/tracks/${trackId}/canvas/fetch`, headers: { authorization: `Bearer ${access}` } });
+  assert.equal(m.statusCode, 200, m.body);
+  const again = await app.inject({ method: 'POST', url: `/api/tracks/${trackId}/canvas/fetch`, headers: { authorization: `Bearer ${access}` } });
+  assert.equal(again.json().jobId, m.json().jobId);
+  const mj = await waitJob(m.json().jobId);
+  assert.equal(mj.status, 'done', JSON.stringify(mj.log));
+  assert.equal(mj.stats.found, 1);
+  const missing = await app.inject({ method: 'POST', url: '/api/admin/canvas/fetch-missing', headers: { authorization: `Bearer ${access}` } });
+  assert.equal(missing.statusCode, 200);
 });
 
 test('acquire an album: existing skipped, missing reported, others imported', async () => {

@@ -82,6 +82,10 @@ export function ContextMenu() {
         if (offline) { await removeOffline(track.id); toast(t('removed')); }
         else { toast(`${t('saveOffline')}…`); try { await saveOffline(track); toast(t('savedOffline'), 'success'); } catch { toast(t('error'), 'error'); } }
       } });
+      const info = useAuth.getState().info;
+      if (!track.hasCanvas && info && info.acquire !== 'off' && (info.acquire === 'user' || user.role === 'admin')) {
+        items.push({ icon: 'movie', label: t('findCanvas'), onClick: async () => { try { await api.post(`/api/tracks/${track.id}/canvas/fetch`, {}); toast(t('canvasQueued'), 'success'); } catch (e: any) { toast(e.message, 'error'); } } });
+      }
       if (user.role === 'admin') items.push({ icon: 'edit', label: t('editTrack'), onClick: () => nav(`/admin/track/${track.id}`) });
     }
     items.push({ icon: 'share', label: t('share'), onClick: () => share(track.album ? `/album/${track.album.id}?track=${track.id}` : `/artist/${track.artist.id}`) });

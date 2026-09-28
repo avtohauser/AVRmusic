@@ -202,6 +202,8 @@ export interface ServerInfo {
   /** Users may request tracks to be fetched into the library ('user' = everyone, 'admin' = admins only, 'off') */
   acquire: 'user' | 'admin' | 'off';
   acquireSource: 'youtube' | 'soundcloud';
+  /** Canvases are cut automatically from the official clip for tracks added from the catalogue */
+  canvasAuto: boolean;
   acquireSources: string[];
 }
 
@@ -267,7 +269,7 @@ export interface CatalogAlbumPage extends CatalogAlbum {
 export type AcquireKind = 'track' | 'album' | 'artist';
 export interface AcquireJob {
   id: string;
-  kind: 'acquire';
+  kind: 'acquire' | 'canvas';
   status: 'queued' | 'running' | 'done' | 'error';
   progress: number;
   title: string;

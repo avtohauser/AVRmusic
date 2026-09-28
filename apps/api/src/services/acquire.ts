@@ -12,6 +12,7 @@ import { saveCover } from './importer.js';
 import { indexAlbum, indexArtist, indexTrack } from './search.js';
 import { getTracksByIds } from './library.js';
 import { fetchLyricsForTrack } from './lrclib.js';
+import { queueCanvasesForImported } from './canvas.js';
 import type { Job } from './jobs.js';
 import { enabledSources, type CancelRef, type Source, type SourceCandidate, type Want } from './sources/index.js';
 
@@ -205,6 +206,7 @@ export async function runAcquireTrack(db: DB, job: Job, deezerTrackId: number, a
   if (r.status === 'imported' || r.status === 'exists') job.imported.push(...getTracksByIds(db, [r.trackId!]));
   summarize(job, { total: 1, imported: r.status === 'imported' ? 1 : 0, exists: r.status === 'exists' ? 1 : 0, failed: r.status === 'notfound' || r.status === 'error' ? 1 : 0 });
   if (r.status === 'notfound' || r.status === 'error') throw new Error(r.message ?? r.status);
+  if (r.status === 'imported') queueCanvasesForImported(db, job);
 }
 
 export async function runAcquireAlbum(db: DB, job: Job, deezerAlbumId: number, api: JobApi) {
@@ -245,6 +247,7 @@ async function acquireMany(db: DB, job: Job, ids: number[], api: JobApi, album: 
     api.progress(((i + 1) / ids.length) * 100);
   }
   if (!stats.imported && !stats.exists && ids.length) throw new Error('Ни один трек не удалось получить');
+  if (stats.imported) queueCanvasesForImported(db, job);
 }
 
 export function tracksOf(db: DB, ids: string[]): Track[] { return getTracksByIds(db, ids); }

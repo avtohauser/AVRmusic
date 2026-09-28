@@ -12,7 +12,7 @@ import { useDebounced } from '@/lib/hooks';
 
 type Tab = 'overview' | 'upload' | 'import' | 'tracks' | 'users';
 
-export interface ImportJob { id: string; kind: 'url' | 'lyrics' | 'acquire'; url?: string; mode?: 'audio' | 'video'; title?: string; status: 'queued' | 'running' | 'done' | 'error'; progress: number; log: string[]; imported: Track[]; error?: string; createdAt: string; stats?: Record<string, number> }
+export interface ImportJob { id: string; kind: 'url' | 'lyrics' | 'acquire' | 'canvas'; url?: string; mode?: 'audio' | 'video'; title?: string; status: 'queued' | 'running' | 'done' | 'error'; progress: number; log: string[]; imported: Track[]; error?: string; createdAt: string; stats?: Record<string, number> }
 interface Capabilities { ytdlp: boolean; ytdlpVersion: string | null; ffmpeg: boolean; musicDir: string | null; mediaDir: string; sources?: Array<{ name: string; label: string; enabled: boolean; ok: boolean; reason?: string }> }
 
 export default function Admin() {
@@ -53,6 +53,7 @@ function Overview() {
       <div className="flex flex-wrap gap-2">
         <M3eButton variant="tonal" disabled={!!busy || undefined} onClick={() => run('scan', () => api.post('/api/admin/scan', {}), t('imported'))}><m3e-icon variant="rounded" slot="icon" name={busy === 'scan' ? 'hourglass_empty' : 'folder_open'} />{t('scan')}</M3eButton>
         <M3eButton variant="tonal" disabled={!!busy || undefined} onClick={() => run('lyrics', () => api.post('/api/admin/lyrics/fetch-missing', {}), 'Задача запущена: см. вкладку «Импорт по ссылке»')}><m3e-icon variant="rounded" slot="icon" name="stars" />Найти тексты для всех треков (LRCLIB)</M3eButton>
+        <M3eButton variant="tonal" disabled={!!busy || undefined} onClick={() => run('canvas', () => api.post('/api/admin/canvas/fetch-missing', {}), 'Задача запущена: см. вкладку «Импорт по ссылке»')}><m3e-icon variant="rounded" slot="icon" name="movie" />{t('findCanvasAll')}</M3eButton>
         <M3eButton variant="tonal" disabled={!!busy || undefined} onClick={() => run('reindex', () => api.post('/api/admin/reindex', {}), t('saved'))}><m3e-icon variant="rounded" slot="icon" name="refresh" />{t('reindex')}</M3eButton>
       </div>
       <p className="md-body-sm muted mt-3">{t('scanHint')}{caps?.musicDir ? `: ${caps.musicDir}` : ' (MUSIC_DIR не задан)'}</p>
@@ -180,7 +181,7 @@ function JobCard({ job }: { job: ImportJob }) {
       <div className="flex items-center gap-3">
         <m3e-icon variant="rounded" name={job.status === 'done' ? 'check_circle' : job.status === 'error' ? 'error' : 'hourglass_empty'} filled style={{ color }} />
         <div className="min-w-0 flex-1">
-          <div className="md-title-sm line-1">{job.kind === 'lyrics' ? 'Поиск текстов (LRCLIB)' : job.kind === 'acquire' ? job.title : job.url}</div>
+          <div className="md-title-sm line-1">{job.kind === 'lyrics' ? 'Поиск текстов (LRCLIB)' : job.kind === 'acquire' || job.kind === 'canvas' ? job.title : job.url}</div>
           <div className="md-body-sm muted">{job.kind === 'url' ? (job.mode === 'video' ? 'видео' : 'аудио') + ' · ' : ''}{new Date(job.createdAt).toLocaleString()}{job.stats ? ` · ${JSON.stringify(job.stats).replace(/[{}"]/g, '').replace(/,/g, ', ')}` : ''}{job.imported.length ? ` · импортировано: ${job.imported.length}` : ''}</div>
         </div>
         <M3eButton variant="text" onClick={() => setOpen(!open)}>лог</M3eButton>

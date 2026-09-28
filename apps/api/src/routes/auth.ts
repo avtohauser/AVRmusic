@@ -21,6 +21,7 @@ export default async function authRoutes(app: FastifyInstance) {
     acquire: config.acquireRole,
     acquireSource: config.acquireSource,
     acquireSources: config.acquireSources,
+    canvasAuto: config.canvasAuto,
   }));
 
   app.post('/api/auth/register', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (req) => {

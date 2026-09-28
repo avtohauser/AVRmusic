@@ -14,6 +14,7 @@ import { cleanupOrphans, deleteTrack, ensureAlbum, ensureArtist, importAudioFile
 import { indexAlbum, indexArtist, indexTrack, reindexAll, removeFromIndex } from '../services/search.js';
 import { mapUser } from '../services/auth.js';
 import { createInvite, deleteInvite, listInvites } from '../services/invites.js';
+import { enqueueCanvasJob } from '../services/canvas.js';
 
 export default async function adminRoutes(app: FastifyInstance) {
   const db = app.db;
@@ -192,6 +193,21 @@ export default async function adminRoutes(app: FastifyInstance) {
     db.prepare('UPDATE tracks SET canvas_path = ?, canvas_mime = ? WHERE id = ?').run(name, (mime.lookup(ext) as string) || file.mimetype, id);
     if (t.canvas_path) { try { fs.unlinkSync(path.join(config.canvasDir, t.canvas_path)); } catch { /* ignore */ } }
     return getTrack(db, id, req.userId);
+  });
+
+  /** Find the official clip on YouTube and cut a canvas out of it (replaces an existing canvas). */
+  app.post('/api/admin/tracks/:id/canvas/fetch', admin, async (req) => {
+    const id = (req.params as any).id;
+    const t = db.prepare('SELECT t.title, a.name AS artist FROM tracks t JOIN artists a ON a.id = t.artist_id WHERE t.id = ?').get(id) as any;
+    if (!t) throw notFound('Трек не найден');
+    const job = enqueueCanvasJob(db, [id], `Канвас: ${t.artist} — ${t.title}`, { force: true, requestedBy: req.userId });
+    return { jobId: job.id, job };
+  });
+  /** Batch: canvases for every audio track that has none. */
+  app.post('/api/admin/canvas/fetch-missing', admin, async (req) => {
+    const ids = (db.prepare("SELECT id FROM tracks WHERE canvas_path IS NULL AND (codec IS NULL OR codec <> 'video')").all() as any[]).map((r) => r.id);
+    const job = enqueueCanvasJob(db, ids, `Канвасы для всех треков (${ids.length})`, { requestedBy: req.userId });
+    return { jobId: job.id, job };
   });
 
   app.delete('/api/admin/tracks/:id/canvas', admin, async (req) => {

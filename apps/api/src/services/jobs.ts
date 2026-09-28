@@ -4,7 +4,7 @@ import { newId } from '../lib/util.js';
 
 export interface Job {
   id: string;
-  kind: 'url' | 'lyrics' | 'acquire';
+  kind: 'url' | 'lyrics' | 'acquire' | 'canvas';
   url?: string;
   mode?: 'audio' | 'video';
   /** Human-readable label (acquire jobs) */

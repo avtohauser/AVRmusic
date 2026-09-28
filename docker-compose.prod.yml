@@ -24,6 +24,8 @@ services:
       ACQUIRE_SOURCES: ${ACQUIRE_SOURCES:-youtube,audius,archive,soundcloud,jamendo}
       JAMENDO_CLIENT_ID: ${JAMENDO_CLIENT_ID:-}
       AUDIUS_APP_NAME: ${AUDIUS_APP_NAME:-AVRmusic}
+      CANVAS_AUTO: ${CANVAS_AUTO:-true}
+      CANVAS_SECONDS: ${CANVAS_SECONDS:-9}
       ANDROID_PACKAGE: ${ANDROID_PACKAGE:-app.avrmusic.twa}
       ANDROID_SHA256: ${ANDROID_SHA256:-}
     volumes:

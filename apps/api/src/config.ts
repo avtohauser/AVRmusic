@@ -55,6 +55,9 @@ export const config = {
   jamendoClientId: process.env.JAMENDO_CLIENT_ID || '',
   jamendoApi: (process.env.JAMENDO_API || 'https://api.jamendo.com').replace(/\/$/, ''),
   archiveApi: (process.env.ARCHIVE_API || 'https://archive.org').replace(/\/$/, ''),
+  /** Auto-fetch a canvas (slice of the official clip) for tracks added from the catalogue. */
+  canvasAuto: bool(process.env.CANVAS_AUTO, true),
+  canvasSeconds: Math.max(4, Math.min(20, Number(process.env.CANVAS_SECONDS || 9))),
   isProd: process.env.NODE_ENV === 'production',
   accessTtl: '15m',
   refreshTtlDays: 30,

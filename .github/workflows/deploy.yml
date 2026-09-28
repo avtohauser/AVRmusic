@@ -30,9 +30,14 @@ jobs:
             host="$(pick_host "$DOMAIN")"
           fi
           getent ahostsv4 "$host" >/dev/null 2>&1 || { echo "::error::cannot resolve target host"; exit 1; }
-          user="$(printf '%s' "$RAW_USER" | tr -d '\r\n' | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//; s/.*[[:space:]:]//; s/@.*//')"
+          user="$(printf '%s' "$RAW_USER" | tr -d '\r\n' | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//; s/.*[[:space:]:=]//; s/@.*//')"
+          # The DOMAIN variable may have been pasted as "DOMAIN=music.example.com".
+          domain="$(pick_host "$DOMAIN")"
+          [ -n "$domain" ] || { echo "::error::DOMAIN variable does not contain a hostname"; exit 1; }
           echo "TARGET_HOST=$host" >> "$GITHUB_ENV"
           echo "TARGET_USER=${user:-root}" >> "$GITHUB_ENV"
+          echo "TARGET_DOMAIN=$domain" >> "$GITHUB_ENV"
+          echo "Deploying to $domain"
           # The server gets a plain source tree (no clone), so the installer never talks to GitHub.
           rm -rf .git
 
@@ -52,6 +57,7 @@ jobs:
           t="$(printf '%s' "$RAW_PASSWORD" | tr -d '\r\n')"; add "$t"
           t="$(printf '%s' "$t" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"; add "$t"
           add "$(printf '%s' "$t" | sed -E 's/^[^:]*:[[:space:]]*//')"
+          add "$(printf '%s' "$t" | sed -E 's/^[A-Za-z_]+=//')"
           add "${t##* }"
           for c in "${cands[@]}"; do
             [ "$c" = "$RAW_PASSWORD" ] || echo "::add-mask::$c"
@@ -89,5 +95,12 @@ jobs:
           command_timeout: 40m
           script: |
             set -e
-            export APP_DIR=/opt/avrmusic BRANCH="${{ github.ref_name }}"
-            bash /opt/avrmusic/deploy/install.sh "${{ vars.DOMAIN }}"
+            export APP_DIR=/opt/avrmusic BRANCH="${{ github.ref_name }}" DOMAIN="${{ env.TARGET_DOMAIN }}"
+            bash /opt/avrmusic/deploy/install.sh "$DOMAIN"
+            echo "==> Waiting for https://$DOMAIN/api/health"
+            for i in $(seq 1 36); do
+              if curl -fsS -m 5 "https://$DOMAIN/api/health"; then echo; echo "==> AVRmusic is live: https://$DOMAIN"; exit 0; fi
+              sleep 5
+            done
+            echo "::error::service did not become healthy"; cd /opt/avrmusic
+            docker compose -f docker-compose.prod.yml ps; docker compose -f docker-compose.prod.yml logs --tail 80; exit 1

@@ -1,0 +1,4 @@
+// AVRmusic for Android: a Trusted Web Activity that opens https://music.avthsr.space full screen.
+plugins {
+  id 'com.android.application' version '8.5.2' apply false
+}

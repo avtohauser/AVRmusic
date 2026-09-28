@@ -14,3 +14,7 @@ android/*.keystore
 *.tsbuildinfo
 .pnpm-store/
 coverage/
+android/build/
+android/local.properties
+android/app/release/
+*.jks

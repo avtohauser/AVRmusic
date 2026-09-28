@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <!-- Plain dark window while the browser engine starts; the splash image is drawn by the TWA itself -->
+  <style name="Theme.LauncherActivity" parent="@android:style/Theme.NoTitleBar">
+    <item name="android:windowBackground">@color/backgroundColor</item>
+    <item name="android:windowAnimationStyle">@null</item>
+  </style>
+</resources>

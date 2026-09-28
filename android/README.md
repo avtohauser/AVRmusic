@@ -1,49 +1,39 @@
-# AVRmusic для Android (Trusted Web Activity)
+# AVRmusic для Android
 
-Веб-клиент AVRmusic — полноценное PWA: офлайн-кэш, установка на домашний экран,
-управление с экрана блокировки (Media Session), сохранение треков офлайн.
-Чтобы получить настоящий APK/AAB для Google Play или прямой установки, PWA
-упаковывается в **Trusted Web Activity** через Bubblewrap.
+Приложение — **Trusted Web Activity**: тонкая обёртка над сайтом `https://music.avthsr.space`, которая открывает
+его на весь экран без адресной строки, ставит иконку на рабочий стол, перехватывает ссылки на сайт и даёт
+ярлыки «Поиск», «Медиатека», «Загрузки». Весь интерфейс приходит с сервера, поэтому обновлять APK нужно только
+при смене иконки, имени или домена. На телефоне должен быть Chrome (или другой браузер на Chromium).
 
-## 1. Требования
+## Готовый APK
 
-* Сервис развёрнут по **HTTPS** с публичным доменом (например `https://music.example.com`).
-* JDK 17 и Android SDK (Bubblewrap скачает их сам при первом запуске).
-* Node.js 18+.
+Собирается автоматически workflow'ом `.github/workflows/android.yml` и публикуется в
+**GitHub → Releases** (`AVRmusic-<версия>.apk` + `SHA256SUMS.txt`). Сборка запускается при изменении папки
+`android/`, версии в `package.json` или вручную («Run workflow»).
 
-## 2. Сборка
+Что делает workflow:
+
+1. Берёт ключ подписи с сервера (`/srv/avrmusic/android-keystore/`), а при первом запуске создаёт его и кладёт туда.
+   **Сделайте копию этой папки**: без ключа нельзя выпустить обновление, которое встанет поверх установленного.
+2. Собирает `assembleRelease` (Gradle 8.7, AGP 8.5, compileSdk 34, minSdk 21), версия = `package.json` + номер сборки.
+3. Прописывает SHA-256 отпечаток ключа в `.env` сервера (`ANDROID_PACKAGE`, `ANDROID_SHA256`) и проверяет, что сайт
+   отдаёт `/.well-known/assetlinks.json` с этим отпечатком — именно это убирает браузерный интерфейс.
+4. Создаёт релиз `android-v<версия>` с APK.
+
+## Сборка вручную
 
 ```bash
-npm i -g @bubblewrap/cli
 cd android
-# подставьте свой домен вместо music.example.com в twa-manifest.json (host, iconUrl, webManifestUrl, fullScopeUrl)
-bubblewrap init --manifest https://music.example.com/manifest.webmanifest   # или пропустите, если twa-manifest.json уже настроен
-bubblewrap build
+export KEYSTORE_FILE=/path/avrmusic.jks KEYSTORE_PASSWORD=... KEY_ALIAS=avrmusic
+APP_VERSION_CODE=42 APP_VERSION_NAME=0.1.0.42 gradle assembleRelease
+# → app/build/outputs/apk/release/app-release.apk
 ```
 
-На выходе: `app-release-signed.apk` (для установки напрямую) и `app-release-bundle.aab` (для Play Console).
-Ключ подписи `android.keystore` создаётся при первой сборке — **сохраните его**, без него нельзя обновлять приложение.
+Без `KEYSTORE_FILE` получится неподписанный APK (не установится). Иконки для всех плотностей генерируются из
+PWA-иконок: `node android/tools/gen-icons.mjs`.
 
-## 3. Digital Asset Links (убрать адресную строку)
+## Смена домена
 
-Возьмите SHA-256 отпечаток ключа:
-
-```bash
-keytool -list -v -keystore android.keystore -alias avrmusic | grep SHA256
-```
-
-и пропишите его на сервере в `.env`:
-
-```
-ANDROID_PACKAGE=app.avrmusic.twa
-ANDROID_SHA256=AA:BB:CC:...
-```
-
-Сервер сам отдаёт `https://music.example.com/.well-known/assetlinks.json`. После этого
-приложение открывается на весь экран без браузерного интерфейса.
-При публикации в Google Play с подписью от Google добавьте второй отпечаток через запятую.
-
-## 4. Обновления
-
-Само приложение — тонкая оболочка; весь интерфейс обновляется вместе с сервером,
-пересобирать APK нужно только при смене иконки, имени или домена.
+`music.avthsr.space` прописан в `app/src/main/AndroidManifest.xml` (intent-filter), `res/values/strings.xml`
+(`launch_url`, `asset_statements`) и `res/xml/shortcuts.xml`. Пакет приложения — `space.avthsr.music`
+(`app/build.gradle`, манифест, `shortcuts.xml`); он же должен быть в `ANDROID_PACKAGE` на сервере.

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="app_name">AVRmusic</string>
+  <string name="launch_url">https://music.avthsr.space/</string>
+  <string name="asset_statements">[{ \"relation\": [\"delegate_permission/common.handle_all_urls\"], \"target\": { \"namespace\": \"web\", \"site\": \"https://music.avthsr.space\" } }]</string>
+  <string name="shortcut_search">Поиск</string>
+  <string name="shortcut_library">Медиатека</string>
+  <string name="shortcut_downloads">Загрузки</string>
+</resources>

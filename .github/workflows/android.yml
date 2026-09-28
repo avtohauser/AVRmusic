@@ -1,0 +1,136 @@
+# Builds the Android app (Trusted Web Activity over https://$DOMAIN) and publishes the APK to GitHub Releases.
+# The signing key is created once and kept on the server (/srv/avrmusic/android-keystore); its SHA-256
+# fingerprint is written to the server's .env so the site serves /.well-known/assetlinks.json and the app
+# opens full screen without browser UI. Uses the same SERVER_* secrets as deploy.yml.
+name: android
+on:
+  push:
+    branches: [claude/music-service-streaming-nfpgvx, main]
+    paths: ['android/**', 'package.json', '.github/workflows/android.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+# shares the group with deploy.yml so the two never touch the server at the same time
+concurrency: deploy-prod
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    if: ${{ vars.DOMAIN != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve server and credentials
+        env:
+          RAW_HOST: ${{ secrets.SERVER_HOST }}
+          RAW_USER: ${{ secrets.SERVER_USER }}
+          RAW_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
+          SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          DOMAIN: ${{ vars.DOMAIN }}
+        run: |
+          set +e
+          pick_host() { printf '%s' "$1" | tr -d '\r' | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}|[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+' | head -n1 || true; }
+          host="$(pick_host "$RAW_HOST")"; domain="$(pick_host "$DOMAIN")"
+          [ -n "$host" ] && getent ahostsv4 "$host" >/dev/null 2>&1 || host="$domain"
+          user="$(printf '%s' "$RAW_USER" | tr -d '\r\n' | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//; s/.*[[:space:]:=]//; s/@.*//')"
+          echo "TARGET_HOST=$host" >> "$GITHUB_ENV"; echo "TARGET_USER=${user:-root}" >> "$GITHUB_ENV"; echo "TARGET_DOMAIN=$domain" >> "$GITHUB_ENV"
+          echo "SSH_OPTS=-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o ConnectTimeout=20" >> "$GITHUB_ENV"
+          if [ -n "$SSH_KEY" ]; then
+            install -m 600 /dev/null "$HOME/deploy_key"; printf '%s\n' "$SSH_KEY" > "$HOME/deploy_key"
+            echo "SSH_KEY_FILE=$HOME/deploy_key" >> "$GITHUB_ENV"; echo "Using SERVER_SSH_KEY"; exit 0
+          fi
+          command -v sshpass >/dev/null || { sudo apt-get update -qq >/dev/null; sudo apt-get install -y -qq sshpass >/dev/null; }
+          cands=()
+          add() { local v="$1" c; [ -n "$v" ] || return 0; for c in "${cands[@]}"; do [ "$c" = "$v" ] && return 0; done; cands+=("$v"); }
+          add "$RAW_PASSWORD"
+          t="$(printf '%s' "$RAW_PASSWORD" | tr -d '\r\n')"; add "$t"
+          t="$(printf '%s' "$t" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"; add "$t"
+          add "$(printf '%s' "$t" | sed -E 's/^[^:]*:[[:space:]]*//')"
+          add "$(printf '%s' "$t" | sed -E 's/^[A-Za-z_]+=//')"
+          add "${t##* }"
+          for c in "${cands[@]}"; do
+            [ "$c" = "$RAW_PASSWORD" ] || echo "::add-mask::$c"
+            if SSHPASS="$c" timeout 45 sshpass -e ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PreferredAuthentications=password -o PubkeyAuthentication=no -o NumberOfPasswordPrompts=1 -o ConnectTimeout=20 -o LogLevel=ERROR "${user:-root}@$host" true; then
+              { echo "TARGET_PASSWORD<<__EOF__"; printf '%s\n' "$c"; echo "__EOF__"; } >> "$GITHUB_ENV"; echo "SSH login OK"; exit 0
+            fi
+          done
+          echo "::error::The server rejected SERVER_PASSWORD (see deploy.yml for hints)"; exit 1
+
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: '8.7' }
+
+      - name: Signing key (created once, kept on the server)
+        env:
+          SSHPASS: ${{ env.TARGET_PASSWORD }}
+        run: |
+          set -e
+          mkdir -p ks
+          if [ -n "${SSH_KEY_FILE:-}" ]; then SCP="scp -i $SSH_KEY_FILE $SSH_OPTS"; SSH="ssh -i $SSH_KEY_FILE $SSH_OPTS"; else SCP="sshpass -e scp $SSH_OPTS"; SSH="sshpass -e ssh $SSH_OPTS"; fi
+          R="$TARGET_USER@$TARGET_HOST"; DIR=/srv/avrmusic/android-keystore
+          if $SCP "$R:$DIR/avrmusic.jks" ks/ 2>/dev/null && $SCP "$R:$DIR/password" ks/ 2>/dev/null && [ -s ks/avrmusic.jks ] && [ -s ks/password ]; then
+            echo "Reusing the signing key stored on the server ($DIR)"
+          else
+            pw="$(openssl rand -hex 20)"; echo "::add-mask::$pw"; printf '%s' "$pw" > ks/password
+            keytool -genkeypair -keystore ks/avrmusic.jks -alias avrmusic -keyalg RSA -keysize 2048 -validity 10000 -storepass "$pw" -keypass "$pw" -dname "CN=AVRmusic, O=AVRmusic, C=RU" >/dev/null 2>&1
+            $SSH "$R" "mkdir -p $DIR && chmod 700 $DIR"
+            $SCP ks/avrmusic.jks ks/password "$R:$DIR/"
+            echo "New signing key generated and stored on the server ($DIR). Back it up: without it the app cannot be updated."
+          fi
+          pw="$(cat ks/password)"; echo "::add-mask::$pw"
+          fp="$(keytool -list -v -keystore ks/avrmusic.jks -storepass "$pw" -alias avrmusic 2>/dev/null | grep -m1 'SHA256:' | sed 's/.*SHA256: *//')"
+          [ -n "$fp" ] || { echo "::error::could not read the certificate fingerprint"; exit 1; }
+          { echo "KEYSTORE_FILE=$PWD/ks/avrmusic.jks"; echo "KEYSTORE_PASSWORD=$pw"; echo "KEY_ALIAS=avrmusic"; echo "CERT_SHA256=$fp"; echo "SCP=$SCP"; echo "SSH=$SSH"; } >> "$GITHUB_ENV"
+          echo "Signing certificate SHA-256: $fp"
+
+      - name: Build the APK
+        env:
+          APP_VERSION_CODE: ${{ github.run_number }}
+        run: |
+          set -e
+          ver="$(node -p "require('./package.json').version").${{ github.run_number }}"
+          echo "APP_VERSION=$ver" >> "$GITHUB_ENV"
+          cd android
+          APP_VERSION_NAME="$ver" gradle assembleRelease --no-daemon --console=plain -q
+          apk=app/build/outputs/apk/release/app-release.apk
+          test -f "$apk" || { echo "::error::APK not produced"; ls -R app/build/outputs || true; exit 1; }
+          mkdir -p ../out && cp "$apk" "../out/AVRmusic-$ver.apk"
+          (cd ../out && sha256sum *.apk > SHA256SUMS.txt && cat SHA256SUMS.txt)
+
+      - name: Publish the fingerprint on the site (assetlinks.json)
+        env:
+          SSHPASS: ${{ env.TARGET_PASSWORD }}
+        run: |
+          set -e
+          $SSH "$TARGET_USER@$TARGET_HOST" bash -s -- "$CERT_SHA256" "$TARGET_DOMAIN" <<'REMOTE'
+          set -e
+          fp="$1"; domain="$2"
+          cd /opt/avrmusic
+          set_env() { if grep -q "^$1=" .env; then sed -i "s#^$1=.*#$1=$2#" .env; else echo "$1=$2" >> .env; fi; }
+          set_env ANDROID_PACKAGE space.avthsr.music
+          set_env ANDROID_SHA256 "$fp"
+          docker compose -f docker-compose.prod.yml up -d --no-build >/dev/null 2>&1
+          for i in $(seq 1 20); do
+            out="$(curl -fsS -m 5 --resolve "$domain:443:127.0.0.1" "https://$domain/.well-known/assetlinks.json" 2>/dev/null || true)"
+            case "$out" in *"$fp"*) echo "assetlinks.json serves the fingerprint"; exit 0;; esac
+            sleep 3
+          done
+          echo "assetlinks.json does not contain the fingerprint yet: $out"; exit 1
+          REMOTE
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-v${{ env.APP_VERSION }}
+          name: AVRmusic для Android ${{ env.APP_VERSION }}
+          make_latest: true
+          body: |
+            APK для Android 5.0+ (Trusted Web Activity над https://${{ env.TARGET_DOMAIN }}).
+
+            **Установка:** скачайте `AVRmusic-${{ env.APP_VERSION }}.apk`, откройте его на телефоне и разрешите установку из этого источника. Нужен установленный Chrome (или другой браузер на Chromium). Обновлять приложение не требуется: интерфейс приходит с сервера; новый APK нужен только при смене иконки, имени или домена.
+
+            Подпись: SHA-256 `${{ env.CERT_SHA256 }}` (ключ хранится на сервере в `/srv/avrmusic/android-keystore`).
+          files: |
+            out/*.apk
+            out/SHA256SUMS.txt

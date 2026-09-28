@@ -6,7 +6,7 @@ import mime from 'mime-types';
 import type { DB } from '../lib/db.js';
 import { config } from '../config.js';
 import { newId } from '../lib/util.js';
-import { importAudioFile, saveCover } from './importer.js';
+import { guessFromFilename, importAudioFile, saveCover } from './importer.js';
 import { indexTrack } from './search.js';
 import type { Job } from './jobs.js';
 
@@ -90,8 +90,14 @@ export async function runUrlImport(db: DB, job: Job, opts: UrlImportOptions, api
     let info: any = null;
     try { info = JSON.parse(fs.readFileSync(path.join(work, `${base}.info.json`), 'utf8')); } catch { /* optional */ }
     const thumb = ['jpg', 'jpeg', 'png', 'webp'].map((e) => path.join(work, `${base}.${e}`)).find((p) => fs.existsSync(p));
-    const title = info?.track || info?.title || base.replace(/ \[[^\]]+\]$/, '');
-    const artist = opts.artist || info?.artist || info?.creator || info?.uploader || info?.channel || undefined;
+    let title: string = info?.track || cleanTitle(info?.title || base.replace(/ \[[^\]]+\]$/, ''));
+    let artist: string | undefined = opts.artist || info?.artist || info?.creator || undefined;
+    if (!artist) {
+      // "Artist - Song" in the title beats the uploader/channel name (e.g. "ArtistVEVO")
+      const g = guessFromFilename(title);
+      if (g.artist) { artist = g.artist; title = g.title; }
+      else artist = info?.uploader || info?.channel || undefined;
+    }
     const album = opts.album || info?.album || info?.playlist_title || undefined;
     const genre = opts.genre || (Array.isArray(info?.genres) ? info.genres[0] : info?.genre) || undefined;
     const year = info?.release_year || (info?.upload_date ? Number(String(info.upload_date).slice(0, 4)) : undefined);
@@ -113,6 +119,17 @@ export async function runUrlImport(db: DB, job: Job, opts: UrlImportOptions, api
     api.progress(90 + (done / files.length) * 10);
   }
   fs.rmSync(work, { recursive: true, force: true });
+}
+
+/** Strip YouTube-style suffixes: "(Official Video)", "[Lyrics]", "(Audio)", "| HQ" … */
+export function cleanTitle(t: string): string {
+  const kw = '(?:official|video|audio|lyric|lyrics|visuali[sz]er|hd|hq|4k|remaster(?:ed)?|clip|премьера|клип|official music)';
+  const bracket = new RegExp(`\\s*[\\(\\[][^\\)\\]]*(?<![\\p{L}\\p{N}])${kw}(?![\\p{L}\\p{N}])[^\\)\\]]*[\\)\\]]`, 'giu');
+  return t
+    .replace(bracket, '')
+    .replace(/\s*\|\s*(official|hd|hq|4k|lyrics?).*$/iu, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim() || t;
 }
 
 function applyThumb(db: DB, trackId: string, thumb: string) {

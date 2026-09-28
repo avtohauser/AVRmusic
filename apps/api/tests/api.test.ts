@@ -242,3 +242,11 @@ test('LRCLIB parsing helpers tolerate missing service', async () => {
   (config as any).lrclibUrl = 'http://127.0.0.1:1';
   await assert.rejects(lookupLyrics({ artist: 'x', title: 'y' }));
 });
+
+test('yt-dlp title cleanup', async () => {
+  const { cleanTitle } = await import('../src/services/ytdlp.js');
+  assert.equal(cleanTitle('Artist - Song (Official Video)'), 'Artist - Song');
+  assert.equal(cleanTitle('Song [Official Lyric Video] | HD'), 'Song');
+  assert.equal(cleanTitle('Песня (Премьера клипа 2025)'), 'Песня');
+  assert.equal(cleanTitle('Plain Title (Live at Home)'), 'Plain Title (Live at Home)');
+});

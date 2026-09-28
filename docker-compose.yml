@@ -1,0 +1,28 @@
+# AVRmusic — сервис на одном сервере, медиа на любом диске/монтировании.
+#   docker compose up -d --build
+services:
+  avrmusic:
+    build: .
+    image: avrmusic:latest
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      JWT_SECRET: ${JWT_SECRET:-change-me-please-use-a-long-random-string}
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8080}
+      ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-true}
+      PUBLIC_LIBRARY: ${PUBLIC_LIBRARY:-false}
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-1024}
+      # База и временные файлы — локально; медиа — отдельный том (может быть сетевым монтированием)
+      DATA_DIR: /data
+      MEDIA_DIR: /media
+      # Папка с готовой коллекцией для сканирования (только чтение)
+      MUSIC_DIR: /music
+      ANDROID_PACKAGE: ${ANDROID_PACKAGE:-app.avrmusic.twa}
+      ANDROID_SHA256: ${ANDROID_SHA256:-}
+    volumes:
+      - ./data:/data
+      # Хранилище треков. Для ПК-хранилища замените на путь к смонтированному диску, например /mnt/pc/avrmusic:/media
+      - ${MEDIA_PATH:-./media}:/media
+      # Существующая коллекция (необязательно)
+      - ${MUSIC_PATH:-./music}:/music:ro

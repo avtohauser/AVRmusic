@@ -225,3 +225,20 @@ test('delete track cleans up orphans', async () => {
   const s = await app.inject({ method: 'GET', url: '/api/search?q=test', headers: { authorization: `Bearer ${access}` } });
   assert.equal(s.json().tracks.length, 0);
 });
+
+test('filename heuristics', async () => {
+  const { guessFromFilename, splitArtists } = await import('../src/services/importer.js');
+  assert.deepEqual(guessFromFilename('01 - Artist Name - Song Title'), { artist: 'Artist Name', title: 'Song Title' });
+  assert.deepEqual(guessFromFilename('Artist – Song'), { artist: 'Artist', title: 'Song' });
+  assert.deepEqual(guessFromFilename('07. Just a title'), { artist: null, title: 'Just a title' });
+  assert.deepEqual(splitArtists('A feat. B & C'), { main: 'A', featuring: ['B', 'C'] });
+  assert.deepEqual(splitArtists('Solo'), { main: 'Solo', featuring: [] });
+});
+
+test('LRCLIB parsing helpers tolerate missing service', async () => {
+  const { lookupLyrics } = await import('../src/services/lrclib.js');
+  process.env.LRCLIB_URL = 'http://127.0.0.1:1'; // unreachable
+  const { config } = await import('../src/config.js');
+  (config as any).lrclibUrl = 'http://127.0.0.1:1';
+  await assert.rejects(lookupLyrics({ artist: 'x', title: 'y' }));
+});

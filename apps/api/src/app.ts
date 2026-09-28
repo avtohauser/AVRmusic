@@ -17,6 +17,7 @@ import mediaRoutes from './routes/media.js';
 import playlistRoutes from './routes/playlists.js';
 import meRoutes from './routes/me.js';
 import adminRoutes from './routes/admin.js';
+import importRoutes from './routes/import.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -49,6 +50,7 @@ export async function buildApp(opts: { db?: DB; logger?: boolean } = {}): Promis
   await app.register(playlistRoutes);
   await app.register(meRoutes);
   await app.register(adminRoutes);
+  await app.register(importRoutes);
 
   app.get('/api/health', async () => ({ ok: true, version: config.version }));
 

@@ -156,6 +156,13 @@ export default async function adminRoutes(app: FastifyInstance) {
 
   app.delete('/api/admin/tracks/:id', admin, async (req) => { deleteTrack(db, (req.params as any).id); return { ok: true }; });
 
+  /** Raw lyrics for the editor (LRC text + plain) */
+  app.get('/api/admin/tracks/:id/lyrics', admin, async (req) => {
+    const r = db.prepare('SELECT lyrics_synced, lyrics_plain, lyrics_source FROM tracks WHERE id = ?').get((req.params as any).id) as any;
+    if (!r) throw notFound('Трек не найден');
+    return { lyricsSynced: r.lyrics_synced, lyricsPlain: r.lyrics_plain, source: r.lyrics_source };
+  });
+
   /** Upload lyrics as .lrc / .txt file */
   app.post('/api/admin/tracks/:id/lyrics', admin, async (req) => {
     const id = (req.params as any).id;

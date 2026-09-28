@@ -17,7 +17,9 @@ export interface SynthPreset {
 const SAMPLE_RATE = 24000;
 
 function rng(seed: number) {
-  let s = seed >>> 0 || 1;
+  // splitmix-style scramble so seeds 7, 8, 9 … do not produce near-identical sequences
+  let s = (Math.imul(seed ^ 0x9e3779b9, 0x85ebca6b) ^ (seed >>> 13)) >>> 0 || 1;
+  s = Math.imul(s ^ (s >>> 16), 0xc2b2ae35) >>> 0 || 1;
   return () => {
     s ^= s << 13; s >>>= 0;
     s ^= s >>> 17;

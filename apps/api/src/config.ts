@@ -14,6 +14,8 @@ function bool(v: string | undefined, def: boolean): boolean {
 }
 
 const dataDir = path.resolve(process.cwd(), process.env.DATA_DIR || './data');
+// Media (tracks, covers, canvases, avatars) may live on a different disk / network mount than the database.
+const mediaDir = process.env.MEDIA_DIR ? path.resolve(process.cwd(), process.env.MEDIA_DIR) : path.join(dataDir, 'media');
 const webDist = process.env.WEB_DIST
   ? path.resolve(process.cwd(), process.env.WEB_DIST)
   : path.resolve(here, '../../web/dist');
@@ -25,11 +27,12 @@ export const config = {
   jwtSecret: process.env.JWT_SECRET || 'dev-secret-do-not-use-in-production',
   dataDir,
   dbPath: path.join(dataDir, 'avrmusic.sqlite'),
-  mediaDir: path.join(dataDir, 'media'),
-  tracksDir: path.join(dataDir, 'media', 'tracks'),
-  coversDir: path.join(dataDir, 'media', 'covers'),
-  canvasDir: path.join(dataDir, 'media', 'canvas'),
-  avatarsDir: path.join(dataDir, 'media', 'avatars'),
+  mediaDir,
+  tracksDir: path.join(mediaDir, 'tracks'),
+  videosDir: path.join(mediaDir, 'videos'),
+  coversDir: path.join(mediaDir, 'covers'),
+  canvasDir: path.join(mediaDir, 'canvas'),
+  avatarsDir: path.join(mediaDir, 'avatars'),
   tmpDir: path.join(dataDir, 'tmp'),
   musicDir: process.env.MUSIC_DIR ? path.resolve(process.cwd(), process.env.MUSIC_DIR) : null,
   allowRegistration: bool(process.env.ALLOW_REGISTRATION, true),
@@ -37,6 +40,9 @@ export const config = {
   maxUploadMb: Number(process.env.MAX_UPLOAD_MB || 512),
   publicUrl: (process.env.PUBLIC_URL || 'http://localhost:8080').replace(/\/$/, ''),
   webDist,
+  ytdlpPath: process.env.YTDLP_PATH || 'yt-dlp',
+  ffmpegPath: process.env.FFMPEG_PATH || 'ffmpeg',
+  lrclibUrl: (process.env.LRCLIB_URL || 'https://lrclib.net').replace(/\/$/, ''),
   isProd: process.env.NODE_ENV === 'production',
   accessTtl: '15m',
   refreshTtlDays: 30,
@@ -44,7 +50,7 @@ export const config = {
 };
 
 export function ensureDirs() {
-  for (const d of [config.dataDir, config.mediaDir, config.tracksDir, config.coversDir, config.canvasDir, config.avatarsDir, config.tmpDir]) {
+  for (const d of [config.dataDir, config.mediaDir, config.tracksDir, config.videosDir, config.coversDir, config.canvasDir, config.avatarsDir, config.tmpDir]) {
     fs.mkdirSync(d, { recursive: true });
   }
 }

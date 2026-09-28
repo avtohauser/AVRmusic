@@ -1,6 +1,6 @@
 # ---- build stage -------------------------------------------------------------
 FROM node:22-bookworm-slim AS build
-RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
+RUN npm install -g pnpm@10.33.0
 WORKDIR /app
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc ./
 COPY packages/shared/package.json packages/shared/
@@ -24,7 +24,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg python3 
 WORKDIR /app
 COPY --from=build /out/api /app/api
 COPY --from=build /out/web /app/web
-COPY --from=build /app/packages/shared/dist /app/api/node_modules/@avrmusic/shared/dist
 VOLUME ["/data"]
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s CMD node -e "fetch('http://127.0.0.1:'+process.env.PORT+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"

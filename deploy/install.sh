@@ -21,14 +21,17 @@ if ! command -v docker >/dev/null 2>&1; then
   curl -fsSL https://get.docker.com | sh >/dev/null
 fi
 systemctl enable --now docker >/dev/null 2>&1 || true
+docker compose version >/dev/null 2>&1 || apt-get install -y -qq docker-compose-plugin >/dev/null
 
 echo "==> Firewall (22, 80, 443)"
 ufw allow OpenSSH >/dev/null; ufw allow 80/tcp >/dev/null; ufw allow 443/tcp >/dev/null; ufw allow 443/udp >/dev/null
 ufw --force enable >/dev/null
 
 echo "==> Source ($BRANCH)"
-if [[ -d "$APP_DIR/.git" ]]; then git -C "$APP_DIR" fetch -q origin "$BRANCH" && git -C "$APP_DIR" checkout -q "$BRANCH" && git -C "$APP_DIR" pull -q origin "$BRANCH";
-elif [[ -f "$APP_DIR/package.json" ]]; then echo "    using the tree already present in $APP_DIR (copied by CI)";
+if [[ -f "$APP_DIR/package.json" && ! -d "$APP_DIR/.git" ]]; then echo "    using the tree already present in $APP_DIR (copied by CI)";
+elif [[ -d "$APP_DIR/.git" ]]; then
+  git -C "$APP_DIR" fetch -q origin "$BRANCH" && git -C "$APP_DIR" checkout -q "$BRANCH" && git -C "$APP_DIR" pull -q origin "$BRANCH" \
+    || echo "    git update failed (private repository?), using the tree as is";
 else git clone -q --branch "$BRANCH" --depth 1 "$REPO" "$APP_DIR"; fi
 mkdir -p "$DATA_ROOT"/{data,media,music}
 

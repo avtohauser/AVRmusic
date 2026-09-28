@@ -181,8 +181,13 @@ MIT
 
 ## Развёртывание на сервере (домен + HTTPS)
 
-На чистом Ubuntu/Debian достаточно одной команды под root (ставит Docker, клонирует репозиторий, поднимает
-AVRmusic и Caddy с автоматическим сертификатом Let's Encrypt для домена):
+Вариант 1 — репозиторий приватный (по умолчанию): в настройках репозитория на GitHub добавьте secrets
+`SERVER_HOST`, `SERVER_USER`, `SERVER_PASSWORD` (или `SERVER_SSH_KEY`) и variable `DOMAIN`. Workflow
+`.github/workflows/deploy.yml` сам копирует код на сервер и запускает установщик при каждом push (или вручную
+через «Run workflow»). Серверу доступ к репозиторию не нужен.
+
+Вариант 2 — репозиторий публичный: одна команда под root на чистом Ubuntu/Debian (ставит Docker, клонирует
+репозиторий, поднимает AVRmusic и Caddy с автоматическим сертификатом Let's Encrypt):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/avtohauser/AVRmusic/claude/music-service-streaming-nfpgvx/deploy/install.sh | bash -s -- music.avthsr.space
@@ -195,6 +200,4 @@ curl -fsSL https://raw.githubusercontent.com/avtohauser/AVRmusic/claude/music-se
 cd /opt/avrmusic && git pull && docker compose -f docker-compose.prod.yml up -d --build
 ```
 
-Автодеплой по push: workflow `.github/workflows/deploy.yml` заходит на сервер по SSH. В настройках репозитория
-добавьте secrets `SERVER_HOST`, `SERVER_USER`, `SERVER_PASSWORD` (или `SERVER_SSH_KEY`) и variable `DOMAIN`.
 Хранилище на вашем ПК подключается так же, как описано выше: смонтируйте диск и укажите `MEDIA_PATH` в `.env`.

@@ -28,6 +28,7 @@ ufw --force enable >/dev/null
 
 echo "==> Source ($BRANCH)"
 if [[ -d "$APP_DIR/.git" ]]; then git -C "$APP_DIR" fetch -q origin "$BRANCH" && git -C "$APP_DIR" checkout -q "$BRANCH" && git -C "$APP_DIR" pull -q origin "$BRANCH";
+elif [[ -f "$APP_DIR/package.json" ]]; then echo "    using the tree already present in $APP_DIR (copied by CI)";
 else git clone -q --branch "$BRANCH" --depth 1 "$REPO" "$APP_DIR"; fi
 mkdir -p "$DATA_ROOT"/{data,media,music}
 
@@ -48,4 +49,4 @@ echo
 echo "AVRmusic is starting: https://$DOMAIN"
 echo "Invite code for friends (INVITE_CODE in $APP_DIR/.env): $(grep ^INVITE_CODE= .env | cut -d= -f2)"
 echo "First registered account becomes the administrator."
-echo "Update later:  cd $APP_DIR && git pull && docker compose -f docker-compose.prod.yml up -d --build"
+echo "Update later:  push to the branch (GitHub Actions deploy) or: cd $APP_DIR && git pull && docker compose -f docker-compose.prod.yml up -d --build"

@@ -99,7 +99,10 @@ jobs:
             bash /opt/avrmusic/deploy/install.sh "$DOMAIN"
             echo "==> Waiting for https://$DOMAIN/api/health"
             for i in $(seq 1 36); do
-              if curl -fsS -m 5 "https://$DOMAIN/api/health"; then echo; echo "==> AVRmusic is live: https://$DOMAIN"; exit 0; fi
+              # public URL first; the --resolve variant sidesteps hairpin-NAT on the VPS itself
+              if curl -fsS -m 5 "https://$DOMAIN/api/health" || curl -fsS -m 5 --resolve "$DOMAIN:443:127.0.0.1" "https://$DOMAIN/api/health"; then
+                echo; echo "==> AVRmusic is live: https://$DOMAIN"; exit 0
+              fi
               sleep 5
             done
             echo "::error::service did not become healthy"; cd /opt/avrmusic

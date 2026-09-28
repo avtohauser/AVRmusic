@@ -50,6 +50,35 @@ if [[ ! -f .env ]]; then
   sed -i "s#^DATA_PATH=.*#DATA_PATH=$DATA_ROOT/data#; s#^MEDIA_PATH=.*#MEDIA_PATH=$DATA_ROOT/media#; s#^MUSIC_PATH=.*#MUSIC_PATH=$DATA_ROOT/music#" .env
 fi
 
+echo "==> Ports 80/443"
+# Caddy needs 80/443. Fresh VPS images often ship a default nginx/apache page; stop it only when it
+# serves nothing but the default site. Anything else (a panel, another site) must be freed by hand.
+default_site_only() {
+  case "$1" in
+    nginx)  [[ -z "$(ls -A /etc/nginx/sites-enabled 2>/dev/null | grep -vx default)" ]] && ! grep -rqs server_name /etc/nginx/conf.d ;;
+    apache2|httpd) [[ -z "$(ls -A /etc/apache2/sites-enabled 2>/dev/null | grep -vx 000-default.conf)" ]] ;;
+    *) return 1 ;;
+  esac
+}
+free_port() {
+  local port="$1" line proc
+  line="$(ss -Hltnp "sport = :$port" 2>/dev/null | head -n1 || true)"
+  [[ -n "$line" ]] || { echo "    $port: free"; return 0; }
+  proc="$(printf '%s' "$line" | sed -nE 's/.*users:\(\("([^"]+)".*/\1/p')"
+  case "$proc" in
+    docker-proxy|caddy) echo "    $port: used by our own Caddy container, fine" ;;
+    nginx|apache2|httpd)
+      if default_site_only "$proc"; then
+        echo "    $port: $proc serves only its default page - stopping and disabling it (systemctl enable --now $proc to undo)"
+        systemctl disable --now "$proc" >/dev/null 2>&1 || true
+      else
+        echo "    $port: $proc hosts other sites; move them or stop $proc, then re-run the deploy"; echo "    $line"; exit 1
+      fi ;;
+    *) echo "    $port is busy: $line"; echo "    free the port and re-run the deploy"; exit 1 ;;
+  esac
+}
+free_port 80; free_port 443
+
 echo "==> Build & start (first build takes a few minutes)"
 docker compose -f docker-compose.prod.yml up -d --build
 

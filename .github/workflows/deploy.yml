@@ -36,12 +36,43 @@ jobs:
           # The server gets a plain source tree (no clone), so the installer never talks to GitHub.
           rm -rf .git
 
+      - name: Check SSH credentials
+        env:
+          RAW_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
+          SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+        run: |
+          set +e
+          if [ -n "$SSH_KEY" ]; then echo "Using SERVER_SSH_KEY"; exit 0; fi
+          command -v sshpass >/dev/null || { sudo apt-get update -qq >/dev/null; sudo apt-get install -y -qq sshpass >/dev/null; }
+          # SERVER_PASSWORD may have been pasted with a label ("Пароль: xxx") or a trailing newline.
+          # Try the sensible variants and keep the one the server accepts (masked in the logs).
+          cands=()
+          add() { local v="$1" c; [ -n "$v" ] || return 0; for c in "${cands[@]}"; do [ "$c" = "$v" ] && return 0; done; cands+=("$v"); }
+          add "$RAW_PASSWORD"
+          t="$(printf '%s' "$RAW_PASSWORD" | tr -d '\r\n')"; add "$t"
+          t="$(printf '%s' "$t" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"; add "$t"
+          add "$(printf '%s' "$t" | sed -E 's/^[^:]*:[[:space:]]*//')"
+          add "${t##* }"
+          for c in "${cands[@]}"; do
+            [ "$c" = "$RAW_PASSWORD" ] || echo "::add-mask::$c"
+            if SSHPASS="$c" timeout 45 sshpass -e ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+                 -o PreferredAuthentications=password -o PubkeyAuthentication=no -o NumberOfPasswordPrompts=1 \
+                 -o ConnectTimeout=20 -o LogLevel=ERROR "$TARGET_USER@$TARGET_HOST" true 2>/tmp/ssh.err; then
+              { echo "TARGET_PASSWORD<<__EOF__"; printf '%s\n' "$c"; echo "__EOF__"; } >> "$GITHUB_ENV"
+              echo "SSH login OK"; exit 0
+            fi
+          done
+          echo "--- last ssh error:"; cat /tmp/ssh.err
+          echo "::error::The server rejected SERVER_PASSWORD for $TARGET_USER@$TARGET_HOST. Check the secret (only the password, no label), that the root password was not changed, and that sshd allows root password login (PermitRootLogin yes / PasswordAuthentication yes)."
+          echo "::error::Сервер отверг пароль. Проверьте секрет SERVER_PASSWORD (только сам пароль, без подписи), не менялся ли пароль root, и разрешён ли вход root по паролю в sshd."
+          exit 1
+
       - name: Copy source to the server
         uses: appleboy/scp-action@v1.0.0
         with:
           host: ${{ env.TARGET_HOST }}
           username: ${{ env.TARGET_USER }}
-          password: ${{ secrets.SERVER_PASSWORD }}
+          password: ${{ env.TARGET_PASSWORD }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           source: "."
           target: /opt/avrmusic
@@ -53,7 +84,7 @@ jobs:
         with:
           host: ${{ env.TARGET_HOST }}
           username: ${{ env.TARGET_USER }}
-          password: ${{ secrets.SERVER_PASSWORD }}
+          password: ${{ env.TARGET_PASSWORD }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           command_timeout: 40m
           script: |

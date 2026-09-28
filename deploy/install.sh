@@ -42,48 +42,118 @@ mkdir -p "$DATA_ROOT"/{data,media,music}
 
 echo "==> Config"
 cd "$APP_DIR"
+set_env() { if grep -q "^$1=" .env; then sed -i "s#^$1=.*#$1=$2#" .env; else echo "$1=$2" >> .env; fi; }
 if [[ ! -f .env ]]; then
   cp deploy/.env.prod.example .env
-  sed -i "s#^DOMAIN=.*#DOMAIN=$DOMAIN#" .env
-  sed -i "s#^JWT_SECRET=.*#JWT_SECRET=$(openssl rand -hex 32)#" .env
-  sed -i "s#^INVITE_CODE=.*#INVITE_CODE=$(openssl rand -hex 4)#" .env
-  sed -i "s#^DATA_PATH=.*#DATA_PATH=$DATA_ROOT/data#; s#^MEDIA_PATH=.*#MEDIA_PATH=$DATA_ROOT/media#; s#^MUSIC_PATH=.*#MUSIC_PATH=$DATA_ROOT/music#" .env
+  set_env JWT_SECRET "$(openssl rand -hex 32)"
+  set_env INVITE_CODE "$(openssl rand -hex 4)"
+  set_env DATA_PATH "$DATA_ROOT/data"; set_env MEDIA_PATH "$DATA_ROOT/media"; set_env MUSIC_PATH "$DATA_ROOT/music"
+fi
+set_env DOMAIN "$DOMAIN"
+env_get() { (grep "^$1=" .env || true) | head -n1 | cut -d= -f2-; }
+
+echo "==> Reverse proxy"
+# Who owns ports 80/443? Our own Caddy (docker-proxy) or nothing → Caddy mode. The host's nginx → nginx mode:
+# the app is published on 127.0.0.1:$APP_PORT and nginx gets one extra server block (other sites untouched).
+port_owner() { ss -Hltnp "sport = :$1" 2>/dev/null | sed -nE 's/.*users:\(\("([^"]+)".*/\1/p' | head -n1 || true; }
+PROXY="$(env_get PROXY)"
+if [[ -z "$PROXY" ]]; then
+  case "$(port_owner 80)" in
+    nginx) PROXY=nginx ;;
+    ""|docker-proxy|caddy) PROXY=caddy ;;
+    *) echo "    port 80 is used by '$(port_owner 80)'. Set PROXY=nginx in $APP_DIR/.env after moving to nginx, or free 80/443 for Caddy."; exit 1 ;;
+  esac
+  set_env PROXY "$PROXY"
+fi
+if [[ "$PROXY" == "caddy" ]]; then
+  set_env COMPOSE_PROFILES caddy
+  for port in 80 443; do
+    owner="$(port_owner "$port")"
+    [[ -z "$owner" || "$owner" == docker-proxy || "$owner" == caddy ]] || { echo "    port $port is used by '$owner'; free it or set PROXY=nginx in .env"; exit 1; }
+  done
+  echo "    Caddy on 80/443 (automatic HTTPS)"
+else
+  set_env COMPOSE_PROFILES ""
+  APP_PORT="$(env_get APP_PORT)"
+  if [[ -z "$APP_PORT" ]]; then
+    for p in 8080 8081 8082 8083 8084 8090 8091 8092 8095 8099; do [[ -z "$(ss -Hltn "sport = :$p" 2>/dev/null)" ]] && { APP_PORT=$p; break; }; done
+    [[ -n "${APP_PORT:-}" ]] || { echo "    no free port between 8080 and 8099"; exit 1; }
+    set_env APP_PORT "$APP_PORT"
+  fi
+  echo "    host nginx → 127.0.0.1:$APP_PORT"
 fi
 
-echo "==> Ports 80/443"
-# Caddy needs 80/443. Fresh VPS images often ship a default nginx/apache page; stop it only when it
-# serves nothing but the default site. Anything else (a panel, another site) must be freed by hand.
-default_site_only() {
-  case "$1" in
-    nginx)  [[ -z "$(ls -A /etc/nginx/sites-enabled 2>/dev/null | grep -vx default)" ]] && ! grep -rqs server_name /etc/nginx/conf.d ;;
-    apache2|httpd) [[ -z "$(ls -A /etc/apache2/sites-enabled 2>/dev/null | grep -vx 000-default.conf)" ]] ;;
-    *) return 1 ;;
-  esac
-}
-free_port() {
-  local port="$1" line proc
-  line="$(ss -Hltnp "sport = :$port" 2>/dev/null | head -n1 || true)"
-  [[ -n "$line" ]] || { echo "    $port: free"; return 0; }
-  proc="$(printf '%s' "$line" | sed -nE 's/.*users:\(\("([^"]+)".*/\1/p')"
-  case "$proc" in
-    docker-proxy|caddy) echo "    $port: used by our own Caddy container, fine" ;;
-    nginx|apache2|httpd)
-      if default_site_only "$proc"; then
-        echo "    $port: $proc serves only its default page - stopping and disabling it (systemctl enable --now $proc to undo)"
-        systemctl disable --now "$proc" >/dev/null 2>&1 || true
-      else
-        echo "    $port: $proc hosts other sites; move them or stop $proc, then re-run the deploy"; echo "    $line"; exit 1
-      fi ;;
-    *) echo "    $port is busy: $line"; echo "    free the port and re-run the deploy"; exit 1 ;;
-  esac
-}
-free_port 80; free_port 443
-
 echo "==> Build & start (first build takes a few minutes)"
-docker compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml up -d --build --remove-orphans
+[[ "$PROXY" == "caddy" ]] || docker rm -f avrmusic-caddy-1 >/dev/null 2>&1 || true
+
+if [[ "$PROXY" == "nginx" ]]; then
+  echo "==> nginx site for $DOMAIN"
+  if grep -qs "sites-enabled" /etc/nginx/nginx.conf; then
+    SITE=/etc/nginx/sites-available/avrmusic.conf; mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled; ln -sf "$SITE" /etc/nginx/sites-enabled/avrmusic.conf
+  elif grep -qs "conf.d/\*.conf" /etc/nginx/nginx.conf; then
+    SITE=/etc/nginx/conf.d/avrmusic.conf
+  else
+    echo "    cannot find where nginx includes site configs (no sites-enabled / conf.d in nginx.conf)"; exit 1
+  fi
+  ACME_ROOT=/var/www/avrmusic-acme; mkdir -p "$ACME_ROOT"
+  write_site() {  # $1 = http | https
+    {
+      echo "# AVRmusic ($DOMAIN) - written by $APP_DIR/deploy/install.sh; other sites are not touched."
+      echo "server {"
+      echo "    listen 80;"
+      echo "    server_name $DOMAIN;"
+      echo "    location /.well-known/acme-challenge/ { root $ACME_ROOT; }"
+      if [[ "$1" == https ]]; then echo '    location / { return 301 https://$host$request_uri; }'; else proxy_block; fi
+      echo "}"
+      if [[ "$1" == https ]]; then
+        echo "server {"
+        echo "    listen 443 ssl http2;"
+        echo "    server_name $DOMAIN;"
+        echo "    ssl_certificate /etc/letsencrypt/live/$DOMAIN/fullchain.pem;"
+        echo "    ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;"
+        echo "    ssl_protocols TLSv1.2 TLSv1.3;"
+        echo '    add_header X-Content-Type-Options nosniff;'
+        echo '    add_header Referrer-Policy strict-origin-when-cross-origin;'
+        proxy_block
+        echo "}"
+      fi
+    } > "$SITE"
+  }
+  proxy_block() {
+    cat <<NGINX
+    client_max_body_size 4g;
+    location / {
+        proxy_pass http://127.0.0.1:$APP_PORT;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_set_header Connection "";
+        proxy_buffering off;
+        proxy_request_buffering off;
+        proxy_read_timeout 30m;
+        proxy_send_timeout 30m;
+    }
+NGINX
+  }
+  apply_site() { nginx -t >/dev/null 2>&1 || { echo "    nginx -t failed with our config; removing it and leaving nginx as it was:"; nginx -t 2>&1 | tail -5; rm -f "$SITE" /etc/nginx/sites-enabled/avrmusic.conf; exit 1; }; systemctl reload nginx; }
+  if [[ ! -s "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]]; then
+    write_site http; apply_site
+    command -v certbot >/dev/null || apt-get install -y -qq certbot >/dev/null
+    LE_EMAIL="$(env_get LE_EMAIL)"; le_args=(--register-unsafely-without-email); [[ -z "$LE_EMAIL" ]] || le_args=(-m "$LE_EMAIL")
+    if ! certbot certonly --webroot -w "$ACME_ROOT" -d "$DOMAIN" -n --agree-tos "${le_args[@]}" \
+         --deploy-hook "systemctl reload nginx" --keep-until-expiring; then
+      echo "    Let's Encrypt failed (is $DOMAIN pointing at this server and port 80 reachable?). The site is up over plain HTTP for now."; exit 1
+    fi
+  fi
+  write_site https; apply_site
+  echo "    https://$DOMAIN → 127.0.0.1:$APP_PORT (certificate renews via the certbot timer)"
+fi
 
 echo
 echo "AVRmusic is starting: https://$DOMAIN"
 echo "Invite code for friends (INVITE_CODE in $APP_DIR/.env): $(grep ^INVITE_CODE= .env | cut -d= -f2)"
 echo "First registered account becomes the administrator."
-echo "Update later:  push to the branch (GitHub Actions deploy) or: cd $APP_DIR && git pull && docker compose -f docker-compose.prod.yml up -d --build"
+echo "Update later:  push to the branch (GitHub Actions deploy) or re-run: bash $APP_DIR/deploy/install.sh $DOMAIN"

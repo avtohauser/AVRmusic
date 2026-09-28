@@ -187,14 +187,24 @@ MIT
 через «Run workflow»). Серверу доступ к репозиторию не нужен.
 
 Вариант 2 — репозиторий публичный: одна команда под root на чистом Ubuntu/Debian (ставит Docker, клонирует
-репозиторий, поднимает AVRmusic и Caddy с автоматическим сертификатом Let's Encrypt):
+репозиторий, поднимает AVRmusic и HTTPS-прокси):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/avtohauser/AVRmusic/claude/music-service-streaming-nfpgvx/deploy/install.sh | bash -s -- music.avthsr.space
 ```
 
 Скрипт создаст `/opt/avrmusic/.env` (случайный `JWT_SECRET`, код приглашения `INVITE_CODE`), данные положит в
-`/srv/avrmusic/{data,media,music}`. Первый зарегистрированный аккаунт — администратор. Обновление:
+`/srv/avrmusic/{data,media,music}`. Первый зарегистрированный аккаунт — администратор.
+
+Реверс-прокси выбирается автоматически (переменная `PROXY` в `.env`):
+
+* порты 80/443 свободны → `PROXY=caddy`: Caddy с автоматическим HTTPS;
+* на сервере уже работает nginx с другими сайтами → `PROXY=nginx`: приложение публикуется только на
+  `127.0.0.1:APP_PORT`, в nginx добавляется один файл `avrmusic.conf` для домена (остальные сайты не меняются),
+  сертификат Let's Encrypt выдаёт certbot (webroot) и продлевает по таймеру. Перед `reload` выполняется `nginx -t`;
+  при ошибке наш конфиг удаляется, nginx остаётся как был.
+
+Обновление:
 
 ```bash
 cd /opt/avrmusic && git pull && docker compose -f docker-compose.prod.yml up -d --build

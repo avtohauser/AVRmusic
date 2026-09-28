@@ -1,12 +1,15 @@
-# Production: AVRmusic + Caddy (automatic HTTPS for $DOMAIN).
+# Production: AVRmusic (+ Caddy with automatic HTTPS when ports 80/443 are free).
 #   cp deploy/.env.prod.example .env  → edit → docker compose -f docker-compose.prod.yml up -d --build
+# PROXY=caddy  → COMPOSE_PROFILES=caddy starts the Caddy service below.
+# PROXY=nginx  → the app is only published on 127.0.0.1:$APP_PORT and the host's nginx proxies to it
+#                (deploy/install.sh writes the site config and obtains a Let's Encrypt certificate).
 services:
   avrmusic:
     build: .
     image: avrmusic:latest
     restart: unless-stopped
-    expose:
-      - "8080"
+    ports:
+      - "127.0.0.1:${APP_PORT:-8080}:8080"
     environment:
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
       PUBLIC_URL: https://${DOMAIN:?set DOMAIN in .env}
@@ -36,6 +39,7 @@ services:
 
   caddy:
     image: caddy:2-alpine
+    profiles: ["caddy"]
     restart: unless-stopped
     depends_on:
       - avrmusic

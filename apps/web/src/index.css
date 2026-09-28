@@ -158,12 +158,20 @@ img { display: block; }
 [data-playerbar] .mini-card { margin: 0 12px 8px; }
 @media (min-width: 768px) { .page { padding: 0 1.5rem 3rem; } }
 .hero-bg { position: absolute; inset: 0; z-index: -1; background: linear-gradient(to bottom, color-mix(in oklab, var(--hero, var(--md-sys-color-primary-container)) 70%, transparent) 0%, transparent 100%); height: 480px; pointer-events: none; }
-.cover-box { height: min(42vh, 480px); max-width: 100%; aspect-ratio: 1 / 1; }
-.canvas-box { height: min(58vh, 640px); max-width: 100%; aspect-ratio: 9 / 16; }
+/* Now playing: the art never exceeds its grid cell (max-height) so it keeps its aspect ratio on short screens. */
+.cover-box { height: min(42vh, 480px); max-height: 100%; max-width: 100%; aspect-ratio: 1 / 1; }
+.canvas-box { height: min(58vh, 640px); max-height: 100%; max-width: 100%; aspect-ratio: 9 / 16; }
+@media (max-height: 720px) {
+  .cover-box { height: min(32vh, 480px); }
+  .canvas-box { height: min(46vh, 640px); }
+}
 
 /* ---- Component-level tweaks ---- */
 m3e-fab.play-fab { --m3e-fab-container-shape: 999px; }
 m3e-nav-rail { --m3e-nav-rail-container-color: var(--md-sys-color-surface); }
+/* Compact rail (768–1023px): wide enough for Russian labels ("Медиатека") without clipping */
+m3e-nav-rail[mode="compact"] { --m3e-nav-rail-compact-width: 112px; }
+m3e-nav-rail[mode="compact"] m3e-nav-item { --m3e-nav-item-label-text-font-size: 11px; }
 m3e-app-bar { --m3e-app-bar-container-color: transparent; }
 m3e-search-bar { width: 100%; max-width: 560px; }
 m3e-slider.seek { --m3e-slider-active-track-color: var(--md-sys-color-primary); width: 100%; }

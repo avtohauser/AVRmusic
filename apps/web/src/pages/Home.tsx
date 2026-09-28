@@ -38,7 +38,7 @@ export default function Home() {
     return (
       <div className="page pt-4">
         <Skeleton className="h-10 w-64 mb-6" />
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">{Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-16" />)}</div>
+        <div className="grid grid-cols-2 md:grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3 mb-8">{Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-16" />)}</div>
         <ShelfSkeleton /><div className="h-8" /><ShelfSkeleton round />
       </div>
     );
@@ -53,7 +53,7 @@ export default function Home() {
         <EmptyState icon="music_note" title={t('emptyLibrary')} hint={t('emptyLibraryHint')} action={user?.role === 'admin' ? <M3eButton variant="filled" href="/admin"><m3e-icon variant="rounded" slot="icon" name="upload" />{t('upload')}</M3eButton> : undefined} />
       )}
       {data.quickPicks.length > 0 && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8 fade-in">
+        <div className="grid grid-cols-2 md:grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3 mb-8 fade-in">
           {data.quickPicks.map((q: any) => {
             if (q.kind === 'liked') return <QuickPick key="liked" title={q.title} to="/liked" liked onPlay={async () => play(await api.get<Track[]>('/api/me/likes/tracks'), 0, 'liked')} />;
             if ('owner' in q) return <QuickPick key={q.id} title={q.title} cover={q.coverUrl} mosaic={q.mosaic} to={`/playlist/${q.id}`} onPlay={async () => play((await api.get<{ tracks: Track[] }>(`/api/playlists/${q.id}`)).tracks, 0, `playlist:${q.id}`)} />;

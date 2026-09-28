@@ -4,6 +4,7 @@ import type { ServerInfo } from '@avrmusic/shared';
 import { config } from '../config.js';
 import { badRequest, forbidden } from '../lib/errors.js';
 import { changePassword, getUser, issueTokens, register, revokeRefresh, rotateRefresh, userCount, verifyLogin } from '../services/auth.js';
+import { checkInvite, consumeInvite } from '../services/invites.js';
 
 export default async function authRoutes(app: FastifyInstance) {
   const db = app.db;
@@ -12,7 +13,7 @@ export default async function authRoutes(app: FastifyInstance) {
     name: 'AVRmusic',
     version: config.version,
     allowRegistration: config.allowRegistration,
-    inviteRequired: !!config.inviteCode && userCount(db) > 0,
+    inviteRequired: userCount(db) > 0,
     publicLibrary: config.publicLibrary,
     maxUploadMb: config.maxUploadMb,
     needsSetup: userCount(db) === 0,
@@ -24,9 +25,15 @@ export default async function authRoutes(app: FastifyInstance) {
 
   app.post('/api/auth/register', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (req) => {
     const body = z.object({ email: z.string(), username: z.string(), password: z.string(), displayName: z.string().optional(), inviteCode: z.string().optional() }).parse(req.body);
-    if (!config.allowRegistration && userCount(db) > 0) throw forbidden('Регистрация отключена администратором');
-    if (config.inviteCode && userCount(db) > 0 && (body.inviteCode ?? '').trim() !== config.inviteCode) throw forbidden('Неверный код приглашения');
+    const first = userCount(db) === 0;
+    if (!config.allowRegistration && !first) throw forbidden('Регистрация отключена администратором');
+    // After the first (admin) account every registration consumes a one-time code issued in the admin panel.
+    const code = first ? null : checkInvite(db, body.inviteCode);
     const user = await register(db, body);
+    if (code && !consumeInvite(db, code, user.id)) {
+      db.prepare('DELETE FROM users WHERE id = ?').run(user.id);
+      throw forbidden('Этот код приглашения уже использован');
+    }
     return issueTokens(app, db, user);
   });
 

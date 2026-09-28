@@ -46,7 +46,6 @@ set_env() { if grep -q "^$1=" .env; then sed -i "s#^$1=.*#$1=$2#" .env; else ech
 if [[ ! -f .env ]]; then
   cp deploy/.env.prod.example .env
   set_env JWT_SECRET "$(openssl rand -hex 32)"
-  set_env INVITE_CODE "$(openssl rand -hex 4)"
   set_env DATA_PATH "$DATA_ROOT/data"; set_env MEDIA_PATH "$DATA_ROOT/media"; set_env MUSIC_PATH "$DATA_ROOT/music"
 fi
 set_env DOMAIN "$DOMAIN"
@@ -154,6 +153,5 @@ fi
 
 echo
 echo "AVRmusic is starting: https://$DOMAIN"
-echo "Invite code for friends (INVITE_CODE in $APP_DIR/.env): $(grep ^INVITE_CODE= .env | cut -d= -f2)"
-echo "First registered account becomes the administrator."
+echo "First registered account becomes the administrator; it issues one-time invite codes for friends (Admin → Users)."
 echo "Update later:  push to the branch (GitHub Actions deploy) or re-run: bash $APP_DIR/deploy/install.sh $DOMAIN"

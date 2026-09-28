@@ -61,7 +61,8 @@ function Rail() {
   const t = useT();
   const nav = useNavigate();
   const loc = useLocation();
-  const wide = useMediaQuery('(min-width: 1280px)');
+  // Expanded rail from 1024px (covers 1366×768 laptops at 125% scaling); compact with icons + short labels below that.
+  const wide = useMediaQuery('(min-width: 1024px)');
   const [expanded, setExpanded] = useState(wide);
   useEffect(() => setExpanded(wide), [wide]);
   const items: Array<[string, string, string, boolean]> = [
@@ -82,7 +83,7 @@ function Rail() {
           {expanded && <span className="md-title-lg emph text-primary">AVRmusic</span>}
         </Link>
         {user && (
-          <M3eFab size="medium" variant="tertiary-container" extended={expanded || undefined} aria-label={t('createPlaylist')} onClick={() => setEditor({ initial: { title: '', description: '', isPublic: true } })} className="mt-1 self-start max-w-full">
+          <M3eFab size={expanded ? 'medium' : 'small'} variant="tertiary-container" extended={expanded || undefined} aria-label={t('createPlaylist')} onClick={() => setEditor({ initial: { title: '', description: '', isPublic: true } })} className={`mt-1 max-w-full ${expanded ? 'self-start' : 'self-center'}`}>
             <m3e-icon variant="rounded" name="add" />{expanded && <span slot="label" className="line-1">{t('playlist')}</span>}
           </M3eFab>
         )}

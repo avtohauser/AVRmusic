@@ -14,7 +14,6 @@ services:
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
       PUBLIC_URL: https://${DOMAIN:?set DOMAIN in .env}
       ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-true}
-      INVITE_CODE: ${INVITE_CODE:-}
       PUBLIC_LIBRARY: ${PUBLIC_LIBRARY:-false}
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-2048}
       DATA_DIR: /data

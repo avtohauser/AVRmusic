@@ -13,6 +13,7 @@ import { getAlbum, getArtist, getTrack, getTracksByIds } from '../services/libra
 import { cleanupOrphans, deleteTrack, ensureAlbum, ensureArtist, importAudioFile, scanDirectory } from '../services/importer.js';
 import { indexAlbum, indexArtist, indexTrack, reindexAll, removeFromIndex } from '../services/search.js';
 import { mapUser } from '../services/auth.js';
+import { createInvite, deleteInvite, listInvites } from '../services/invites.js';
 
 export default async function adminRoutes(app: FastifyInstance) {
   const db = app.db;
@@ -264,6 +265,14 @@ export default async function adminRoutes(app: FastifyInstance) {
     db.prepare(`UPDATE artists SET ${kind} = ? WHERE id = ?`).run(name, id);
     return getArtist(db, id, req.userId);
   });
+
+  // ---- one-time invite codes
+  app.get('/api/admin/invites', admin, async () => listInvites(db));
+  app.post('/api/admin/invites', admin, async (req) => {
+    const body = z.object({ note: z.string().max(100).optional(), expiresDays: z.number().int().min(1).max(365).optional() }).parse(req.body ?? {});
+    return createInvite(db, req.userId!, body);
+  });
+  app.delete('/api/admin/invites/:code', admin, async (req) => { deleteInvite(db, (req.params as any).code); return { ok: true }; });
 
   app.get('/api/admin/users', admin, async () => (db.prepare('SELECT * FROM users ORDER BY created_at').all() as any[]).map(mapUser));
 

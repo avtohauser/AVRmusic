@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { M3eButton, M3eFormField } from '@/md';
 import { useAuth } from '@/stores/auth';
 import { useLikes } from '@/stores/likes';
@@ -13,7 +13,9 @@ export default function Auth({ mode }: { mode: 'login' | 'register' }) {
   const t = useT();
   const nav = useNavigate();
   const loc = useLocation();
-  const [form, setForm] = useState({ login: '', email: '', username: '', password: '', displayName: '', inviteCode: '' });
+  const [params] = useSearchParams();
+  // Invite links look like /register?invite=XXXX-XXXX
+  const [form, setForm] = useState({ login: '', email: '', username: '', password: '', displayName: '', inviteCode: params.get('invite') ?? '' });
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   if (user) return <Navigate to="/" replace />;
@@ -50,7 +52,7 @@ export default function Auth({ mode }: { mode: 'login' | 'register' }) {
             <M3eFormField variant="outlined" className="w-full block"><span slot="label">{t('email')}</span><input type="email" required autoComplete="email" {...f('email')} /></M3eFormField>
             <M3eFormField variant="outlined" className="w-full block"><span slot="label">{t('username')}</span><input required minLength={3} maxLength={32} pattern="[a-zA-Z0-9_.\-]+" autoComplete="username" {...f('username')} /></M3eFormField>
             <M3eFormField variant="outlined" className="w-full block"><span slot="label">{t('displayName')}</span><input maxLength={60} {...f('displayName')} /></M3eFormField>
-            {info?.inviteRequired && <M3eFormField variant="outlined" className="w-full block"><span slot="label">{t('inviteCode')}</span><input required {...f('inviteCode')} /></M3eFormField>}
+            {info?.inviteRequired && <M3eFormField variant="outlined" className="w-full block"><span slot="label">{t('inviteCode')}</span><input required autoCapitalize="characters" spellCheck={false} {...f('inviteCode')} /><span slot="hint">{t('inviteFromAdmin')}</span></M3eFormField>}
           </>
         ) : (
           <M3eFormField variant="outlined" className="w-full block"><span slot="label">{t('loginOrEmail')}</span><input required autoComplete="username" autoFocus {...f('login')} /></M3eFormField>

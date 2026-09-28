@@ -15,6 +15,17 @@
     <title>AVRmusic</title>
   </head>
   <body>
+    <!-- Tailwind 4 + M3E need a 2023+ engine (color-mix, :has, aspect-ratio). Older browsers get a warning instead of a broken layout. -->
+    <div id="compat" hidden style="padding:12px 16px;background:#8c1d18;color:#fff;font:14px/1.4 system-ui,sans-serif;text-align:center">
+      Ваш браузер устарел и не поддерживает современный CSS — интерфейс будет отображаться неправильно.
+      Обновите Chrome, Edge, Firefox или Яндекс.Браузер до последней версии.
+    </div>
+    <script>
+      try {
+        var ok = window.CSS && CSS.supports && CSS.supports('color', 'color-mix(in oklab, red, blue)') && CSS.supports('selector(:has(a))') && CSS.supports('aspect-ratio', '1 / 1');
+        if (!ok) document.getElementById('compat').hidden = false;
+      } catch (e) { document.getElementById('compat').hidden = false; }
+    </script>
     <m3e-theme id="root" color="#6750A4" variant="expressive" scheme="dark" motion="expressive" strong-focus></m3e-theme>
     <script type="module" src="/src/main.tsx"></script>
   </body>

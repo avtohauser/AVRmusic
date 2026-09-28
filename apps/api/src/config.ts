@@ -43,7 +43,6 @@ export const config = {
   ytdlpPath: process.env.YTDLP_PATH || 'yt-dlp',
   ffmpegPath: process.env.FFMPEG_PATH || 'ffmpeg',
   lrclibUrl: (process.env.LRCLIB_URL || 'https://lrclib.net').replace(/\/$/, ''),
-  inviteCode: process.env.INVITE_CODE || '',
   catalogEnabled: bool(process.env.CATALOG_ENABLED, true),
   deezerApi: (process.env.DEEZER_API || 'https://api.deezer.com').replace(/\/$/, ''),
   acquireRole: ((['user', 'admin', 'off'].includes(process.env.ACQUIRE_ROLE || '') ? process.env.ACQUIRE_ROLE : 'user') as 'user' | 'admin' | 'off'),

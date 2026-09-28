@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { AdminStats, Track, UploadResult, User } from '@avrmusic/shared';
+import type { AdminStats, Invite, Track, UploadResult, User } from '@avrmusic/shared';
 import { M3eButton, M3eFilterChip, M3eFilterChipSet, M3eFormField, M3eIconButton, M3eLinearProgressIndicator, M3eOption, M3eSelect } from '@/md';
 import { api } from '@/lib/api';
 import { useUI } from '@/stores/ui';
@@ -241,6 +241,63 @@ function TracksTab() {
   );
 }
 
+/** One-time invite codes: the only way to register after the first (admin) account. */
+function InvitesSection() {
+  const t = useT();
+  const toast = useUI((s) => s.toast);
+  const qc = useQueryClient();
+  const { data } = useQuery({ queryKey: ['admin', 'invites'], queryFn: () => api.get<Invite[]>('/api/admin/invites') });
+  const [busy, setBusy] = useState(false);
+  const link = (code: string) => `${location.origin}/register?invite=${code}`;
+  const copy = async (text: string) => {
+    try { await navigator.clipboard.writeText(text); toast(`${t('copied')}: ${text}`, 'success'); }
+    catch { window.prompt(t('copyCode'), text); }
+  };
+  const create = async () => {
+    setBusy(true);
+    try { const inv = await api.post<Invite>('/api/admin/invites', {}); qc.invalidateQueries({ queryKey: ['admin', 'invites'] }); await copy(link(inv.code)); }
+    catch (e: any) { toast(e.message, 'error'); } finally { setBusy(false); }
+  };
+  const remove = async (code: string) => {
+    try { await api.del(`/api/admin/invites/${code}`); qc.invalidateQueries({ queryKey: ['admin', 'invites'] }); } catch (e: any) { toast(e.message, 'error'); }
+  };
+  const status = (i: Invite): 'used' | 'expired' | 'active' => (i.usedBy ? 'used' : i.expiresAt && i.expiresAt < new Date().toISOString() ? 'expired' : 'active');
+  return (
+    <section className="surface-low rounded-[28px] p-4 md:p-5 mb-6">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="min-w-0"><h2 className="md-title-lg emph">{t('invites')}</h2><p className="md-body-sm muted mt-1">{t('inviteHint')}</p></div>
+        <M3eButton variant="filled" disabled={busy || undefined} onClick={create}><m3e-icon variant="rounded" slot="icon" name="person_add" />{t('newInvite')}</M3eButton>
+      </div>
+      <div className="mt-3 space-y-1">
+        {(data ?? []).length === 0 && <p className="md-body-md muted px-2">{t('noInvites')}</p>}
+        {(data ?? []).map((i) => {
+          const st = status(i);
+          return (
+            <div key={i.code} className={`flex items-center gap-3 p-2 rounded-[20px] ${st === 'active' ? 'state-layer' : 'opacity-60'}`}>
+              <span className={`w-10 h-10 rounded-[14px] flex items-center justify-center shrink-0 ${st === 'active' ? 'bg-primary-container text-on-primary-container' : 'bg-surface-container-highest'}`}>
+                <m3e-icon variant="rounded" name={st === 'used' ? 'how_to_reg' : st === 'expired' ? 'timer_off' : 'key'} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="md-title-md font-mono tracking-wider">{i.code}</div>
+                <div className="md-body-sm muted line-1">
+                  {st === 'used' && i.usedBy ? `${t('used')}: @${i.usedBy.username}` : st === 'expired' ? t('expired') : t('active')}{i.note ? ` · ${i.note}` : ''} · {new Date(i.createdAt).toLocaleDateString()}
+                </div>
+              </div>
+              {st === 'active' && (
+                <>
+                  <M3eIconButton size="small" aria-label={t('copyCode')} title={t('copyCode')} onClick={() => copy(i.code)}><m3e-icon variant="rounded" name="content_copy" /></M3eIconButton>
+                  <M3eIconButton size="small" aria-label={t('copyInviteLink')} title={t('copyInviteLink')} onClick={() => copy(link(i.code))}><m3e-icon variant="rounded" name="link" /></M3eIconButton>
+                </>
+              )}
+              <M3eIconButton size="small" aria-label={t('deleteCode')} title={t('deleteCode')} onClick={() => remove(i.code)}><m3e-icon variant="rounded" name="delete" style={{ color: 'var(--md-sys-color-error)' }} /></M3eIconButton>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 function UsersTab() {
   const t = useT();
   const toast = useUI((s) => s.toast);
@@ -249,6 +306,8 @@ function UsersTab() {
   const setRole = async (u: User, role: 'admin' | 'user') => { try { await api.patch(`/api/admin/users/${u.id}`, { role }); qc.invalidateQueries({ queryKey: ['admin', 'users'] }); } catch (e: any) { toast(e.message, 'error'); } };
   return (
     <div className="fade-in max-w-3xl space-y-1">
+      <InvitesSection />
+      <h2 className="md-title-lg emph px-2 pb-2">{t('users')}</h2>
       {(data ?? []).map((u) => (
         <div key={u.id} className="flex items-center gap-3 p-2 rounded-[20px] state-layer">
           <Cover src={u.avatarUrl} round kind="artist" className="w-11 h-11" />

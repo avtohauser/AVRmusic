@@ -37,7 +37,7 @@ export function Lyrics({ lyrics, loading, className = '', big = false }: { lyric
   const size = big ? 'md-headline-md md:md-headline-lg emph' : 'md-title-lg';
   if (lines) {
     return (
-      <div ref={ref} className={`overflow-y-auto no-scrollbar h-full py-[35%] px-1 ${className}`}>
+      <div ref={ref} className={`overflow-y-auto no-scrollbar h-full py-[35%] px-1 ${className}`} style={big ? { maskImage: 'linear-gradient(transparent, #000 12%, #000 88%, transparent)', WebkitMaskImage: 'linear-gradient(transparent, #000 12%, #000 88%, transparent)' } : undefined}>
         {lines.map((l, i) => (
           <p key={i} data-i={i} data-active={i === active} data-past={i < active} className={`lyric-line mb-4 md:mb-6 ${size}`} onClick={() => seek(l.timeMs / 1000)}>
             {l.text || '♪'}

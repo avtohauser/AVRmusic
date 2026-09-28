@@ -177,10 +177,22 @@ export interface UploadResult {
   skipped: Array<{ file: string; reason: string }>;
 }
 
+/** One-time registration code. */
+export interface Invite {
+  code: string;
+  note: string | null;
+  createdAt: string;
+  createdBy: string | null;
+  expiresAt: string | null;
+  usedAt: string | null;
+  usedBy: { id: string; username: string; displayName: string } | null;
+}
+
 export interface ServerInfo {
   name: string;
   version: string;
   allowRegistration: boolean;
+  /** Registration needs a one-time invite code (always, once the first account exists) */
   inviteRequired: boolean;
   publicLibrary: boolean;
   maxUploadMb: number;

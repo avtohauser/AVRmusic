@@ -186,7 +186,8 @@ test('playlists: create, add, reorder, remove, like, public listing', async () =
   assert.equal(rm.json().trackCount, 0);
 
   // second user cannot edit
-  const u2 = (await app.inject({ method: 'POST', url: '/api/auth/register', payload: { email: 'u2@b.co', username: 'user2', password: 'secret1' } })).json();
+  const inv2 = (await app.inject({ method: 'POST', url: '/api/admin/invites', headers: { authorization: `Bearer ${access}` }, payload: {} })).json();
+  const u2 = (await app.inject({ method: 'POST', url: '/api/auth/register', payload: { email: 'u2@b.co', username: 'user2', password: 'secret1', inviteCode: inv2.code } })).json();
   assert.equal(u2.user.role, 'user');
   const forbidden = await app.inject({ method: 'PATCH', url: `/api/playlists/${pl.id}`, headers: { authorization: `Bearer ${u2.accessToken}` }, payload: { title: 'Hijack' } });
   assert.equal(forbidden.statusCode, 403);
@@ -249,4 +250,42 @@ test('yt-dlp title cleanup', async () => {
   assert.equal(cleanTitle('Song [Official Lyric Video] | HD'), 'Song');
   assert.equal(cleanTitle('Песня (Премьера клипа 2025)'), 'Песня');
   assert.equal(cleanTitle('Plain Title (Live at Home)'), 'Plain Title (Live at Home)');
+});
+
+test('invites: registration needs a one-time code issued by an admin', async () => {
+  const h = { authorization: `Bearer ${access}` };
+  const info = (await app.inject({ method: 'GET', url: '/api/info' })).json();
+  assert.equal(info.inviteRequired, true);
+  const noCode = await app.inject({ method: 'POST', url: '/api/auth/register', payload: { email: 'n@b.co', username: 'nocode', password: 'secret1' } });
+  assert.equal(noCode.statusCode, 403);
+  const wrong = await app.inject({ method: 'POST', url: '/api/auth/register', payload: { email: 'n@b.co', username: 'nocode', password: 'secret1', inviteCode: 'ZZZZ-ZZZZ' } });
+  assert.equal(wrong.statusCode, 403);
+
+  const created = await app.inject({ method: 'POST', url: '/api/admin/invites', headers: h, payload: { note: 'для Пети' } });
+  assert.equal(created.statusCode, 200, created.body);
+  const inv = created.json();
+  assert.match(inv.code, /^[A-Z2-9]{4}-[A-Z2-9]{4}$/);
+  assert.equal(inv.usedBy, null);
+  const list = (await app.inject({ method: 'GET', url: '/api/admin/invites', headers: h })).json();
+  assert.ok(list.some((i: any) => i.code === inv.code && i.note === 'для Пети'));
+  const userToken = (await app.inject({ method: 'POST', url: '/api/auth/login', payload: { login: 'user2', password: 'secret1' } })).json().accessToken;
+  const asUser = await app.inject({ method: 'GET', url: '/api/admin/invites', headers: { authorization: `Bearer ${userToken}` } });
+  assert.equal(asUser.statusCode, 403, 'only admins manage invites');
+
+  // dashes/case/spaces do not matter; the code is consumed by exactly one registration
+  const ok = await app.inject({ method: 'POST', url: '/api/auth/register', payload: { email: 'p@b.co', username: 'petya', password: 'secret1', inviteCode: ` ${inv.code.toLowerCase().replace('-', '')} ` } });
+  assert.equal(ok.statusCode, 200, ok.body);
+  assert.equal(ok.json().user.role, 'user');
+  const used = (await app.inject({ method: 'GET', url: '/api/admin/invites', headers: h })).json().find((i: any) => i.code === inv.code);
+  assert.equal(used.usedBy.username, 'petya');
+  const again = await app.inject({ method: 'POST', url: '/api/auth/register', payload: { email: 'q@b.co', username: 'again', password: 'secret1', inviteCode: inv.code } });
+  assert.equal(again.statusCode, 403);
+
+  const expired = (await app.inject({ method: 'POST', url: '/api/admin/invites', headers: h, payload: { expiresDays: 1 } })).json();
+  app.db.prepare("UPDATE invites SET expires_at = '2000-01-01T00:00:00.000Z' WHERE code = ?").run(expired.code.replace('-', ''));
+  const late = await app.inject({ method: 'POST', url: '/api/auth/register', payload: { email: 'l@b.co', username: 'late', password: 'secret1', inviteCode: expired.code } });
+  assert.equal(late.statusCode, 403);
+  const del = await app.inject({ method: 'DELETE', url: `/api/admin/invites/${expired.code}`, headers: h });
+  assert.equal(del.statusCode, 200);
+  assert.equal((await app.inject({ method: 'DELETE', url: `/api/admin/invites/${expired.code}`, headers: h })).statusCode, 404);
 });

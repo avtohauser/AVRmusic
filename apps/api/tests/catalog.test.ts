@@ -7,7 +7,6 @@ import Fastify from 'fastify';
 
 process.env.DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'avrmusic-cat-'));
 process.env.JWT_SECRET = 'test-secret';
-process.env.INVITE_CODE = 'friends';
 process.env.YTDLP_PATH = path.join(process.cwd(), 'tests/fixtures/fake-ytdlp.sh');
 process.env.FFMPEG_PATH = '/nonexistent/ffmpeg';
 
@@ -79,7 +78,8 @@ test('invite code is required for the second account', async () => {
   assert.equal(info.json().catalog, true);
   const bad = await app.inject({ method: 'POST', url: '/api/auth/register', payload: { email: 'f@b.co', username: 'friend', password: 'secret1' } });
   assert.equal(bad.statusCode, 403);
-  const ok = await app.inject({ method: 'POST', url: '/api/auth/register', payload: { email: 'f@b.co', username: 'friend', password: 'secret1', inviteCode: 'friends' } });
+  const invite = (await app.inject({ method: 'POST', url: '/api/admin/invites', headers: { authorization: `Bearer ${access}` }, payload: { note: 'friend' } })).json();
+  const ok = await app.inject({ method: 'POST', url: '/api/auth/register', payload: { email: 'f@b.co', username: 'friend', password: 'secret1', inviteCode: invite.code } });
   assert.equal(ok.statusCode, 200, ok.body);
 });
 

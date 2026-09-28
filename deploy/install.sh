@@ -24,8 +24,13 @@ systemctl enable --now docker >/dev/null 2>&1 || true
 docker compose version >/dev/null 2>&1 || apt-get install -y -qq docker-compose-plugin >/dev/null
 
 echo "==> Firewall (22, 80, 443)"
-ufw allow OpenSSH >/dev/null; ufw allow 80/tcp >/dev/null; ufw allow 443/tcp >/dev/null; ufw allow 443/udp >/dev/null
-ufw --force enable >/dev/null
+# Best effort: some VPS images (LXC/OpenVZ, missing iptables) cannot run ufw; the hoster's firewall applies then.
+if command -v ufw >/dev/null && ufw allow OpenSSH >/dev/null 2>&1 && ufw allow 80/tcp >/dev/null 2>&1 \
+   && ufw allow 443/tcp >/dev/null 2>&1 && ufw allow 443/udp >/dev/null 2>&1; then
+  ufw --force enable >/dev/null 2>&1 || echo "    ufw enable failed, leaving the firewall as is"
+else
+  echo "    ufw is not usable on this server, leaving the firewall as is (open 80/443 in the hoster panel if needed)"
+fi
 
 echo "==> Source ($BRANCH)"
 if [[ -f "$APP_DIR/package.json" && ! -d "$APP_DIR/.git" ]]; then echo "    using the tree already present in $APP_DIR (copied by CI)";

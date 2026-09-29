@@ -209,3 +209,72 @@ m3e-nav-bar m3e-nav-item { min-width: 0; }
 @keyframes gc-zoom { from { transform: scale(1.02) } to { transform: scale(1.16) translate(-2%, 2%) } }
 @keyframes gc-glow { from { transform: translate(-10%, -10%) } to { transform: translate(15%, 12%) } }
 @media (prefers-reduced-motion: reduce) { .gen-canvas * { animation: none !important; } }
+
+/* ---- Mascot: the star, alive ---- */
+.mascot { position: relative; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.mascot-body { width: 100%; height: 100%; overflow: visible; transform-origin: 50% 50%; will-change: transform; }
+.mascot-shape { d: path("M50 3C50 21 21 50 3 50C21 50 50 79 50 97C50 79 79 50 97 50C79 50 50 21 50 3Z"); }
+.mascot[data-mood="idle"] .mascot-body { animation: mascot-breathe 4.6s ease-in-out infinite; }
+.mascot[data-mood="idle"] .mascot-shape { animation: mascot-soft 4.6s ease-in-out infinite; }
+.mascot[data-mood="dance"] .mascot-body { animation: mascot-dance .94s ease-in-out infinite; }
+.mascot[data-mood="dance"] .mascot-shape { animation: mascot-pump .47s ease-in-out infinite alternate; }
+.mascot[data-mood="sleep"] .mascot-body { animation: mascot-sleep 5.2s ease-in-out infinite; opacity: .78; filter: saturate(.7); }
+.mascot[data-mood="think"] .mascot-body { animation: mascot-spin 1.25s cubic-bezier(.45,.05,.55,.95) infinite; }
+.mascot[data-mood="think"] .mascot-shape { animation: mascot-morph 1.25s ease-in-out infinite; }
+.mascot[data-mood="hello"] .mascot-body { animation: mascot-hello 1s cubic-bezier(.34,1.56,.64,1) both; }
+.mascot[data-burst] .mascot-body { animation: mascot-party .8s cubic-bezier(.34,1.56,.64,1); }
+@keyframes mascot-breathe { 0%,100% { transform: rotate(-5deg) scale(1); } 50% { transform: rotate(5deg) scale(1.07); } }
+@keyframes mascot-soft { 0%,100% { d: path("M50 3C50 21 21 50 3 50C21 50 50 79 50 97C50 79 79 50 97 50C79 50 50 21 50 3Z"); } 50% { d: path("M50 3C50 14 14 50 3 50C14 50 50 86 50 97C50 86 86 50 97 50C86 50 50 14 50 3Z"); } }
+@keyframes mascot-dance {
+  0%,100% { transform: rotate(-14deg) translateY(0) scale(1,1); }
+  25% { transform: rotate(0) translateY(-9%) scale(.9,1.1); }
+  50% { transform: rotate(14deg) translateY(0) scale(1.07,.93); }
+  75% { transform: rotate(0) translateY(-9%) scale(.9,1.1); }
+}
+@keyframes mascot-pump { from { d: path("M50 3C50 21 21 50 3 50C21 50 50 79 50 97C50 79 79 50 97 50C79 50 50 21 50 3Z"); } to { d: path("M50 3C50 28 28 50 3 50C28 50 50 72 50 97C50 72 72 50 97 50C72 50 50 28 50 3Z"); } }
+@keyframes mascot-sleep { 0%,100% { transform: rotate(20deg) scale(.9); } 50% { transform: rotate(16deg) scale(.96); } }
+@keyframes mascot-spin { 0% { transform: rotate(0) scale(1); } 50% { transform: rotate(200deg) scale(.84); } 100% { transform: rotate(360deg) scale(1); } }
+@keyframes mascot-morph { 0%,100% { d: path("M50 3C50 21 21 50 3 50C21 50 50 79 50 97C50 79 79 50 97 50C79 50 50 21 50 3Z"); } 35% { d: path("M50 3C50 36 36 50 3 50C36 50 50 64 50 97C50 64 64 50 97 50C64 50 50 36 50 3Z"); } 70% { d: path("M50 3C50 8 8 50 3 50C8 50 50 92 50 97C50 92 92 50 97 50C92 50 50 8 50 3Z"); } }
+@keyframes mascot-hello { 0% { transform: scale(.2) rotate(-240deg); opacity: 0; } 60% { transform: scale(1.18) rotate(18deg); opacity: 1; } 100% { transform: scale(1) rotate(0); } }
+@keyframes mascot-party { 0% { transform: rotate(0) scale(1); } 45% { transform: rotate(300deg) scale(1.32); filter: drop-shadow(0 0 10px #cf8fc9aa); } 100% { transform: rotate(360deg) scale(1); } }
+.mascot-burst { position: absolute; inset: 0; pointer-events: none; }
+.mascot-burst i {
+  position: absolute; left: 50%; top: 50%; width: 34%; height: 34%; margin: -17% 0 0 -17%;
+  background: linear-gradient(45deg, #cf8fc9, #655bd3);
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  opacity: 0; animation: mascot-spark .85s cubic-bezier(.2,.8,.2,1) var(--d, 0ms) forwards;
+}
+@keyframes mascot-spark {
+  0% { opacity: 1; transform: rotate(var(--a)) translateY(0) scale(.2); }
+  70% { opacity: 1; }
+  100% { opacity: 0; transform: rotate(var(--a)) translateY(-190%) scale(.9) rotate(120deg); }
+}
+.mascot-z { position: absolute; right: -28%; top: -38%; pointer-events: none; font: 700 11px/1 var(--font-sans); color: var(--md-sys-color-primary); }
+.mascot-z i { position: absolute; font-style: normal; opacity: 0; animation: mascot-z 3s ease-in infinite; }
+.mascot-z i:nth-child(2) { animation-delay: 1.5s; font-size: 8px; }
+@keyframes mascot-z { 0% { opacity: 0; transform: translate(0, 6px); } 25% { opacity: .9; } 100% { opacity: 0; transform: translate(10px, -16px); } }
+@media (prefers-reduced-motion: reduce) { .mascot *, .mascot-body, .mascot-shape { animation: none !important; } }
+
+/* ---- Launch screen ---- */
+.boot-splash {
+  position: fixed; inset: 0; z-index: 200; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+  background: radial-gradient(60% 45% at 50% 45%, color-mix(in oklab, #655bd3 22%, transparent), transparent 70%), var(--md-sys-color-surface, #141218);
+  transition: opacity .42s ease, transform .42s cubic-bezier(.2,.8,.2,1);
+}
+.boot-splash.leaving { opacity: 0; transform: scale(1.06); pointer-events: none; }
+.boot-word { color: var(--md-sys-color-on-surface, #e6e0e9); opacity: 0; animation: boot-word .6s .45s ease forwards; letter-spacing: .5px; }
+@keyframes boot-word { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* ---- Now playing aura behind the art ---- */
+.np-aura { position: absolute; inset: 8%; border-radius: 40%; pointer-events: none; filter: blur(48px); opacity: .55;
+  background: radial-gradient(circle at 35% 35%, var(--md-sys-color-primary), transparent 60%), radial-gradient(circle at 70% 70%, var(--md-sys-color-tertiary), transparent 60%);
+}
+.np-aura[data-playing="true"] { animation: np-aura 2.8s ease-in-out infinite; }
+@keyframes np-aura { 0%,100% { transform: scale(.94) rotate(0); opacity: .45; } 50% { transform: scale(1.08) rotate(12deg); opacity: .7; } }
+
+/* ---- Phones: compact top app bar that slides away while scrolling down ---- */
+@media (max-width: 767px) {
+  m3e-app-bar { --m3e-app-bar-small-container-height: 52px; }
+}
+.topbar { transition: transform .28s cubic-bezier(.2,.8,.2,1); }
+.topbar[data-hidden] { transform: translateY(calc(-100% - 2px)); }

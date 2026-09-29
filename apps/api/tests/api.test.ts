@@ -289,3 +289,25 @@ test('invites: registration needs a one-time code issued by an admin', async () 
   assert.equal(del.statusCode, 200);
   assert.equal((await app.inject({ method: 'DELETE', url: `/api/admin/invites/${expired.code}`, headers: h })).statusCode, 404);
 });
+
+test('avatar: upload shows up on the user, delete removes it', async () => {
+  const h = { authorization: `Bearer ${access}` };
+  const boundary = '----avravatar';
+  const jpeg = Buffer.from('/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==', 'base64');
+  const body = Buffer.concat([
+    Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="avatar.jpg"\r\nContent-Type: image/jpeg\r\n\r\n`),
+    jpeg,
+    Buffer.from(`\r\n--${boundary}--\r\n`),
+  ]);
+  const up = await app.inject({ method: 'POST', url: '/api/me/avatar', headers: { ...h, 'content-type': `multipart/form-data; boundary=${boundary}` }, payload: body });
+  assert.equal(up.statusCode, 200, up.body);
+  const url = up.json().avatarUrl as string;
+  assert.match(url, /^\/media\/avatars\/.+\.jpg$/);
+  const img = await app.inject({ method: 'GET', url });
+  assert.equal(img.statusCode, 200);
+  assert.equal((await app.inject({ method: 'GET', url: '/api/auth/me', headers: h })).json().avatarUrl, url);
+  const del = await app.inject({ method: 'DELETE', url: '/api/me/avatar', headers: h });
+  assert.equal(del.statusCode, 200);
+  assert.equal(del.json().avatarUrl, null);
+  assert.equal((await app.inject({ method: 'GET', url })).statusCode, 404);
+});

@@ -10,6 +10,7 @@ import { useAuth } from '@/stores/auth';
 import { useUI } from '@/stores/ui';
 import { usePreview } from '@/stores/preview';
 import { Cover } from './Cover';
+import { Mascot } from './Mascot';
 import { useAcquireJobs } from '@/lib/queries';
 
 const cardBase = 'group relative w-36 sm:w-40 md:w-44 shrink-0 snap-start';
@@ -37,8 +38,9 @@ export function AcquireButton({ kind, id, title, done, className = '', label }: 
   };
   const icon = done ? 'check' : pending || busy ? 'hourglass_empty' : 'add';
   const text = done ? t('inLibrary') : pending ? t('acquiring') : kind === 'track' ? t('addToLibrary') : kind === 'album' ? t('addAlbum') : t('addDiscography');
-  if (label) return <M3eButton variant={done ? 'tonal' : 'filled'} className={className} onClick={click} disabled={done || pending || busy || undefined}><m3e-icon variant="rounded" slot="icon" name={icon} />{text}</M3eButton>;
-  return <M3eIconButton size="small" variant={done ? 'tonal' : 'standard'} className={className} title={text} aria-label={text} onClick={click} disabled={done || pending || busy || undefined}><m3e-icon variant="rounded" name={icon} style={done ? { color: 'var(--md-sys-color-tertiary)' } : undefined} /></M3eIconButton>;
+  const working = !done && (pending || busy);
+  if (label) return <M3eButton variant={done ? 'tonal' : 'filled'} className={className} onClick={click} disabled={done || pending || busy || undefined}>{working ? <Mascot mood="think" slot="icon" className="w-[18px] h-[18px]" /> : <m3e-icon variant="rounded" slot="icon" name={icon} />}{text}</M3eButton>;
+  return <M3eIconButton size="small" variant={done ? 'tonal' : 'standard'} className={className} title={text} aria-label={text} onClick={click} disabled={done || pending || busy || undefined}>{working ? <Mascot mood="think" className="w-5 h-5" /> : <m3e-icon variant="rounded" name={icon} style={done ? { color: 'var(--md-sys-color-tertiary)' } : undefined} />}</M3eIconButton>;
 }
 
 export function PreviewButton({ url, className = '' }: { url: string | null; size?: number; className?: string }) {
@@ -165,7 +167,7 @@ export function TopBarQueueIndicator() {
   if (!active) return null;
   return (
     <M3eButton variant="tonal" href="/downloads?tab=queue" title={t('acquiring')}>
-      <m3e-icon variant="rounded" slot="icon" name="cloud_download" /><span className="md-label-lg">{active}</span>
+      <Mascot mood="think" slot="icon" className="w-[18px] h-[18px]" /><span className="md-label-lg">{active}</span>
     </M3eButton>
   );
 }

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import type { Lyrics as LyricsT } from '@avrmusic/shared';
 import { usePlayer } from '@/stores/player';
 import { useT } from '@/lib/i18n';
+import { Mascot } from './Mascot';
 
 /** Karaoke-style synced lyrics with auto-scroll and click-to-seek; falls back to plain text. */
 export function Lyrics({ lyrics, loading, className = '', big = false }: { lyrics: LyricsT | undefined; loading?: boolean; className?: string; big?: boolean }) {
@@ -25,12 +26,12 @@ export function Lyrics({ lyrics, loading, className = '', big = false }: { lyric
     ref.current.scrollTo({ top: el.offsetTop - ref.current.clientHeight * 0.38, behavior: 'smooth' });
   }, [active]);
 
-  if (loading) return <div className={`muted ${className}`}>{t('loading')}</div>;
+  if (loading) return <div className={`flex items-center justify-center h-full ${className}`}><Mascot mood="think" className="w-12 h-12" /></div>;
   if (!lyrics || (!lyrics.synced && !lyrics.plain)) {
     return (
       <div className={`flex flex-col items-center justify-center text-center muted h-full ${className}`}>
-        <m3e-icon variant="rounded" name="lyrics" style={{ ['--m3e-icon-size' as any]: '40px' }} />
-        <p className="md-body-lg mt-3">{t('noLyrics')}</p>
+        <Mascot mood="sleep" className="w-14 h-14" />
+        <p className="md-body-lg mt-4">{t('noLyrics')}</p>
       </div>
     );
   }

@@ -2,6 +2,8 @@ import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Layout } from '@/components/Layout';
+import { BootSplash } from '@/components/BootSplash';
+import { Mascot } from '@/components/Mascot';
 import { useAuth } from '@/stores/auth';
 import { useLikes } from '@/stores/likes';
 import { useUI } from '@/stores/ui';
@@ -123,7 +125,8 @@ export default function App() {
         <CoverColorSync />
         <Boot />
         <ThemeRoot>
-        <Suspense fallback={<div className="page pt-10 muted">…</div>}>
+        <BootSplash />
+        <Suspense fallback={<div className="flex items-center justify-center h-full min-h-[40vh]"><Mascot mood="think" className="w-14 h-14" /></div>}>
           <Routes>
             {/* Sign-in screens live outside the app shell: no rail, top bar or player */}
             <Route path="/login" element={<Auth mode="login" />} />

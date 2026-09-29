@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { M3eButtonSegment, M3eIconButton, M3eSegmentedButton, M3eSlider, M3eSliderThumb } from '@/md';
 import { usePlayer } from '@/stores/player';
@@ -14,6 +14,8 @@ import { CanvasView, GeneratedCanvas } from './CanvasView';
 import { Lyrics } from './Lyrics';
 import { LikeButton } from './LikeButton';
 import { QueuePanel } from './QueuePanel';
+import { Mascot } from './Mascot';
+import { useLikes } from '@/stores/likes';
 
 type Tab = 'cover' | 'lyrics' | 'queue';
 const thumbValue = (e: Event) => Number((e.target as any)?.value ?? 0);
@@ -36,6 +38,12 @@ export function NowPlaying() {
   const user = useAuth((s) => s.user);
   const t = useT();
   const [tab, setTab] = useState<Tab>('cover');
+  const liked = useLikes((s) => (track ? s.ids.track.has(track.id) : false));
+  const [burst, setBurst] = useState(0);
+  const prevLiked = useRef(liked);
+  const prevTrack = useRef(track?.id);
+  useEffect(() => { if (liked && !prevLiked.current) setBurst((b) => b + 1); prevLiked.current = liked; }, [liked]);
+  useEffect(() => { if (open && track?.id && prevTrack.current && track.id !== prevTrack.current) setBurst((b) => b + 1); prevTrack.current = track?.id; }, [track?.id, open]);
   const [seeking, setSeeking] = useState<number | null>(null);
   const { data: lyrics, isLoading: lyricsLoading } = useLyrics(open && track ? track.id : null);
   const tint = useDominantColor(track?.coverUrl, 'var(--md-sys-color-primary-container)');
@@ -67,8 +75,8 @@ export function NowPlaying() {
       <div className={`relative h-full flex flex-col max-w-6xl mx-auto px-4 md:px-8 ${showCanvas ? 'text-white' : ''}`} style={{ paddingTop: 'calc(var(--safe-t) + 12px)', paddingBottom: 'calc(var(--safe-b) + 16px)' }}>
         <div className="flex items-center justify-between">
           <M3eIconButton aria-label={t('close')} onClick={() => setOpen(false)}><m3e-icon variant="rounded" name="keyboard_arrow_down" /></M3eIconButton>
-          <div className="text-center min-w-0">
-            <div className="md-label-md uppercase tracking-widest opacity-70">{t('nowPlaying')}</div>
+          <div className="text-center min-w-0 flex flex-col items-center">
+            <div className="md-label-md uppercase tracking-widest opacity-80 flex items-center gap-2"><Mascot mood={playing ? 'dance' : 'sleep'} burst={burst} className="w-5 h-5" />{t('nowPlaying')}</div>
             {track.album && <Link to={`/album/${track.album.id}`} onClick={() => setOpen(false)} className="md-title-sm line-1 hover:underline">{track.album.title}</Link>}
           </div>
           <M3eIconButton aria-label="menu" onClick={(e: any) => openMenu(e.clientX, e.clientY, { kind: 'track', track })}><m3e-icon variant="rounded" name="more_vert" /></M3eIconButton>
@@ -93,7 +101,10 @@ export function NowPlaying() {
                 <div className="md:hidden flex-1" />
               </>
             ) : (
-              <Cover src={track.coverUrl} alt={track.title} className="cover-box elev-3 !rounded-[28px]" />
+              <div className="relative flex items-center justify-center">
+                <div className="np-aura" data-playing={playing} />
+                <Cover src={track.coverUrl} alt={track.title} className="cover-box elev-3 !rounded-[28px] relative" />
+              </div>
             )}
           </div>
           <div className={`min-h-0 h-full ${tab === 'cover' ? 'hidden md:block' : ''}`}>

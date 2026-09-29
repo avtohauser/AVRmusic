@@ -38,7 +38,7 @@
       <meta-data android:name="android.support.customtabs.trusted.SPLASH_SCREEN_FADE_OUT_DURATION" android:value="300" />
       <meta-data android:name="android.support.customtabs.trusted.FILE_PROVIDER_AUTHORITY" android:value="space.avthsr.music.fileprovider" />
       <meta-data android:name="android.support.customtabs.trusted.DISPLAY_MODE" android:value="sticky-immersive" />
-      <meta-data android:name="android.support.customtabs.trusted.SCREEN_ORIENTATION" android:value="portrait" />
+      <!-- no SCREEN_ORIENTATION: the app rotates with the phone's auto-rotate setting (landscape shows the rail, like on the web) -->
       <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
 
       <intent-filter>

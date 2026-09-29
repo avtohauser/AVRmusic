@@ -7,7 +7,7 @@ import { usePlayer } from '@/stores/player';
 import { useT } from '@/lib/i18n';
 import { useMyPlaylists } from '@/lib/queries';
 import { useMediaQuery } from '@/lib/hooks';
-import { Logo } from './Logo';
+import { Mascot } from './Mascot';
 import { PlayerBar } from './PlayerBar';
 import { NowPlaying } from './NowPlaying';
 import { ContextMenu } from './ContextMenu';
@@ -70,6 +70,8 @@ function Rail() {
   const loc = useLocation();
   // Expanded rail from 1024px (covers 1366×768 laptops at 125% scaling); compact with icons + short labels below that.
   const wide = useMediaQuery('(min-width: 1024px)');
+  const playing = usePlayer((s) => s.playing);
+  const [poke, setPoke] = useState(0);
   const [expanded, setExpanded] = useState(wide);
   useEffect(() => setExpanded(wide), [wide]);
   const items: Array<[string, string, string, boolean]> = [
@@ -85,8 +87,8 @@ function Rail() {
     <M3eNavRail mode={expanded ? 'expanded' : 'compact'} className="shrink-0 h-full overflow-y-auto overflow-x-hidden no-scrollbar" style={{ paddingBottom: 'var(--player-h)', width: expanded ? 248 : undefined }}>
       <div className="flex flex-col gap-2 px-2 pt-2">
         <M3eIconButton aria-label="menu" onClick={() => setExpanded(!expanded)} className="self-start"><m3e-icon variant="rounded" name={expanded ? 'menu_open' : 'menu'} /></M3eIconButton>
-        <Link to="/" className="flex items-center gap-2 px-2 py-1">
-          <Logo className="w-9 h-9 shrink-0" />
+        <Link to="/" className="flex items-center gap-2 px-2 py-1" onClick={() => setPoke((n) => n + 1)}>
+          <Mascot mood={playing ? 'dance' : 'idle'} burst={poke} className="w-9 h-9" />
           {expanded && <span className="md-title-lg emph text-primary">AVRmusic</span>}
         </Link>
         {user && (
@@ -135,15 +137,36 @@ function TopBar() {
   const toast = useUI((s) => s.toast);
   const onSearch = loc.pathname.startsWith('/search');
   const inputRef = useRef<HTMLInputElement>(null);
+  const playing = usePlayer((s) => s.playing);
+  const [poke, setPoke] = useState(0);
+  const isDesktop = useMediaQuery('(min-width: 768px)');
+  const [hidden, setHidden] = useState(false);
   useEffect(() => { if (!onSearch) setQ(''); }, [onSearch]);
+  // Phones: the bar slides away while scrolling down and comes back on the way up
+  useEffect(() => {
+    setHidden(false);
+    if (isDesktop) return;
+    const main = document.querySelector('main');
+    if (!main) return;
+    let last = main.scrollTop;
+    const onScroll = () => {
+      const y = main.scrollTop, dy = y - last;
+      if (y < 48) setHidden(false);
+      else if (dy > 8) setHidden(true);
+      else if (dy < -8) setHidden(false);
+      if (Math.abs(dy) > 8) last = y;
+    };
+    main.addEventListener('scroll', onScroll, { passive: true });
+    return () => main.removeEventListener('scroll', onScroll);
+  }, [isDesktop, loc.pathname]);
   return (
-    <M3eAppBar size="small" className="sticky top-0 z-20 glass" style={{ paddingTop: 'var(--safe-t)' }}>
+    <M3eAppBar size="small" className="topbar sticky top-0 z-20 glass" data-hidden={hidden || undefined} style={{ paddingTop: 'var(--safe-t)' }}>
       <div slot="leading" className="flex items-center gap-1">
         <span className="hidden md:flex gap-0.5">
           <M3eIconButton aria-label="back" onClick={() => nav(-1)}><m3e-icon variant="rounded" name="arrow_back" /></M3eIconButton>
           <M3eIconButton aria-label="forward" onClick={() => nav(1)}><m3e-icon variant="rounded" name="arrow_forward" /></M3eIconButton>
         </span>
-        <Link to="/" className="md:hidden flex items-center gap-2 pl-2"><Logo className="w-8 h-8" /><span className="md-title-md emph text-primary">AVRmusic</span></Link>
+        <Link to="/" className="md:hidden flex items-center gap-2 pl-2" onClick={() => setPoke((n) => n + 1)}><Mascot mood={playing ? 'dance' : 'idle'} burst={poke} className="w-7 h-7" /><span className="md-title-md emph text-primary">AVRmusic</span></Link>
       </div>
       {!onSearch && (
         <div slot="title" className="hidden sm:block w-full max-w-[560px]">
@@ -155,6 +178,9 @@ function TopBar() {
       )}
       <div slot="trailing" className="flex items-center gap-1">
         <TopBarQueueIndicator />
+        {user?.role === 'admin' && !isDesktop && (
+          <M3eIconButton aria-label={t('admin')} title={t('admin')} onClick={() => nav('/admin')}><m3e-icon variant="rounded" name="shield" /></M3eIconButton>
+        )}
         {installPrompt && (
           <M3eButton variant="tonal" className="hidden sm:inline-flex" onClick={async () => { installPrompt.prompt(); const r = await installPrompt.userChoice; if (r?.outcome === 'accepted') toast(t('installed'), 'success'); setInstallPrompt(null); }}><m3e-icon variant="rounded" slot="icon" name="download_for_offline" />{t('installApp')}</M3eButton>
         )}

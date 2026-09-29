@@ -22,7 +22,6 @@ export default defineConfig({
         display: 'standalone',
         // phones: no status/navigation bar; desktop: window controls overlay (fullscreen is not offered there)
         display_override: ['window-controls-overlay', 'fullscreen', 'standalone'],
-        orientation: 'portrait',
         start_url: '/',
         scope: '/',
         categories: ['music', 'entertainment'],

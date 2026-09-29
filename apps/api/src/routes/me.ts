@@ -95,4 +95,11 @@ export default async function meRoutes(app: FastifyInstance) {
     if (prev) { try { fs.unlinkSync(path.join(config.avatarsDir, prev)); } catch { /* ignore */ } }
     return getUser(db, req.userId!);
   });
+
+  app.delete('/api/me/avatar', auth, async (req) => {
+    const prev = (db.prepare('SELECT avatar_path FROM users WHERE id = ?').get(req.userId) as any)?.avatar_path;
+    db.prepare('UPDATE users SET avatar_path = NULL WHERE id = ?').run(req.userId);
+    if (prev) { try { fs.unlinkSync(path.join(config.avatarsDir, prev)); } catch { /* ignore */ } }
+    return getUser(db, req.userId!);
+  });
 }

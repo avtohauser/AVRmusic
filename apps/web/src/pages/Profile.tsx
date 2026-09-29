@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { M3eButton, M3eButtonSegment, M3eFormField, M3eSegmentedButton, M3eSwitch, M3eThemeIcon } from '@/md';
@@ -10,6 +10,7 @@ import { useI18n, useT } from '@/lib/i18n';
 import { api } from '@/lib/api';
 import { fmtDurationLong, fmtNumber } from '@/lib/format';
 import { Cover } from '@/components/Cover';
+import { AvatarEditor } from '@/components/AvatarEditor';
 import { Shelf } from '@/components/Shelf';
 import { ArtistCard, TrackCard } from '@/components/Cards';
 import type { ArtistSummary, Track, User } from '@avrmusic/shared';
@@ -84,7 +85,7 @@ export default function Profile() {
   const lang = useI18n((s) => s.lang);
   const t = useT();
   const nav = useNavigate();
-  const fileRef = useRef<HTMLInputElement>(null);
+  const [avatarOpen, setAvatarOpen] = useState(false);
   const [name, setName] = useState(user?.displayName ?? '');
   const [oldPw, setOldPw] = useState('');
   const [newPw, setNewPw] = useState('');
@@ -102,26 +103,30 @@ export default function Profile() {
     e.preventDefault();
     try { await api.post('/api/auth/me/password', { oldPassword: oldPw, newPassword: newPw }); setOldPw(''); setNewPw(''); toast(t('passwordChanged'), 'success'); } catch (err: any) { toast(err.message, 'error'); }
   };
-  const uploadAvatar = async (f: File) => {
-    const fd = new FormData(); fd.append('file', f);
-    try { setUser(await api.upload<User>('/api/me/avatar', fd)); toast(t('saved'), 'success'); } catch (err: any) { toast(err.message, 'error'); }
-  };
 
   return (
     <div className="page pt-4">
       <div className="flex items-center gap-5 mb-8">
-        <button className="relative group" onClick={() => fileRef.current?.click()} title={t('avatar')}>
-          <Cover src={user.avatarUrl} shape="cookie" kind="artist" className="w-24 h-24 md:w-32 md:h-32 spring group-hover:rotate-6" />
+        <button className="relative group shrink-0" onClick={() => setAvatarOpen(true)} title={t('changePhoto')} aria-label={t('changePhoto')}>
+          <Cover src={user.avatarUrl} round kind="artist" className="w-24 h-24 md:w-32 md:h-32 spring group-hover:scale-105" />
+          <span className="absolute right-0 bottom-0 w-9 h-9 rounded-full bg-primary text-on-primary flex items-center justify-center elev-2 spring group-hover:rotate-12"><m3e-icon variant="rounded" name="photo_camera" style={{ ['--m3e-icon-size' as any]: '20px' }} /></span>
         </button>
-        <input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => e.target.files?.[0] && uploadAvatar(e.target.files[0])} />
+        <AvatarEditor open={avatarOpen} onClose={() => setAvatarOpen(false)} />
         <div className="min-w-0">
           <div className="md-label-lg muted uppercase tracking-wider">{t('profile')}{user.role === 'admin' && <span className="ml-2 inline-flex items-center gap-1 text-primary"><m3e-icon variant="rounded" name="shield" style={{ ['--m3e-icon-size' as any]: '14px' }} />admin</span>}</div>
-          <h1 className="md-display-sm emph line-1">{user.displayName}</h1>
+          <h1 className="emph line-2" style={{ fontSize: 'clamp(24px, 6.4vw, 45px)', lineHeight: 1.15, hyphens: 'auto', overflowWrap: 'break-word' }}>{user.displayName}</h1>
           <div className="md-body-md muted">@{user.username} · {user.email}</div>
         </div>
         <M3eButton variant="tonal" className="ml-auto shrink-0" onClick={async () => { await logout(); useLikes.getState().clear(); nav('/'); }}><m3e-icon variant="rounded" slot="icon" name="logout" /><span className="hidden sm:inline">{t('logout')}</span></M3eButton>
       </div>
 
+      {user.role === 'admin' && (
+        <Link to="/admin" className="mb-4 flex items-center gap-4 rounded-[28px] p-4 bg-primary-container text-on-primary-container spring hover:rounded-[36px] state-layer">
+          <span className="w-12 h-12 rounded-[16px] bg-primary text-on-primary flex items-center justify-center shrink-0"><m3e-icon variant="rounded" name="shield" filled /></span>
+          <span className="min-w-0 flex-1"><span className="block md-title-md emph">{t('admin')}</span><span className="block md-body-sm opacity-80">{t('adminHint')}</span></span>
+          <m3e-icon variant="rounded" name="chevron_right" />
+        </Link>
+      )}
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
           <div className="surface-low rounded-[24px] p-4"><div className="md-label-md muted uppercase">{t('listened')}</div><div className="md-headline-md emph">{fmtDurationLong(stats.msListened, lang)}</div></div>

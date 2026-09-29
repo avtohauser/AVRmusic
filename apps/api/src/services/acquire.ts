@@ -219,7 +219,7 @@ export async function acquireTrack(db: DB, deezerTrackId: number, api: JobApi, c
     try {
       const file = await src.download(c, dir, api.log, cancelRef, meta);
       if (await fileTakenBy(db, file)) { fs.rmSync(dir, { recursive: true, force: true }); api.log('   ✗ этот же файл уже у другого трека — ищу дальше'); continue; }
-      const match = await checkAudio(t.preview, file, api.log);
+      const match = await checkAudio(t.preview, file, api.log, judgeUpload(c, want).exact);
       if (match === false) { fs.rmSync(dir, { recursive: true, force: true }); continue; }
       const trackId = await importAcquired(db, file, t, album, c, typeof match === 'number' ? match : null);
       fs.rmSync(dir, { recursive: true, force: true });
@@ -252,11 +252,14 @@ function logDecision(ranked: Ranked[], log: (s: string) => void) {
  * Compare the downloaded audio with the catalogue's preview of this recording. Returns the match
  * (0…1), null when it can't be checked, or false when it is clearly another recording.
  */
-async function checkAudio(previewUrl: string | null | undefined, file: string, log: (s: string) => void): Promise<number | null | false> {
+async function checkAudio(previewUrl: string | null | undefined, file: string, log: (s: string) => void, verified = false): Promise<number | null | false> {
   const mismatch = await previewMismatch(previewUrl, file);
   if (mismatch == null) return null;
   const match = 1 - mismatch;
-  if (mismatch > config.previewMaxMismatch) { log(`   ✗ звук не совпадает с превью этой записи в каталоге (${Math.round(match * 100)}%) — ищу дальше`); return false; }
+  // an upload whose YouTube Music credits name exactly these artists may be another master of it;
+  // anything else has to contain the very audio of the catalogue's preview
+  const limit = verified ? config.previewMaxMismatchVerified : config.previewMaxMismatch;
+  if (mismatch > limit) { log(`   ✗ звук не совпадает с превью этой записи в каталоге (${Math.round(match * 100)}%) — ищу дальше`); return false; }
   log(`   ♫ звук совпадает с превью каталога (${Math.round(match * 100)}%)`);
   return match;
 }
@@ -434,7 +437,7 @@ export async function refetchTrack(db: DB, trackId: string, api: JobApi, cancelR
     try {
       const file = await src.download(c, dir, api.log, cancelRef, meta);
       if (await fileTakenBy(db, file, trackId)) { fs.rmSync(dir, { recursive: true, force: true }); api.log('   ✗ этот же файл уже у другого трека — ищу дальше'); continue; }
-      const match = await checkAudio(want.preview, file, api.log);
+      const match = await checkAudio(want.preview, file, api.log, judgeUpload(c, want).exact);
       if (match === false) { fs.rmSync(dir, { recursive: true, force: true }); continue; }
       const ext = path.extname(file).toLowerCase() || '.m4a';
       const dest = path.join(config.tracksDir, `${newId()}${ext}`);
@@ -549,9 +552,9 @@ export async function runHeal(db: DB, job: Job, api: JobApi) {
     // and the audio itself against the catalogue's preview of the recording
     const mismatch = fs.existsSync(row.file_path) ? await previewMismatch(want.preview, row.file_path) : null;
     if (mismatch != null) setMatch.run(1 - mismatch, row.id);
-    const soundOk = mismatch == null || mismatch <= config.previewMaxMismatch;
-    if (!info) { mark.run('', soundOk ? null : 0, row.id); if (!soundOk) stats.wrong++; continue; } // upload gone: judge by the sound only
-    const verdict = judgeUpload(info, want);
+    const verdict = info ? judgeUpload(info, want) : null;
+    const soundOk = mismatch == null || mismatch <= (verdict?.exact ? config.previewMaxMismatchVerified : config.previewMaxMismatch);
+    if (!info || !verdict) { mark.run('', soundOk ? null : 0, row.id); if (!soundOk) stats.wrong++; continue; } // upload gone: judge by the sound only
     const ok = verdict.ok && soundOk;
     mark.run(describeSource({ ...info, source: 'youtube', id } as SourceCandidate), ok ? 1 : 0, row.id);
     if (!ok) {

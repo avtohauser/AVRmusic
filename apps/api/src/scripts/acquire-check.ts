@@ -25,16 +25,17 @@ const song = norm(parseFeaturing(hits[0].title ?? '', hits[0].title_short).title
 const versions: any[] = [];
 for (const h of hits) {
   if (norm(parseFeaturing(h.title ?? '', h.title_short).title) !== song) continue;
-  if (versions.some((v) => v.title === h.title && Math.abs(v.duration - h.duration) <= 2)) continue; // same recording on another release
-  versions.push(h);
+  const t = await rawTrack(db, Number(h.id));
+  if (versions.some((v) => v.isrc && v.isrc === t.isrc)) continue; // the same recording on another release
+  versions.push(t);
   if (versions.length >= 6) break;
 }
 
 const picks: Array<{ label: string; file: string | null; preview: string | null }> = [];
-for (const h of versions) {
-  const t = await rawTrack(db, Number(h.id));
+for (const t of versions) {
   const want = wantOf(t);
-  const label = `${t.artist?.name} — ${t.title}`;
+  const guestsOf = wantedGuests(wantOf(t));
+  const label = `${t.artist?.name} — ${t.title}${guestsOf.length ? ` [с ${guestsOf.join(', ')}]` : ' [соло]'}`;
   console.log(`\n=== ${label} · ${t.album?.title ?? '?'} · ${t.duration}s · ISRC ${t.isrc ?? '?'} · гости: ${wantedGuests(want).join(', ') || 'нет'}`);
   const { ranked, usable } = await pickSources(db, want, (s) => console.log(`    ${s}`));
   for (const r of ranked.slice(0, 8)) {
@@ -55,7 +56,7 @@ for (const h of versions) {
 if (withAudio) {
   if (!(await fingerprintAvailable())) console.log('\nfpcalc не установлен — сверки звука нет');
   else {
-    console.log('\nСверка звука: строка — скачанный файл, столбец — превью версии в каталоге (доля разных бит; ≤0.3 — та же запись)');
+    console.log(`\nСверка звука: строка — скачанный файл, столбец — превью версии в каталоге (доля разных бит; та же запись ≤ ${config.previewMaxMismatch}, с подтверждёнными YouTube Music исполнителями ≤ ${config.previewMaxMismatchVerified})`);
     const prints = await Promise.all(picks.map(async (p) => {
       if (!p.preview) return null;
       const tmp = path.join(config.tmpDir, `pv-${newId()}.mp3`);

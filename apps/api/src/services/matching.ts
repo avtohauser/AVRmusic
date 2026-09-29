@@ -42,13 +42,20 @@ export function parseProvidedCredits(description?: string | null): UploadCredits
   return { title, artists, album, structured: true };
 }
 
-/** Artists a plain upload's title names: "A x B - Song", "A & B - Song (feat. C)", "Song (feat. C)". */
+// "Artist - Song": a dash with a space on at least one side ("Jay-Z - Song", "Artist -Song")
+const SPLIT = /^(.+?)(?:\s+[-–—|]\s*|\s*[-–—|]\s+)(.+)$/;
+const ARTIST_SEP = /\s+(?:x|×|&|and|и|vs\.?|feat\.?|ft\.?|featuring|with)\s+|\s*,\s*/i;
+
+/** Artists a plain upload's title names: "A x B - Song", "A & B - Song (feat. C)", "Song (feat. C)", "Song (B x C x D)". */
 export function titleCredits(title: string): UploadCredits {
-  const m = /^(.+?)\s+[-–—|]\s+(.+)$/.exec(title);
+  const m = SPLIT.exec(title);
   const left = m ? m[1] : '';
   const song = m ? m[2] : title;
-  const artists = left ? left.split(/\s+(?:x|×|&|and|и|vs\.?|feat\.?|ft\.?|featuring|with)\s+|\s*,\s*/i).map((s) => s.trim()).filter(Boolean) : [];
-  return { title: song, artists: [...artists, ...parseFeaturing(left).featuring], album: null, structured: false };
+  const artists = left ? left.split(ARTIST_SEP).map((s) => s.trim()).filter(Boolean) : [];
+  // "(Baker Boy x Jungeli x Ado)": a bracket listing people joined by x / × / vs
+  const listed = [...song.matchAll(/[(\[]([^()\[\]]+)[)\]]/g)].map((g) => g[1]).filter((g) => /\s(?:x|×|vs\.?)\s/i.test(g))
+    .flatMap((g) => g.split(/\s+(?:x|×|vs\.?|&)\s+|\s*,\s*/i)).map((s) => s.trim()).filter(Boolean);
+  return { title: song, artists: [...artists, ...parseFeaturing(left).featuring, ...listed], album: null, structured: false };
 }
 
 // words that make a title another recording of the song
@@ -91,7 +98,7 @@ export function judgeUpload(c: Pick<SourceCandidate, 'title' | 'channel' | 'uplo
   let tm = titleMatch(cr.title, w.title);
   if (tm === 'no' && !cr.structured) {
     // "Song - Artist" instead of "Artist - Song"
-    const m = /^(.+?)\s+[-–—|]\s+(.+)$/.exec(c.title);
+    const m = SPLIT.exec(c.title);
     if (m && titleMatch(m[1], w.title) !== 'no') { cr = titleCredits(`${m[2]} - ${m[1]}`); tm = titleMatch(cr.title, w.title); }
   }
   if (tm === 'no') return { ok: false, exact: false, why: `другая песня или версия: «${cr.title}»` };

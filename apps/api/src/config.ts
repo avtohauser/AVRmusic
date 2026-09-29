@@ -62,8 +62,14 @@ export const config = {
   autoHeal: bool(process.env.AUTO_HEAL, true),
   /** chromaprint's fpcalc: downloads are checked against the catalogue's 30-second preview of the recording. */
   fpcalcPath: process.env.FPCALC_PATH || 'fpcalc',
-  /** Highest bit error rate (0…1) between preview and download that still counts as the same recording. */
-  previewMaxMismatch: Math.max(0.2, Math.min(0.5, Number(process.env.PREVIEW_MAX_MISMATCH || 0.4))),
+  /**
+   * Highest bit error rate (0…1) between the catalogue preview and a download that still counts as the
+   * same recording. Measured on the server: the same recording ≈ 0.06–0.07, another feat. version of
+   * the song ≈ 0.34, unrelated audio ≈ 0.5. Uploads confirmed by YouTube Music's credits may go up to
+   * `previewMaxMismatchVerified` (another master or edit of the same recording).
+   */
+  previewMaxMismatch: Math.max(0.1, Math.min(0.5, Number(process.env.PREVIEW_MAX_MISMATCH || 0.22))),
+  previewMaxMismatchVerified: Math.max(0.1, Math.min(0.5, Number(process.env.PREVIEW_MAX_MISMATCH_VERIFIED || 0.4))),
   /** Quick title lookup for YouTube sources ('' = always ask yt-dlp). */
   youtubeOembed: (process.env.YOUTUBE_OEMBED ?? 'https://www.youtube.com/oembed').replace(/\/$/, ''),
   isProd: process.env.NODE_ENV === 'production',

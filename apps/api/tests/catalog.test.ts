@@ -183,6 +183,11 @@ test('Take Me to the Beach: the solo, the feat. Ado and the feat. Baker Boy vers
   assert.ok(!ok({ title: 'Take Me to the Beach (Sped Up)', channel: 'x' }, solo));
   assert.ok(!ok({ title: 'Imagine Dragons - Take Me to the Beach (Live From Las Vegas)', channel: 'x' }, solo));
   assert.ok(!ok(ytm('Bones', ['Imagine Dragons'], 'Mercury'), solo), 'another song');
+  // seen on YouTube: a mash-up of every version, and a dash without spaces on one side
+  assert.ok(!ok({ title: 'Imagine Dragons -Take Me To The Beach (Baker Boy x Jungeli x Ernia x Ado)', channel: 'x' }, ado));
+  assert.ok(ok({ title: 'Imagine Dragons -Take Me To The Beach (feat. Ado)', channel: 'x' }, ado));
+  assert.ok(ok({ title: 'Imagine Dragons - Take Me To The Beach (Lyrics) feat. Ado', channel: 'Shooting Star' }, ado));
+  assert.ok(!ok({ title: 'Imagine Dragons - Take Me To The Beach (Lyrics) feat. Ado', channel: 'Shooting Star' }, solo));
   // the same people written in another script pair up
   const yonezu = { title: 'KICK BACK', artist: 'Kenshi Yonezu', durationSec: 193, featuring: [], credits: [] };
   assert.ok(ok({ ...ytm('KICK BACK', ['米津玄師'], 'KICK BACK'), channel: '米津玄師 - Topic' }, yonezu));

@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
   <uses-permission android:name="android.permission.INTERNET" />
+  <!-- Android 13+: lets the site's notifications (the "like" card under the player) be shown as the app's -->
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
   <!-- Needed on Android 11+ to find a browser that supports Trusted Web Activities -->
   <queries>
@@ -68,10 +70,12 @@
         android:name="com.google.androidbrowserhelper.trusted.DelegationService"
         android:enabled="true"
         android:exported="true">
+      <meta-data android:name="android.support.customtabs.trusted.SMALL_ICON" android:resource="@drawable/ic_notification_icon" />
       <intent-filter>
         <action android:name="android.support.customtabs.trusted.TRUSTED_WEB_ACTIVITY_SERVICE" />
         <category android:name="android.intent.category.DEFAULT" />
       </intent-filter>
     </service>
+    <activity android:name="com.google.androidbrowserhelper.trusted.NotificationPermissionRequestActivity" />
   </application>
 </manifest>

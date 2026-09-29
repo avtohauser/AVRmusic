@@ -15,6 +15,8 @@ import { Lyrics } from './Lyrics';
 import { LikeButton } from './LikeButton';
 import { QueuePanel } from './QueuePanel';
 import { Mascot } from './Mascot';
+import { notificationsSupported, setShadeLike, shadeLikeSetting } from '@/lib/shadeLike';
+import { M3eAssistChip } from '@/md';
 import { useLikes } from '@/stores/likes';
 
 type Tab = 'cover' | 'lyrics' | 'queue';
@@ -40,6 +42,7 @@ export function NowPlaying() {
   const [tab, setTab] = useState<Tab>('cover');
   const liked = useLikes((s) => (track ? s.ids.track.has(track.id) : false));
   const [burst, setBurst] = useState(0);
+  const [offerShade, setOfferShade] = useState(() => !!user && notificationsSupported() && shadeLikeSetting() === null && Notification.permission !== 'denied');
   const prevLiked = useRef(liked);
   const prevTrack = useRef(track?.id);
   useEffect(() => { if (liked && !prevLiked.current) setBurst((b) => b + 1); prevLiked.current = liked; }, [liked]);
@@ -128,6 +131,14 @@ export function NowPlaying() {
             {track.hasLyrics && <M3eIconButton toggle selected={tab === 'lyrics' || undefined} aria-label={t('lyrics')} onClick={() => setTab(tab === 'lyrics' ? 'cover' : 'lyrics')}><m3e-icon variant="rounded" name="lyrics" /><m3e-icon variant="rounded" slot="selected" name="lyrics" filled /></M3eIconButton>}
             <LikeButton type="track" id={track.id} alwaysVisible buttonSize="medium" />
           </div>
+          {offerShade && (
+            <div className="mt-2 flex items-center gap-1">
+              <M3eAssistChip onClick={async () => { const ok = await setShadeLike(true); setOfferShade(false); if (!ok) useUI.getState().toast(t('notificationsDenied'), 'error'); }}>
+                <m3e-icon variant="rounded" slot="icon" name="notifications_active" />{t('shadeLikeOffer')} — {t('enable').toLowerCase()}
+              </M3eAssistChip>
+              <M3eIconButton size="small" aria-label={t('close')} onClick={() => { void setShadeLike(false); setOfferShade(false); }}><m3e-icon variant="rounded" name="close" /></M3eIconButton>
+            </div>
+          )}
           <div className="mt-3">
             <M3eSlider className="seek" size="small" min={0} max={Math.max(1, duration || 1)} step={0.1} onInput={(e: Event) => setSeeking(thumbValue(e))} onChange={(e: Event) => { p.seek(thumbValue(e)); setSeeking(null); }}>
               <M3eSliderThumb value={pos} />

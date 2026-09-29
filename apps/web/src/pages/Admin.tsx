@@ -50,6 +50,13 @@ function Overview() {
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
         {cells.map(([k, v]) => <div key={k} className="surface-low rounded-[24px] p-4"><div className="md-label-md muted uppercase">{k}</div><div className="md-headline-md emph mt-1">{v}</div></div>)}
       </div>
+      {data.sharedAudio > 0 && (
+        <div className="flex items-center gap-3 rounded-[24px] p-4 mb-4 bg-error-container text-on-error-container">
+          <m3e-icon variant="rounded" name="warning" />
+          <span className="flex-1 md-body-md"><b>{data.sharedAudio}</b> {t('sharedAudioWarn')}</span>
+          <M3eButton variant="filled" disabled={!!busy || undefined} onClick={() => run('fix', () => api.post('/api/admin/tracks/fix-shared-audio', {}), t('refetchQueued'))}><m3e-icon variant="rounded" slot="icon" name="sync" />{t('fixNow')}</M3eButton>
+        </div>
+      )}
       <div className="flex flex-wrap gap-2">
         <M3eButton variant="tonal" disabled={!!busy || undefined} onClick={() => run('scan', () => api.post('/api/admin/scan', {}), t('imported'))}><m3e-icon variant="rounded" slot="icon" name={busy === 'scan' ? 'hourglass_empty' : 'folder_open'} />{t('scan')}</M3eButton>
         <M3eButton variant="tonal" disabled={!!busy || undefined} onClick={() => run('lyrics', () => api.post('/api/admin/lyrics/fetch-missing', {}), 'Задача запущена: см. вкладку «Импорт по ссылке»')}><m3e-icon variant="rounded" slot="icon" name="stars" />Найти тексты для всех треков (LRCLIB)</M3eButton>

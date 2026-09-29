@@ -120,6 +120,15 @@ test('candidate scoring prefers official topic audio with matching duration', ()
   assert.ok(flac > yt, 'lossless file outranks a plain lossy match');
 });
 
+test('candidate scoring tells a "feat." recording from the solo one', () => {
+  const solo = { title: 'Second Song', artist: 'Fake Artist', durationSec: 181 };
+  const feat = { ...solo, featuring: ['Guest Star'] };
+  const soloUpload = { id: 's', title: 'Second Song', duration: 181, channel: 'Fake Artist - Topic' };
+  const featUpload = { id: 'f', title: 'Second Song (feat. Guest Star)', duration: 181, channel: 'Fake Artist - Topic' };
+  assert.ok(scoreCandidate(featUpload, feat) > scoreCandidate(soloUpload, feat), 'feat version wants the upload that credits the guest');
+  assert.ok(scoreCandidate(soloUpload, solo) > scoreCandidate(featUpload, solo), 'solo version avoids uploads crediting someone else');
+});
+
 test('findCandidates merges every source and ranks lossless first', async () => {
   const { findCandidates } = await import('../src/services/acquire.js');
   const ranked = await findCandidates({ title: 'Fake Song', artist: 'Fake Artist', durationSec: 181 });
@@ -316,6 +325,31 @@ test('a solo version and a "feat." version of the same song are different tracks
   assert.equal(dj.status, 'done', JSON.stringify(dj.log));
   assert.equal(dj.stats.exists, 1);
   assert.equal(dj.imported[0].id, feat.libraryTrackId);
+});
+
+test('a track that got another track\'s audio is repaired with its own source', async () => {
+  const h = { authorization: `Bearer ${access}` };
+  const feat = app.db.prepare('SELECT id, source, file_path FROM tracks WHERE deezer_id = 1002').get() as any;
+  const solo = app.db.prepare('SELECT id, source, file_path FROM tracks WHERE deezer_id = 1004').get() as any;
+  assert.notEqual(feat.source, solo.source, 'new acquisitions never share a source');
+  // simulate a library from before the fix: the solo version was given the feat version's video
+  app.db.prepare('UPDATE tracks SET source = ? WHERE id = ?').run(feat.source, solo.id);
+  assert.equal((await app.inject({ method: 'GET', url: '/api/admin/stats', headers: h })).json().sharedAudio, 1);
+  const r = await app.inject({ method: 'POST', url: '/api/admin/tracks/fix-shared-audio', headers: h });
+  assert.equal(r.json().count, 1);
+  const job = await waitJob(r.json().jobId);
+  assert.equal(job.status, 'done', JSON.stringify(job.log));
+  assert.equal(job.stats.replaced, 1, JSON.stringify(job.log));
+  const after = app.db.prepare('SELECT id, source, file_path FROM tracks WHERE id = ?').get(solo.id) as any;
+  assert.notEqual(after.source, feat.source);
+  assert.notEqual(after.file_path, solo.file_path);
+  assert.ok(fs.existsSync(after.file_path));
+  assert.ok(!fs.existsSync(solo.file_path), 'the wrong file is removed');
+  assert.equal((await app.inject({ method: 'GET', url: '/api/admin/stats', headers: h })).json().sharedAudio, 0);
+  // the single-track endpoint works too
+  const one = await app.inject({ method: 'POST', url: `/api/admin/tracks/${solo.id}/refetch`, headers: h });
+  const oj = await waitJob(one.json().jobId);
+  assert.ok(oj.status === 'done' || /другого надёжного источника/.test(oj.error ?? ''), JSON.stringify(oj));
 });
 
 test('acquire respects ACQUIRE_ROLE=admin', async () => {

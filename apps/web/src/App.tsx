@@ -9,6 +9,7 @@ import { useLikes } from '@/stores/likes';
 import { useUI } from '@/stores/ui';
 import { usePlayer } from '@/stores/player';
 import { initAudioEngine } from '@/lib/audio';
+import { initShadeLike } from '@/lib/shadeLike';
 import { useI18n } from '@/lib/i18n';
 import { getColorFromImage } from '@/md';
 import { useSeedColor, useTheme } from '@/stores/theme';
@@ -51,6 +52,7 @@ function Boot() {
   useEffect(() => {
     initAudioEngine();
     init();
+    initShadeLike();
     document.documentElement.lang = lang;
     const on = () => setOnline(true), off = () => setOnline(false);
     window.addEventListener('online', on); window.addEventListener('offline', off);

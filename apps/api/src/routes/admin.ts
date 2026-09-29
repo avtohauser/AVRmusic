@@ -15,6 +15,8 @@ import { indexAlbum, indexArtist, indexTrack, reindexAll, removeFromIndex } from
 import { mapUser } from '../services/auth.js';
 import { createInvite, deleteInvite, listInvites } from '../services/invites.js';
 import { enqueueCanvasJob } from '../services/canvas.js';
+import { tracksWithSharedAudio } from '../services/acquire.js';
+import { enqueue } from '../services/jobs.js';
 
 export default async function adminRoutes(app: FastifyInstance) {
   const db = app.db;
@@ -32,6 +34,7 @@ export default async function adminRoutes(app: FastifyInstance) {
       storageBytes: c('SELECT COALESCE(SUM(file_size),0) c FROM tracks'),
       withLyrics: c('SELECT COUNT(*) c FROM tracks WHERE lyrics_plain IS NOT NULL OR lyrics_synced IS NOT NULL'),
       withCanvas: c('SELECT COUNT(*) c FROM tracks WHERE canvas_path IS NOT NULL'),
+      sharedAudio: tracksWithSharedAudio(db).length,
     };
   });
 
@@ -193,6 +196,22 @@ export default async function adminRoutes(app: FastifyInstance) {
     db.prepare('UPDATE tracks SET canvas_path = ?, canvas_mime = ? WHERE id = ?').run(name, (mime.lookup(ext) as string) || file.mimetype, id);
     if (t.canvas_path) { try { fs.unlinkSync(path.join(config.canvasDir, t.canvas_path)); } catch { /* ignore */ } }
     return getTrack(db, id, req.userId);
+  });
+
+  /** Re-download a track's audio from a different source (keeps the track, likes, playlists, lyrics, canvas). */
+  app.post('/api/admin/tracks/:id/refetch', admin, async (req) => {
+    const id = (req.params as any).id;
+    const t = db.prepare('SELECT t.title, a.name AS artist FROM tracks t JOIN artists a ON a.id = t.artist_id WHERE t.id = ?').get(id) as any;
+    if (!t) throw notFound('Трек не найден');
+    const job = enqueue({ kind: 'acquire', title: `Перекачать: ${t.artist} — ${t.title}`, requestedBy: req.userId }, { kind: 'refetch', trackIds: [id] });
+    return { jobId: job.id, job };
+  });
+  /** Re-fetch every track whose audio is shared with an earlier track. */
+  app.post('/api/admin/tracks/fix-shared-audio', admin, async (req) => {
+    const ids = tracksWithSharedAudio(db);
+    if (!ids.length) return { jobId: null, count: 0 };
+    const job = enqueue({ kind: 'acquire', title: `Исправление треков с чужим звуком (${ids.length})`, requestedBy: req.userId }, { kind: 'refetch', trackIds: ids });
+    return { jobId: job.id, job, count: ids.length };
   });
 
   /** Find the official clip on YouTube and cut a canvas out of it (replaces an existing canvas). */

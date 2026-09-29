@@ -86,7 +86,10 @@ export function ContextMenu() {
       if (!track.hasCanvas && info && info.acquire !== 'off' && (info.acquire === 'user' || user.role === 'admin')) {
         items.push({ icon: 'movie', label: t('findCanvas'), onClick: async () => { try { await api.post(`/api/tracks/${track.id}/canvas/fetch`, {}); toast(t('canvasQueued'), 'success'); } catch (e: any) { toast(e.message, 'error'); } } });
       }
-      if (user.role === 'admin') items.push({ icon: 'edit', label: t('editTrack'), onClick: () => nav(`/admin/track/${track.id}`) });
+      if (user.role === 'admin') {
+        items.push({ icon: 'edit', label: t('editTrack'), onClick: () => nav(`/admin/track/${track.id}`) });
+        items.push({ icon: 'sync', label: t('refetchAudio'), onClick: async () => { try { await api.post(`/api/admin/tracks/${track.id}/refetch`, {}); toast(t('refetchQueued'), 'success'); } catch (e: any) { toast(e.message, 'error'); } } });
+      }
     }
     items.push({ icon: 'share', label: t('share'), onClick: () => share(track.album ? `/album/${track.album.id}?track=${track.id}` : `/artist/${track.artist.id}`) });
   } else if (menu?.target.kind === 'album') {

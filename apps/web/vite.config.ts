@@ -39,6 +39,7 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         navigateFallback: '/index.html',
+        importScripts: ['/sw-extra.js'],
         navigateFallbackDenylist: [/^\/api\//, /^\/media\//, /^\/\.well-known\//],
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         runtimeCaching: [

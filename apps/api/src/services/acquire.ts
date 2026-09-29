@@ -22,6 +22,13 @@ export type { Want };
 
 const BAD = /\b(live|cover|karaoke|instrumental|remix|reaction|slowed|sped ?up|nightcore|8d|tutorial|lesson|lyrics? video|dance video|choreo|parody|mashup|edit|extended|acoustic|версия|кавер|минус|караоке|ремикс)\b/i;
 const norm = (s: string) => nameKey(s).replace(/\s+/g, ' ');
+const FEAT_MARK = /[\(\[]?\s*(?:feat\.?|ft\.|featuring|при уч\.?)\s/i;
+
+/** Where a library file came from (`youtube:<id>`, `audius:<id>` …): one source per track. */
+export const sourceKey = (c: Pick<SourceCandidate, 'source' | 'id'>) => `${c.source}:${c.id}`;
+export function sourceUsedBy(db: DB, key: string, exceptTrackId = ''): string | null {
+  return (db.prepare('SELECT id FROM tracks WHERE source = ? AND id <> ? LIMIT 1').get(key, exceptTrackId) as any)?.id ?? null;
+}
 
 /** Higher is better. Exposed for tests. */
 export function scoreCandidate(c: Pick<SourceCandidate, 'title' | 'duration' | 'channel' | 'uploader' | 'artist' | 'quality' | 'source'>, w: Want): number {
@@ -40,6 +47,14 @@ export function scoreCandidate(c: Pick<SourceCandidate, 'title' | 'duration' | '
   } else s -= 5;
   const wantBad = BAD.test(w.title);
   if (!wantBad && BAD.test(c.title)) s -= 35;
+  // "Song" and "Song (feat. X)" are different recordings: the guest must be credited on a feat version,
+  // and a solo version must not be an upload that credits someone else.
+  const feats = (w.featuring ?? []).map((f) => norm(f)).filter(Boolean);
+  const hay = `${t} ${ch}`;
+  if (feats.length) {
+    const hits = feats.filter((f) => hay.includes(f)).length;
+    s += hits ? 10 + 6 * hits : -22;
+  } else if (FEAT_MARK.test(c.title) && !FEAT_MARK.test(w.title)) s -= 25;
   if (/\bvideo\b|клип/i.test(c.title) && !/audio/i.test(c.title)) s -= 4;
   if (c.quality?.lossless) s += 12;
   else if ((c.quality?.bitrate ?? 0) >= 256) s += 4;
@@ -133,8 +148,14 @@ export async function acquireTrack(db: DB, deezerTrackId: number, api: JobApi, c
   api.log(`🔎 ${artistName} — ${title}`);
   const ranked = await findCandidates(want, api.log);
   if (!ranked.length) return { status: 'notfound', message: 'ничего не найдено ни в одном источнике' };
-  const good = ranked.filter((r) => r.s >= 25).slice(0, 3);
-  if (!good.length) { const b = ranked[0]; return { status: 'notfound', message: `нет надёжного совпадения (лучшее: ${b.c.title} · ${b.src.label}, score ${b.s.toFixed(0)})` }; }
+  const reliable = ranked.filter((r) => r.s >= 25);
+  // A source already used by another track would give this one the other track's audio
+  const good = reliable.filter((r) => !sourceUsedBy(db, sourceKey(r.c))).slice(0, 3);
+  if (!good.length) {
+    const b = reliable[0] ?? ranked[0];
+    const why = reliable.length ? 'подходящие источники уже заняты другими треками' : 'нет надёжного совпадения';
+    return { status: 'notfound', message: `${why} (лучшее: ${b.c.title} · ${b.src.label}, score ${b.s.toFixed(0)})` };
+  }
   const album = albumRaw ?? (t.album?.id ? await rawAlbum(db, t.album.id).catch(() => t.album) : null);
   const meta = { title, artist: artistName, album: album?.title, track: t.track_position ?? undefined, year: album?.release_date ? Number(String(album.release_date).slice(0, 4)) : undefined };
   let lastError = '';
@@ -182,7 +203,7 @@ async function importAcquired(db: DB, file: string, t: any, album: any, cand: So
     id, albumId, artistId, title, t.track_position ?? null, t.disk_number ?? null,
     Math.round((fmt?.duration ?? t.duration ?? 0) * 1000), dest, stat.size, hash, audioMime(dest),
     fmt?.bitrate ? Math.round(fmt.bitrate) : null, fmt?.sampleRate ?? null, fmt?.codec ?? fmt?.container ?? null,
-    t.explicit_lyrics ? 1 : 0, genre, t.id, t.isrc ?? null, `${cand.source}:${cand.id}`,
+    t.explicit_lyrics ? 1 : 0, genre, t.id, t.isrc ?? null, sourceKey(cand),
   );
   const feats = contributors.length ? contributors : featNames.map((n) => ({ id: null, name: n }));
   let pos = 0;
@@ -284,3 +305,85 @@ async function acquireMany(db: DB, job: Job, ids: number[], api: JobApi, album: 
 }
 
 export function tracksOf(db: DB, ids: string[]): Track[] { return getTracksByIds(db, ids); }
+
+/* ---------- repairing tracks whose audio came from the wrong / a shared source ---------- */
+
+/** Tracks whose file came from the same source as an earlier track (the later ones got someone else's audio). */
+export function tracksWithSharedAudio(db: DB): string[] {
+  const out = new Set<string>();
+  const bySource = db.prepare(`SELECT source FROM tracks WHERE source IS NOT NULL GROUP BY source HAVING COUNT(*) > 1`).all() as any[];
+  for (const g of bySource) {
+    const ids = (db.prepare('SELECT id FROM tracks WHERE source = ? ORDER BY created_at, rowid').all(g.source) as any[]).map((r) => r.id);
+    ids.slice(1).forEach((id) => out.add(id));
+  }
+  const byHash = db.prepare(`SELECT file_hash FROM tracks WHERE file_hash IS NOT NULL AND deezer_id IS NOT NULL GROUP BY file_hash HAVING COUNT(*) > 1`).all() as any[];
+  for (const g of byHash) {
+    const ids = (db.prepare('SELECT id FROM tracks WHERE file_hash = ? AND deezer_id IS NOT NULL ORDER BY created_at, rowid').all(g.file_hash) as any[]).map((r) => r.id);
+    ids.slice(1).forEach((id) => out.add(id));
+  }
+  return [...out];
+}
+
+/** Find a fresh source for a library track and swap its audio file in place. */
+export async function refetchTrack(db: DB, trackId: string, api: JobApi, cancelRef: { cancel?: () => void }): Promise<AcquireOutcome> {
+  const row = db.prepare('SELECT t.*, a.name AS artist_name, al.title AS album_title FROM tracks t JOIN artists a ON a.id = t.artist_id LEFT JOIN albums al ON al.id = t.album_id WHERE t.id = ?').get(trackId) as any;
+  if (!row) return { status: 'error', message: 'трек не найден' };
+  const raw = row.deezer_id ? await rawTrack(db, row.deezer_id).catch(() => null) : null;
+  const featuring = raw ? rawFeaturing(raw) : (db.prepare('SELECT a.name FROM track_artists ta JOIN artists a ON a.id = ta.artist_id WHERE ta.track_id = ? ORDER BY ta.position').all(trackId) as any[]).map((r) => r.name);
+  const want: Want = { title: row.title, artist: row.artist_name, durationSec: Number(raw?.duration ?? 0) || Math.round((row.duration_ms ?? 0) / 1000), featuring, album: row.album_title ?? null };
+  api.log(`🔁 ${want.artist} — ${want.title}${featuring.length ? ` (feat. ${featuring.join(', ')})` : ''}`);
+  const ranked = await findCandidates(want, api.log);
+  const good = ranked.filter((r) => r.s >= 25 && sourceKey(r.c) !== row.source && !sourceUsedBy(db, sourceKey(r.c), trackId)).slice(0, 3);
+  if (!good.length) return { status: 'notfound', message: 'другого надёжного источника не нашлось' };
+  const meta = { title: row.title, artist: row.artist_name, album: row.album_title ?? undefined, track: row.track_no ?? undefined };
+  let lastError = '';
+  for (const { c, s: score, src } of good) {
+    const dir = path.join(config.tmpDir, `refetch-${newId()}`);
+    api.log(`   → ${src.label}: ${c.title} [${c.channel ?? c.artist ?? '?'}] ${c.duration ?? '?'}s (score ${score.toFixed(0)})`);
+    try {
+      const file = await src.download(c, dir, api.log, cancelRef, meta);
+      const ext = path.extname(file).toLowerCase() || '.m4a';
+      const dest = path.join(config.tracksDir, `${newId()}${ext}`);
+      fs.mkdirSync(config.tracksDir, { recursive: true });
+      try { fs.renameSync(file, dest); } catch { fs.copyFileSync(file, dest); fs.unlinkSync(file); }
+      const hash = await hashFile(dest);
+      let fmt: any = null;
+      try { fmt = (await parseFile(dest, { duration: true })).format; } catch { /* keep the old length */ }
+      const { audioMime } = await import('./importer.js');
+      db.prepare(`UPDATE tracks SET file_path = ?, file_size = ?, file_hash = ?, mime_type = ?, bitrate = ?, sample_rate = ?, codec = ?, duration_ms = ?, source = ? WHERE id = ?`).run(
+        dest, fs.statSync(dest).size, hash, audioMime(dest), fmt?.bitrate ? Math.round(fmt.bitrate) : null, fmt?.sampleRate ?? null,
+        fmt?.codec ?? fmt?.container ?? null, Math.round((fmt?.duration ?? want.durationSec) * 1000) || row.duration_ms, sourceKey(c), trackId,
+      );
+      const stillUsed = db.prepare('SELECT 1 FROM tracks WHERE file_path = ?').get(row.file_path);
+      if (!stillUsed && String(row.file_path).startsWith(config.tracksDir)) { try { fs.unlinkSync(row.file_path); } catch { /* already gone */ } }
+      fs.rmSync(dir, { recursive: true, force: true });
+      api.log('   ✓ звук заменён');
+      return { status: 'imported', trackId };
+    } catch (e: any) {
+      fs.rmSync(dir, { recursive: true, force: true });
+      lastError = e?.message ?? String(e);
+      api.log(`   ✗ ${src.label}: ${lastError}`);
+      if (/Отменено|abort/i.test(lastError)) break;
+    }
+  }
+  return { status: 'error', message: lastError || 'не удалось скачать' };
+}
+
+export async function runRefetch(db: DB, job: Job, trackIds: string[], api: JobApi) {
+  const cancelRef: { cancel?: () => void } = {};
+  let cancelled = false;
+  api.onCancel(() => { cancelled = true; cancelRef.cancel?.(); });
+  const stats = { total: trackIds.length, replaced: 0, failed: 0 };
+  job.stats = { ...stats };
+  for (let i = 0; i < trackIds.length; i++) {
+    if (cancelled) throw new Error('Отменено');
+    try {
+      const r = await refetchTrack(db, trackIds[i], api, cancelRef);
+      if (r.status === 'imported') { stats.replaced++; job.imported.push(...getTracksByIds(db, [trackIds[i]])); }
+      else { stats.failed++; api.log(`   ✗ ${r.message ?? r.status}`); }
+    } catch (e: any) { stats.failed++; api.log(`   ✗ ${e?.message ?? e}`); }
+    job.stats = { ...stats };
+    api.progress(((i + 1) / trackIds.length) * 100);
+  }
+  if (trackIds.length && !stats.replaced) throw new Error('Ни один трек не удалось перекачать');
+}

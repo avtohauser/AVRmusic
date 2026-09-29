@@ -191,6 +191,11 @@ const MIGRATIONS: string[] = [
   );
   CREATE INDEX idx_jobs_created ON jobs(created_at);
   `,
+  // 5: small key/value store for one-time maintenance flags
+  `
+  CREATE TABLE app_meta (key TEXT PRIMARY KEY, value TEXT);
+  CREATE INDEX idx_tracks_source ON tracks(source);
+  `,
 ];
 
 export function openDatabase(dbPath = config.dbPath): DB {

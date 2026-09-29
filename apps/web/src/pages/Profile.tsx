@@ -11,6 +11,7 @@ import { api } from '@/lib/api';
 import { fmtDurationLong, fmtNumber } from '@/lib/format';
 import { Cover } from '@/components/Cover';
 import { AvatarEditor } from '@/components/AvatarEditor';
+import { notificationsSupported, setShadeLike, shadeLikeSetting } from '@/lib/shadeLike';
 import { Shelf } from '@/components/Shelf';
 import { ArtistCard, TrackCard } from '@/components/Cards';
 import type { ArtistSummary, Track, User } from '@avrmusic/shared';
@@ -18,6 +19,28 @@ import type { ArtistSummary, Track, User } from '@avrmusic/shared';
 const VARIANTS: Array<[string, string]> = [['expressive', 'Expressive'], ['vibrant', 'Vibrant'], ['tonal-spot', 'Tonal Spot'], ['fidelity', 'Fidelity'], ['content', 'Content'], ['rainbow', 'Rainbow'], ['fruit-salad', 'Fruit Salad'], ['neutral', 'Neutral'], ['monochrome', 'Monochrome']];
 
 /** Material You theme controls: seed colour, scheme variant, light/dark, contrast, colour from cover art. */
+/** Playback preferences: the "like" card in the notification shade. */
+function PlaybackSettings() {
+  const t = useT();
+  const toast = useUI((s) => s.toast);
+  const [on, setOn] = useState(shadeLikeSetting() === true && notificationsSupported() && Notification.permission === 'granted');
+  if (!notificationsSupported()) return null;
+  return (
+    <section className="surface-low rounded-[28px] p-5 space-y-3">
+      <h2 className="md-title-lg emph flex items-center gap-2"><m3e-icon variant="rounded" name="notifications" />{t('playback')}</h2>
+      <label className="flex items-center justify-between gap-3 md-body-lg">
+        <span className="min-w-0"><span className="block">{t('shadeLike')}</span><span className="block md-body-sm muted">{t('shadeLikeHint')}</span></span>
+        <M3eSwitch checked={on || undefined} icons="selected" onChange={async (e: Event) => {
+          const want = !!(e.target as any).checked;
+          const res = await setShadeLike(want);
+          setOn(res);
+          if (want && !res) { (e.target as any).checked = false; toast(t('notificationsDenied'), 'error'); }
+        }} />
+      </label>
+    </section>
+  );
+}
+
 function ThemeSettings() {
   const th = useTheme();
   const t = useT();
@@ -140,7 +163,7 @@ export default function Profile() {
       {stats && stats.topGenres.length > 0 && <div className="mb-8"><h2 className="md-headline-sm emph mb-3">{t('topGenres')}</h2><div className="flex flex-wrap gap-2">{stats.topGenres.map((g) => <span key={g.name} className="px-3 py-1.5 rounded-full bg-secondary-container text-on-secondary-container md-label-lg">{g.name} · {g.n}</span>)}</div></div>}
 
       <div className="grid md:grid-cols-2 gap-4 max-w-5xl">
-        <ThemeSettings />
+        <div className="space-y-4"><PlaybackSettings /><ThemeSettings /></div>
         <section className="surface-low rounded-[28px] p-5 space-y-6">
           <form onSubmit={saveProfile} className="space-y-3">
             <h2 className="md-title-lg emph">{t('profile')}</h2>

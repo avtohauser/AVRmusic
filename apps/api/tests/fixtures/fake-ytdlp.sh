@@ -14,10 +14,13 @@ for a in "${args[@]}"; do
           "$(esc "$artist")" "$(esc "$title")" "$(esc "$artist")" "$(esc "$artist")" "$(esc "$title")" "$(esc "$artist")" "$(esc "$title")" "$(esc "$artist")"
         exit 0
       fi
-      artist="${q%% - *}"; title="${q#* - }"; title="${title%% feat.*}"
+      artist="${q%% - *}"; full="${q#* - }"; title="${full%% feat.*}"
+      feat=""; [[ "$full" == *" feat. "* ]] && feat="${full#* feat. }"
+      topic="$title"; [[ -n "$feat" ]] && topic="$title (feat. $feat)"
+      gid="$(printf '%s' "$artist|$topic" | md5sum | cut -c1-8)"   # one video per distinct recording
       esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
-      printf '{"entries":[{"id":"live1","title":"%s - %s (Live at Arena)","duration":250,"channel":"RandomUploads"},{"id":"good1","title":"%s","duration":181,"channel":"%s - Topic","uploader":"%s - Topic"},{"id":"cover1","title":"%s (cover)","duration":182,"channel":"Someone"}]}\n' \
-        "$(esc "$artist")" "$(esc "$title")" "$(esc "$title")" "$(esc "$artist")" "$(esc "$artist")" "$(esc "$title")"
+      printf '{"entries":[{"id":"live-%s","title":"%s - %s (Live at Arena)","duration":250,"channel":"RandomUploads"},{"id":"good-%s","title":"%s","duration":181,"channel":"%s - Topic","uploader":"%s - Topic"},{"id":"cover-%s","title":"%s (cover)","duration":182,"channel":"Someone"}]}\n' \
+        "$gid" "$(esc "$artist")" "$(esc "$title")" "$gid" "$(esc "$topic")" "$(esc "$artist")" "$(esc "$artist")" "$gid" "$(esc "$title")"
       exit 0;;
   esac
 done
@@ -30,5 +33,6 @@ id="${url##*v=}"
 ext=wav; for a in "${args[@]}"; do [[ "$a" == "--download-sections" ]] && ext=mp4; done
 dest="${out//%(id)s/$id}"; dest="${dest//%(ext)s/$ext}"
 cp "$FAKE_WAV" "$dest"
+printf 'AVRFAKE:%s' "$id" >> "$dest"   # different videos → different files, like real downloads
 echo "[download] 100% of 1.00MiB"
 exit 0

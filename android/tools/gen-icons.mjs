@@ -43,5 +43,16 @@ for (const [d, k] of Object.entries(dens)) {
 }
 await render(512, 0.9, null, path.join(res, 'drawable-xxhdpi/splash.png'));
 
+// Status-bar / notification icons must be single-colour on transparent
+const white = mark.replace(/fill="url\(#[^)]+\)"/, 'fill="#ffffff"');
+async function renderWhite(size, scale, out) {
+  const inner = Math.round(size * scale);
+  await page.setContent(`<html><body style="margin:0;background:transparent"><div id="box" style="width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center"><div style="width:${inner}px;height:${inner}px">${white}</div></div></body></html>`);
+  fs.mkdirSync(path.dirname(out), { recursive: true });
+  await (await page.$('#box')).screenshot({ path: out, omitBackground: true });
+}
+await renderWhite(96, 0.84, path.join(pub, 'icons/badge-96.png'));
+for (const [d, k] of Object.entries(dens)) await renderWhite(Math.round(24 * k), 0.84, path.join(res, `drawable-${d}/ic_notification_icon.png`));
+
 await browser.close();
 console.log('icons written');

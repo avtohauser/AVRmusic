@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useHome } from '@/lib/queries';
 import { useAuth } from '@/stores/auth';
@@ -18,6 +19,10 @@ export default function Home() {
   const info = useAuth((s) => s.info);
   const t = useT();
   const play = usePlayer.getState().playTracks;
+  // Greeting follows the device's own clock and time zone (not the server's)
+  const [hour, setHour] = useState(() => new Date().getHours());
+  useEffect(() => { const id = setInterval(() => setHour(new Date().getHours()), 60_000); return () => clearInterval(id); }, []);
+  const greeting = hour < 5 ? t('goodNight') : hour < 12 ? t('goodMorning') : hour < 18 ? t('goodAfternoon') : hour < 23 ? t('goodEvening') : t('goodNight');
 
   if (!user && !info?.publicLibrary) {
     return (
@@ -49,7 +54,7 @@ export default function Home() {
   const empty = !data.sections.length;
   return (
     <div className="page pt-4">
-      <h1 className="md-headline-lg emph mb-5 fade-in">{data.greeting}{user ? `, ${user.displayName}` : ''}</h1>
+      <h1 className="md-headline-lg emph mb-5 fade-in">{greeting}{user ? `, ${user.displayName}` : ''}</h1>
       {empty && (
         <EmptyState icon="music_note" title={t('emptyLibrary')} hint={t('emptyLibraryHint')} action={user?.role === 'admin' ? <M3eButton variant="filled" href="/admin"><m3e-icon variant="rounded" slot="icon" name="upload" />{t('upload')}</M3eButton> : undefined} />
       )}

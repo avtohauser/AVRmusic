@@ -49,15 +49,60 @@ export function parseFeaturing(title: string, titleShort?: string): { title: str
 const artistSummary = (a: any): CatalogArtistSummary => ({ id: Number(a.id), name: a.name, imageUrl: a.picture_xl || a.picture_big || a.picture_medium || null });
 const recordType = (t: string | undefined): CatalogAlbum['type'] => (t === 'single' ? 'single' : t === 'ep' ? 'ep' : t === 'compile' ? 'compilation' : 'album');
 
+/** What identifies a recording: catalogue id, ISRC, or main artist + title + featured artists + length. */
+export interface TrackIdentity { deezerId?: number | null; isrc?: string | null; artist: string; title: string; featuring: string[]; durationSec?: number | null }
+
+const trackStmts = new WeakMap<DB, { byDz: any; byIsrc: any; byName: any; feats: any }>();
+function stmts(db: DB) {
+  let s = trackStmts.get(db);
+  if (!s) {
+    s = {
+      byDz: db.prepare('SELECT id FROM tracks WHERE deezer_id = ?'),
+      byIsrc: db.prepare('SELECT id FROM tracks WHERE isrc = ? LIMIT 1'),
+      byName: db.prepare('SELECT t.id, t.isrc, t.duration_ms FROM tracks t JOIN artists a ON a.id = t.artist_id WHERE a.name_key = ? AND lower(t.title) = lower(?)'),
+      feats: db.prepare('SELECT a.name_key FROM track_artists ta JOIN artists a ON a.id = ta.artist_id WHERE ta.track_id = ?'),
+    };
+    trackStmts.set(db, s);
+  }
+  return s;
+}
+
+/**
+ * Finds the library copy of a catalogue recording. A title match alone is not enough: "Song" and
+ * "Song (feat. X)" by the same artist are different tracks, so the featured artists must match too,
+ * the ISRCs must not contradict and the lengths must be close.
+ */
+export function findLibraryTrack(db: DB, w: TrackIdentity): string | null {
+  const s = stmts(db);
+  if (w.deezerId) { const r = s.byDz.get(w.deezerId) as any; if (r) return r.id; }
+  if (w.isrc) { const r = s.byIsrc.get(w.isrc) as any; if (r) return r.id; }
+  const cands = s.byName.all(nameKey(w.artist), w.title) as any[];
+  if (!cands.length) return null;
+  const want = new Set(w.featuring.map((n) => nameKey(n)).filter(Boolean));
+  want.delete(nameKey(w.artist));
+  for (const c of cands) {
+    if (w.isrc && c.isrc && c.isrc !== w.isrc) continue;
+    const have = new Set((s.feats.all(c.id) as any[]).map((r) => r.name_key as string));
+    if (have.size !== want.size || [...want].some((k) => !have.has(k))) continue;
+    if (w.durationSec && c.duration_ms && Math.abs(c.duration_ms / 1000 - w.durationSec) > 6) continue;
+    return c.id;
+  }
+  return null;
+}
+
+/** Featured artist names of a raw catalogue track: contributors when present, otherwise parsed from the title. */
+export function rawFeaturing(t: any): string[] {
+  const contributors: any[] = Array.isArray(t.contributors) ? t.contributors.filter((c: any) => c.id !== t.artist?.id) : [];
+  return contributors.length ? contributors.map((c) => c.name) : parseFeaturing(t.title ?? '', t.title_short).featuring;
+}
+
 class Linker {
-  private artistByDz; private artistByName; private albumByDz; private albumCount; private trackByDz; private trackByName;
+  private artistByDz; private artistByName; private albumByDz; private albumCount;
   constructor(private db: DB) {
     this.artistByDz = db.prepare('SELECT id FROM artists WHERE deezer_id = ?');
     this.artistByName = db.prepare('SELECT id FROM artists WHERE name_key = ?');
     this.albumByDz = db.prepare('SELECT id FROM albums WHERE deezer_id = ?');
     this.albumCount = db.prepare('SELECT COUNT(*) c FROM tracks WHERE album_id = ?');
-    this.trackByDz = db.prepare('SELECT id FROM tracks WHERE deezer_id = ?');
-    this.trackByName = db.prepare('SELECT t.id FROM tracks t JOIN artists a ON a.id = t.artist_id WHERE a.name_key = ? AND lower(t.title) = lower(?) LIMIT 1');
   }
   artist(dzId: number, name: string): string | null {
     return ((this.artistByDz.get(dzId) as any) ?? (this.artistByName.get(nameKey(name)) as any))?.id ?? null;
@@ -67,8 +112,8 @@ class Linker {
     if (!r) return { id: null, count: 0 };
     return { id: r.id, count: (this.albumCount.get(r.id) as any).c };
   }
-  track(dzId: number, artist: string, title: string): string | null {
-    return ((this.trackByDz.get(dzId) as any) ?? (this.trackByName.get(nameKey(artist), title) as any))?.id ?? null;
+  track(t: any, title: string): string | null {
+    return findLibraryTrack(this.db, { deezerId: Number(t.id), isrc: t.isrc ?? null, artist: t.artist?.name ?? '', title, featuring: rawFeaturing(t), durationSec: Number(t.duration ?? 0) || null });
   }
 }
 
@@ -94,7 +139,7 @@ export function mapTrack(l: Linker, t: any, album?: any): CatalogTrack {
     artist: artistSummary(t.artist ?? al?.artist ?? { id: 0, name: '' }),
     featuring: contributors.length ? contributors.map(artistSummary) : featuring.map((n) => ({ id: 0, name: n, imageUrl: null })),
     album: al ? { id: Number(al.id), title: al.title, coverUrl: al.cover_xl || al.cover_big || al.cover_medium || null } : null,
-    libraryTrackId: l.track(Number(t.id), t.artist?.name ?? '', title),
+    libraryTrackId: l.track(t, title),
   };
 }
 
@@ -173,4 +218,41 @@ export async function catalogTrack(db: DB, id: number): Promise<CatalogTrack & {
 export const rawAlbum = (db: DB, id: number) => dz(db, `/album/${id}`);
 export const rawArtist = (db: DB, id: number) => dz(db, `/artist/${id}`);
 export const rawArtistAlbums = (db: DB, id: number) => dz(db, `/artist/${id}/albums?limit=200`);
+
+/** Every page of a paginated catalogue list (follows `next`, capped). */
+async function dzAll(db: DB, path: string, cap = 1000, ttl = TTL_MS.entity): Promise<any[]> {
+  const out: any[] = [];
+  const sep = path.includes('?') ? '&' : '?';
+  let index = 0;
+  for (let page = 0; page < 20 && out.length < cap; page++) {
+    const r = await dz(db, `${path}${sep}limit=100&index=${index}`, ttl);
+    const data: any[] = r.data ?? [];
+    out.push(...data);
+    if (!r.next || !data.length) break;
+    index += data.length;
+  }
+  return out;
+}
+
+/** All releases of an artist: albums, EPs, singles and compilations. */
+export const rawArtistAllAlbums = (db: DB, id: number) => dzAll(db, `/artist/${id}/albums`);
+
+/** Tracks by other artists that feature this artist ("feat. <name>" in the title), newest search results first. */
+export async function rawArtistFeatures(db: DB, artist: { id: number | string; name: string }): Promise<any[]> {
+  const key = nameKey(artist.name);
+  const queries = [`"${artist.name}"`, `feat ${artist.name}`];
+  const seen = new Set<number>();
+  const out: any[] = [];
+  for (const q of queries) {
+    const list = await dzAll(db, `/search/track?q=${encodeURIComponent(q)}`, 300, TTL_MS.search).catch(() => []);
+    for (const t of list) {
+      const id = Number(t.id);
+      if (seen.has(id) || Number(t.artist?.id) === Number(artist.id)) continue;
+      if (!parseFeaturing(t.title ?? '', t.title_short).featuring.some((n) => nameKey(n) === key)) continue;
+      seen.add(id);
+      out.push(t);
+    }
+  }
+  return out;
+}
 export const rawTrack = (db: DB, id: number) => dz(db, `/track/${id}`);

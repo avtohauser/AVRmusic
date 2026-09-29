@@ -23,23 +23,41 @@ const ART2 = { id: 200, name: 'Guest Star', picture_xl: null, nb_album: 1, nb_fa
 const ALB = { id: 500, title: 'Fake Album', cover_xl: null, record_type: 'album', release_date: '2021-05-01', explicit_lyrics: false, nb_tracks: 3, label: 'Fake Records', genres: { data: [{ id: 1, name: 'Pop' }] }, artist: ART, contributors: [{ ...ART, role: 'Main' }] };
 const TRK = (id: number, title: string, extra: any = {}) => ({ id, title, title_short: title.replace(/\s*\(feat\..*\)$/, ''), duration: 181, track_position: id - 1000, disk_number: 1, explicit_lyrics: false, preview: `http://x/${id}.mp3`, artist: ART, album: { id: ALB.id, title: ALB.title, cover_xl: null, release_date: ALB.release_date }, ...extra });
 const T1 = TRK(1001, 'Fake Song');
-const T2 = TRK(1002, 'Second Song (feat. Guest Star)', { contributors: [{ ...ART, role: 'Main' }, { ...ART2, role: 'Featured' }] });
+const T2 = TRK(1002, 'Second Song (feat. Guest Star)', { isrc: 'FAKE00000002', contributors: [{ ...ART, role: 'Main' }, { ...ART2, role: 'Featured' }] });
 const T3 = TRK(1003, 'Nowhere Track');
 ALB.tracks = { data: [T1, T2, T3] } as any;
+// solo version of the song whose "feat." version is T2 (no ISRC: only the featured artists tell them apart)
+const T4 = TRK(1004, 'Second Song');
+// the same recording as T2 released under another catalogue id (same ISRC)
+const T5 = TRK(1005, 'Second Song (feat. Guest Star)', { isrc: 'FAKE00000002', contributors: [{ ...ART, role: 'Main' }, { ...ART2, role: 'Featured' }] });
+// another artist's track featuring Fake Artist, and a various-artists compilation
+const ART3 = { id: 300, name: 'Other Artist', picture_xl: null };
+const ALB3 = { id: 502, title: 'Other Album', cover_xl: null, record_type: 'album', release_date: '2023-03-03', artist: ART3 };
+const T6 = TRK(1006, 'Other Hit (feat. Fake Artist)', { artist: ART3, album: ALB3, contributors: [{ ...ART3, role: 'Main' }, { ...ART, role: 'Featured' }] });
+const COMP = { id: 504, title: 'Summer Hits', cover_xl: null, record_type: 'compile', release_date: '2024-06-01', artist: { id: 5080, name: 'Various Artists' } };
+const T8 = TRK(1008, 'Compilation Cut', { album: COMP });
+const T9 = TRK(1009, 'Not Mine', { artist: ART3, album: COMP });
 
 const dz = Fastify();
-dz.get('/search/track', async (req: any) => ({ data: /fake/i.test(req.query.q) ? [T1, T2] : [] }));
+dz.get('/search/track', async (req: any) => ({ data: /fake/i.test(req.query.q) ? [T1, T2, T6] : [] }));
 dz.get('/search/artist', async (req: any) => ({ data: /fake/i.test(req.query.q) ? [ART] : [] }));
 dz.get('/search/album', async (req: any) => ({ data: /fake/i.test(req.query.q) ? [ALB] : [] }));
 dz.get('/artist/100', async () => ART);
 dz.get('/artist/100/top', async () => ({ data: [T1, T2] }));
-dz.get('/artist/100/albums', async () => ({ data: [{ ...ALB, tracks: undefined }, { id: 501, title: 'Fake Single', cover_xl: null, record_type: 'single', release_date: '2022-01-01', nb_tracks: 1 }] }));
+dz.get('/artist/100/albums', async () => ({ data: [{ id: 501, title: 'Fake Single', cover_xl: null, record_type: 'single', release_date: '2022-01-01', nb_tracks: 1 }, { ...COMP, nb_tracks: 2 }, { ...ALB, tracks: undefined }] }));
 dz.get('/artist/100/related', async () => ({ data: [ART2] }));
 dz.get('/album/500', async () => ALB);
 dz.get('/album/501', async () => ({ id: 501, title: 'Fake Single', record_type: 'single', release_date: '2022-01-01', artist: ART, tracks: { data: [T1] } }));
 dz.get('/track/1001', async () => T1);
 dz.get('/track/1002', async () => T2);
 dz.get('/track/1003', async () => T3);
+dz.get('/track/1004', async () => T4);
+dz.get('/track/1005', async () => T5);
+dz.get('/track/1006', async () => T6);
+dz.get('/track/1008', async () => T8);
+dz.get('/track/1009', async () => T9);
+dz.get('/album/502', async () => ({ ...ALB3, tracks: { data: [T6] } }));
+dz.get('/album/504', async () => ({ ...COMP, tracks: { data: [T8, T9] } }));
 dz.get('/track/9999', async () => ({ error: { type: 'DataException', message: 'no data', code: 800 } }));
 
 // ---- fake Audius + Internet Archive (direct-file sources) ----
@@ -268,7 +286,36 @@ test('acquire an album: existing skipped, missing reported, others imported', as
   assert.equal(a1.json().jobId, a2.json().jobId);
   const aj = await waitJob(a1.json().jobId);
   assert.equal(aj.status, 'done', JSON.stringify(aj.log));
-  assert.equal(aj.stats.total, 4); // album (3) + single (1, already there)
+  // album (3: two already there, one not found) + single (same track id, skipped) + compilation (only
+  // the artist's own track) + a feature on another artist's album
+  assert.equal(aj.stats.total, 5, JSON.stringify(aj.log));
+  assert.equal(aj.stats.imported, 2, JSON.stringify(aj.log));
+  assert.ok(aj.log.some((l: string) => l.includes('фиты у других 1')), JSON.stringify(aj.log));
+  assert.ok(!aj.log.some((l: string) => l.includes('Not Mine')), 'other artists from compilations are skipped');
+  const titles = aj.imported.map((t: any) => t.title).sort();
+  assert.deepEqual(titles, ['Compilation Cut', 'Other Hit']);
+  const feat = aj.imported.find((t: any) => t.title === 'Other Hit');
+  assert.equal(feat.artist.name, 'Other Artist');
+  assert.equal(feat.featuring[0].name, 'Fake Artist');
+});
+
+test('a solo version and a "feat." version of the same song are different tracks', async () => {
+  // T2 "Second Song (feat. Guest Star)" is in the library; its solo version must not look like a duplicate
+  const before = await app.inject({ method: 'GET', url: '/api/catalog/tracks/1004', headers: { authorization: `Bearer ${access}` } });
+  assert.equal(before.json().libraryTrackId, null);
+  const r = await app.inject({ method: 'POST', url: '/api/catalog/acquire', headers: { authorization: `Bearer ${access}` }, payload: { kind: 'track', id: 1004 } });
+  const job = await waitJob(r.json().jobId);
+  assert.equal(job.status, 'done', JSON.stringify(job.log));
+  assert.equal(job.stats.imported, 1, JSON.stringify(job.log));
+  assert.equal(job.imported[0].featuring.length, 0);
+  const feat = (await app.inject({ method: 'GET', url: '/api/catalog/tracks/1002', headers: { authorization: `Bearer ${access}` } })).json();
+  assert.notEqual(job.imported[0].id, feat.libraryTrackId);
+  // the same recording under another catalogue id (same ISRC) is recognised as already there
+  const dup = await app.inject({ method: 'POST', url: '/api/catalog/acquire', headers: { authorization: `Bearer ${access}` }, payload: { kind: 'track', id: 1005 } });
+  const dj = await waitJob(dup.json().jobId);
+  assert.equal(dj.status, 'done', JSON.stringify(dj.log));
+  assert.equal(dj.stats.exists, 1);
+  assert.equal(dj.imported[0].id, feat.libraryTrackId);
 });
 
 test('acquire respects ACQUIRE_ROLE=admin', async () => {

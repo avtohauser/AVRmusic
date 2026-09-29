@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-  <color name="colorPrimary">#0b0b10</color>
-  <color name="colorPrimaryDark">#0b0b10</color>
-  <color name="navigationColor">#0b0b10</color>
-  <color name="navigationColorDark">#0b0b10</color>
-  <color name="backgroundColor">#0b0b10</color>
+  <color name="colorPrimary">#141218</color>
+  <color name="colorPrimaryDark">#141218</color>
+  <color name="navigationColor">#141218</color>
+  <color name="navigationColorDark">#141218</color>
+  <color name="backgroundColor">#141218</color>
   <color name="ic_launcher_background">#141218</color>
 </resources>

@@ -7,7 +7,7 @@ import type { DB } from '../lib/db.js';
 import type { Track } from '@avrmusic/shared';
 import { config } from '../config.js';
 import { hashFile, nameKey, newId } from '../lib/util.js';
-import { rawAlbum, rawArtistAlbums, rawTrack, parseFeaturing } from './catalog.js';
+import { findLibraryTrack, rawAlbum, rawArtist, rawArtistAllAlbums, rawArtistFeatures, rawFeaturing, rawTrack, parseFeaturing } from './catalog.js';
 import { saveCover } from './importer.js';
 import { indexAlbum, indexArtist, indexTrack } from './search.js';
 import { getTracksByIds } from './library.js';
@@ -124,8 +124,10 @@ export async function acquireTrack(db: DB, deezerTrackId: number, api: JobApi, c
   const t = await rawTrack(db, deezerTrackId);
   const { title, featuring: featNames } = parseFeaturing(t.title ?? '', t.title_short);
   const artistName = t.artist?.name ?? 'Unknown';
-  const byName = db.prepare('SELECT t.id FROM tracks t JOIN artists a ON a.id = t.artist_id WHERE a.name_key = ? AND lower(t.title) = lower(?)').get(nameKey(artistName), title) as any;
-  if (byName) { db.prepare('UPDATE tracks SET deezer_id = COALESCE(deezer_id, ?) WHERE id = ?').run(deezerTrackId, byName.id); return { status: 'exists', trackId: byName.id }; }
+  // Same recording already in the library (same ISRC, or same artist + title + featured artists + length)?
+  // A solo version and a "feat." version of a song are different tracks and are both imported.
+  const same = findLibraryTrack(db, { isrc: t.isrc ?? null, artist: artistName, title, featuring: rawFeaturing(t), durationSec: Number(t.duration ?? 0) || null });
+  if (same) { db.prepare('UPDATE tracks SET deezer_id = COALESCE(deezer_id, ?), isrc = COALESCE(isrc, ?) WHERE id = ?').run(deezerTrackId, t.isrc ?? null, same); return { status: 'exists', trackId: same }; }
 
   const want: Want = { title, artist: artistName, durationSec: Number(t.duration ?? 0), featuring: featNames, album: t.album?.title ?? null };
   api.log(`🔎 ${artistName} — ${title}`);
@@ -215,18 +217,49 @@ export async function runAcquireAlbum(db: DB, job: Job, deezerAlbumId: number, a
   await acquireMany(db, job, ids, api, album);
 }
 
+/**
+ * "Download discography" = everything by the artist: albums, EPs, singles, compilations (only the
+ * artist's own tracks from those) and tracks by other artists that feature them. Album versions are
+ * fetched first, so a single that is the same recording as an album track is skipped as a duplicate.
+ */
 export async function runAcquireArtist(db: DB, job: Job, deezerArtistId: number, api: JobApi) {
-  const albums = ((await rawArtistAlbums(db, deezerArtistId)).data ?? []) as any[];
-  const wanted = albums.filter((a) => ['album', 'ep', 'single'].includes(a.record_type));
-  api.log(`Релизов: ${wanted.length}`);
-  const ids: Array<{ id: number; album: any }> = [];
-  for (const a of wanted) {
+  const artist = await rawArtist(db, deezerArtistId);
+  const artistKey = nameKey(artist.name ?? '');
+  const releases = await rawArtistAllAlbums(db, deezerArtistId);
+  const order: Record<string, number> = { album: 0, ep: 1, single: 2, compile: 3 };
+  releases.sort((a: any, b: any) => (order[a.record_type] ?? 4) - (order[b.record_type] ?? 4) || String(a.release_date ?? '').localeCompare(String(b.release_date ?? '')));
+  const kinds = releases.reduce((m: Record<string, number>, a: any) => { m[a.record_type ?? 'album'] = (m[a.record_type ?? 'album'] ?? 0) + 1; return m; }, {});
+  api.log(`Релизов: ${releases.length} (альбомы ${kinds.album ?? 0}, EP ${kinds.ep ?? 0}, синглы ${kinds.single ?? 0}, сборники ${kinds.compile ?? 0})`);
+
+  const seen = new Set<number>();
+  const ids: number[] = [];
+  const albumOf = new Map<number, any>();
+  const isOwn = (t: any) => Number(t.artist?.id) === Number(deezerArtistId) || parseFeaturing(t.title ?? '', t.title_short).featuring.some((n) => nameKey(n) === artistKey);
+  for (const a of releases) {
     try {
       const full = await rawAlbum(db, Number(a.id));
-      for (const t of full.tracks?.data ?? []) ids.push({ id: Number(t.id), album: full });
+      for (const t of full.tracks?.data ?? []) {
+        const tid = Number(t.id);
+        if (seen.has(tid)) continue;
+        // compilations mix artists: keep only this artist's tracks
+        if (a.record_type === 'compile' && t.artist?.id && !isOwn(t)) continue;
+        seen.add(tid); ids.push(tid); albumOf.set(tid, full);
+      }
     } catch (e: any) { api.log(`! ${a.title}: ${e?.message ?? e}`); }
+    await new Promise((r) => setTimeout(r, 60)); // stay well under the catalogue rate limit
   }
-  await acquireMany(db, job, ids.map((x) => x.id), api, null, new Map(ids.map((x) => [x.id, x.album])));
+  const own = ids.length;
+
+  const feats = await rawArtistFeatures(db, artist).catch((e: any) => { api.log(`! фиты: ${e?.message ?? e}`); return []; });
+  for (const t of feats) {
+    const tid = Number(t.id);
+    if (seen.has(tid)) continue;
+    let alb: any = null;
+    if (t.album?.id) { try { alb = await rawAlbum(db, Number(t.album.id)); } catch { /* acquireTrack falls back */ } }
+    seen.add(tid); ids.push(tid); if (alb) albumOf.set(tid, alb);
+  }
+  api.log(`Треков: ${ids.length} (свои релизы ${own}, фиты у других ${ids.length - own})`);
+  await acquireMany(db, job, ids, api, null, albumOf);
 }
 
 async function acquireMany(db: DB, job: Job, ids: number[], api: JobApi, album: any, albumsByTrack?: Map<number, any>) {

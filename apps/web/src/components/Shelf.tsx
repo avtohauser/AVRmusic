@@ -9,7 +9,7 @@ export function Shelf({ title, subtitle, to, children }: { title: string; subtit
     <section className="mb-8 fade-in">
       <div className="flex items-end justify-between mb-3 gap-3">
         <div className="min-w-0">
-          {to ? <Link to={to} className="md-headline-sm emph hover:underline line-1">{title}</Link> : <h2 className="md-headline-sm emph line-1">{title}</h2>}
+          {to ? <Link to={to} className="md-headline-sm emph flow-soft hover:underline line-1">{title}</Link> : <h2 className="md-headline-sm emph flow-soft line-1">{title}</h2>}
           {subtitle && <p className="md-body-md muted">{subtitle}</p>}
         </div>
         <div className="hidden md:flex gap-1 shrink-0">

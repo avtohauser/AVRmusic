@@ -54,7 +54,7 @@ function Playlists() {
             </Link>
             {(mine.data ?? []).map((p) => <PlaylistCard key={p.id} playlist={p} />)}
           </div>
-          {others.length > 0 && <h2 className="md-headline-sm emph mt-8 mb-3">{t('communityPlaylists')}</h2>}
+          {others.length > 0 && <h2 className="md-headline-sm emph flow-soft mt-8 mb-3">{t('communityPlaylists')}</h2>}
         </>
       )}
       <div className={grid}>{others.map((p) => <PlaylistCard key={p.id} playlist={p} />)}</div>
@@ -71,7 +71,7 @@ function Albums() {
   if (all.isLoading) return <ShelfSkeleton />;
   return (
     <>
-      {user && liked.data && liked.data.length > 0 && (<><h2 className="md-headline-sm emph mb-3">{t('like')}</h2><div className={grid}>{liked.data.map((a) => <AlbumCard key={a.id} album={a} />)}</div><h2 className="md-headline-sm emph mt-8 mb-3">{t('all')}</h2></>)}
+      {user && liked.data && liked.data.length > 0 && (<><h2 className="md-headline-sm emph flow-soft mb-3">{t('like')}</h2><div className={grid}>{liked.data.map((a) => <AlbumCard key={a.id} album={a} />)}</div><h2 className="md-headline-sm emph flow-soft mt-8 mb-3">{t('all')}</h2></>)}
       <div className={grid}>{(all.data?.items ?? []).map((a) => <AlbumCard key={a.id} album={a} />)}</div>
     </>
   );
@@ -85,7 +85,7 @@ function Artists() {
   if (all.isLoading) return <ShelfSkeleton round />;
   return (
     <>
-      {user && liked.data && liked.data.length > 0 && (<><h2 className="md-headline-sm emph mb-3">{t('following')}</h2><div className={grid}>{liked.data.map((a) => <ArtistCard key={a.id} artist={a} />)}</div><h2 className="md-headline-sm emph mt-8 mb-3">{t('all')}</h2></>)}
+      {user && liked.data && liked.data.length > 0 && (<><h2 className="md-headline-sm emph flow-soft mb-3">{t('following')}</h2><div className={grid}>{liked.data.map((a) => <ArtistCard key={a.id} artist={a} />)}</div><h2 className="md-headline-sm emph flow-soft mt-8 mb-3">{t('all')}</h2></>)}
       <div className={grid}>{(all.data?.items ?? []).map((a) => <ArtistCard key={a.id} artist={a} />)}</div>
     </>
   );

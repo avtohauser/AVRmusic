@@ -18,6 +18,7 @@ import { Mascot } from './Mascot';
 import { notificationsSupported, setShadeLike, shadeLikeSetting } from '@/lib/shadeLike';
 import { M3eAssistChip } from '@/md';
 import { useLikes } from '@/stores/likes';
+import { FlowText } from '@/components/FlowText';
 
 type Tab = 'cover' | 'lyrics' | 'queue';
 const thumbValue = (e: Event) => Number((e.target as any)?.value ?? 0);
@@ -122,7 +123,7 @@ export function NowPlaying() {
         <div className="mt-4 md:mt-6 md:max-w-2xl md:mx-auto w-full">
           <div className="flex items-center gap-3">
             <div className="min-w-0 flex-1">
-              <div className="md-headline-sm emph line-1">{track.title}</div>
+              <FlowText as="div" text={track.title} className="md-headline-sm emph line-1" />
               <div className="md-body-lg opacity-80 line-1">
                 <Link to={`/artist/${track.artist.id}`} onClick={() => setOpen(false)} className="hover:underline">{track.artist.name}</Link>
                 {track.featuring.map((f) => <span key={f.id}>, <Link to={`/artist/${f.id}`} onClick={() => setOpen(false)} className="hover:underline">{f.name}</Link></span>)}

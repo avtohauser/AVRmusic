@@ -68,7 +68,6 @@ export default function AdminTrack() {
           <label className="flex items-center justify-between md-body-lg"><span>{t('explicit')}</span><M3eSwitch checked={form.explicit || undefined} onChange={(e: Event) => setForm({ ...form, explicit: !!(e.target as any).checked })} /></label>
           <div className="flex gap-2 pt-2">
             <M3eButton variant="filled" disabled={busy === 'save' || undefined} onClick={save}><m3e-icon variant="rounded" slot="icon" name={busy === 'save' ? 'hourglass_empty' : 'check'} />{t('save')}</M3eButton>
-            <M3eButton variant="tonal" disabled={busy === 'refetch' || undefined} onClick={() => wrap('refetch', () => api.post(`/api/admin/tracks/${id}/refetch`, {}), t('refetchQueued'))}><m3e-icon variant="rounded" slot="icon" name="sync" />{t('refetchAudio')}</M3eButton>
             <M3eButton variant="text" className="ml-auto" style={{ color: 'var(--md-sys-color-error)' }} onClick={() => { if (confirm(t('confirmDelete'))) wrap('del', () => api.del(`/api/admin/tracks/${id}`), t('removed')).then(() => nav('/admin?tab=tracks')); }}><m3e-icon variant="rounded" slot="icon" name="delete" />{t('deleteTrack')}</M3eButton>
           </div>
         </section>

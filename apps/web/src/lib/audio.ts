@@ -1,9 +1,15 @@
-// Single <audio> engine bound to the player store: source selection (offline blob or stream URL),
+// Single audio engine bound to the player store: source selection (offline blob or stream URL),
 // progress reporting, Media Session (lock-screen controls on Android), play reporting, sleep timer.
+// In the Android app the engine is the app's own media player (NativeAudio), which also puts a
+// ♥ button into the notification-shade player.
+import type { Track } from '@avrmusic/shared';
 import { usePlayer, consumeSeek } from '@/stores/player';
 import { useAuth } from '@/stores/auth';
+import { useLikes } from '@/stores/likes';
 import { api, streamUrl } from './api';
 import { offlineSrc } from './offline';
+import { inNativeApp, nativeBridge, onNative } from './native';
+import { NativeAudio } from './nativeAudio';
 
 let audio: HTMLAudioElement | null = null;
 let currentId: string | null = null;
@@ -11,8 +17,15 @@ let currentNonce = -1;
 let playedMs = 0;
 let lastTick = 0;
 let reported = false;
+/** A new track's source is being resolved: play() waits for it instead of restarting the old one. */
+let switching = false;
+let loadSeq = 0;
 
 export function getAudio(): HTMLAudioElement {
+  if (!audio && inNativeApp()) {
+    audio = new NativeAudio() as unknown as HTMLAudioElement;
+    bind(audio);
+  }
   if (!audio) {
     audio = new Audio();
     audio.preload = 'auto';
@@ -59,26 +72,59 @@ function flush() {
   playedMs = 0; reported = false; lastTick = 0;
 }
 
+const artistLine = (t: Track) => [t.artist.name, ...t.featuring.map((f) => f.name)].join(', ');
+
 async function load(trackId: string) {
   const a = getAudio();
   const local = await offlineSrc(trackId);
+  if (trackId !== currentId) return; // skipped past while the offline copy was looked up
+  if (a instanceof NativeAudio) {
+    const t = usePlayer.getState().current();
+    a.meta = { id: trackId, title: t?.title ?? '', artist: t ? artistLine(t) : '', album: t?.album?.title ?? '', artwork: t?.coverUrl ? new URL(t.coverUrl, location.origin).href : '' };
+  }
   a.src = local ?? streamUrl(trackId);
   a.load();
 }
 
+/** App player: keep the shade's ♥ in sync and take its buttons (next / previous / like). */
+function bindNativeControls() {
+  const b = nativeBridge();
+  if (!b) return;
+  let last: boolean | null = null;
+  const syncLike = () => {
+    const t = usePlayer.getState().current();
+    const liked = !!t && useLikes.getState().has('track', t.id);
+    if (liked !== last) { last = liked; b.setLiked(liked); }
+  };
+  usePlayer.subscribe(syncLike);
+  useLikes.subscribe(syncLike);
+  onNative('command', (d) => {
+    const p = usePlayer.getState();
+    if (d?.name === 'next') p.next();
+    else if (d?.name === 'prev') p.prev();
+    else if (d?.name === 'like') {
+      const t = p.current();
+      if (t && useAuth.getState().user) useLikes.getState().toggle('track', t.id).catch(() => { last = null; syncLike(); });
+      else { last = null; syncLike(); }
+    }
+  });
+}
+
 function updateMediaSession() {
-  if (!('mediaSession' in navigator)) return;
+  if (!('mediaSession' in navigator) || inNativeApp()) return;
   const t = usePlayer.getState().current();
   if (!t) { navigator.mediaSession.metadata = null; return; }
   const art = t.coverUrl ? [{ src: t.coverUrl, sizes: '512x512', type: t.coverUrl.endsWith('.svg') ? 'image/svg+xml' : 'image/jpeg' }] : [];
-  navigator.mediaSession.metadata = new MediaMetadata({ title: t.title, artist: [t.artist.name, ...t.featuring.map((f) => f.name)].join(', '), album: t.album?.title ?? '', artwork: art });
+  navigator.mediaSession.metadata = new MediaMetadata({ title: t.title, artist: artistLine(t), album: t.album?.title ?? '', artwork: art });
 }
 
 export function initAudioEngine() {
   const a = getAudio();
+  const native = a instanceof NativeAudio;
   const store = usePlayer;
+  bindNativeControls();
 
-  if ('mediaSession' in navigator) {
+  if ('mediaSession' in navigator && !inNativeApp()) {
     const ms = navigator.mediaSession;
     ms.setActionHandler('play', () => store.getState().play());
     ms.setActionHandler('pause', () => store.getState().pause());
@@ -94,17 +140,27 @@ export function initAudioEngine() {
     const cur = st.queue[st.index] ?? null;
     // Track change or restart
     if (cur && (cur.id !== currentId || st.nonce !== currentNonce)) {
-      if (cur.id !== currentId) { flush(); currentId = cur.id; load(cur.id).then(() => { if (usePlayer.getState().playing) a.play().catch(() => {}); }); }
-      else { a.currentTime = 0; if (st.playing) a.play().catch(() => {}); }
+      if (cur.id !== currentId) {
+        flush(); currentId = cur.id; switching = true;
+        const seq = ++loadSeq;
+        load(cur.id)
+          .catch(() => {})
+          .then(() => {
+            if (seq !== loadSeq) return; // another track was picked meanwhile
+            switching = false;
+            if (usePlayer.getState().playing) a.play().catch(() => {});
+          });
+      } else { a.currentTime = 0; if (st.playing) a.play().catch(() => {}); }
       currentNonce = st.nonce;
       updateMediaSession();
-      if (st.playing) a.play().catch(() => {});
+      if (st.playing && !(switching && native)) a.play().catch(() => {});
     } else if (!cur && currentId) {
       flush(); currentId = null; a.removeAttribute('src'); a.load(); updateMediaSession();
     }
     if (st.playing !== prevPlaying) {
       prevPlaying = st.playing;
-      if (st.playing) a.play().catch(() => { /* autoplay blocked: wait for a user gesture */ });
+      // (a browser needs play() inside the tap that started it; the app's player waits for the new source)
+      if (st.playing) { if (!(switching && native)) a.play().catch(() => { /* autoplay blocked: wait for a user gesture */ }); }
       else a.pause();
       if ('mediaSession' in navigator) navigator.mediaSession.playbackState = st.playing ? 'playing' : 'paused';
     }

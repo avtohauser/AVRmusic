@@ -12,6 +12,7 @@ import { AlbumCard, ArtistCard, GenreCard, PlaylistCard, QuickPick, TrackCard } 
 import { ShelfSkeleton, Skeleton } from '@/components/Skeleton';
 import { EmptyState } from '@/components/EmptyState';
 import type { AlbumSummary, ArtistSummary, Genre, PlaylistSummary, Track } from '@avrmusic/shared';
+import { FlowText } from '@/components/FlowText';
 
 export default function Home() {
   const { data, isLoading, error } = useHome();
@@ -29,7 +30,7 @@ export default function Home() {
       <div className="page pt-10">
         <div className="surface-low rounded-[36px] p-8 md:p-12 text-center max-w-2xl mx-auto fade-in">
           <Mascot mood="idle" className="w-20 h-20 mx-auto mb-5" />
-          <h1 className="md-display-sm emph">{t('welcome')} <span className="text-primary">AVRmusic</span></h1>
+          <h1 className="md-display-sm emph"><FlowText text={t('welcome')} /> <FlowText text="AVRmusic" className="text-primary" /></h1>
           <p className="md-body-lg muted mt-2">{t('signInToListen')}</p>
           <div className="flex justify-center gap-3 mt-6">
             <M3eButton variant="filled" size="large" href="/login">{t('login')}</M3eButton>
@@ -54,7 +55,7 @@ export default function Home() {
   const empty = !data.sections.length;
   return (
     <div className="page pt-4">
-      <h1 className="md-headline-lg emph mb-5 fade-in">{greeting}{user ? `, ${user.displayName}` : ''}</h1>
+      <FlowText as="h1" text={`${greeting}${user ? `, ${user.displayName}` : ''}`} className="md-headline-lg emph mb-5 block" />
       {empty && (
         <EmptyState icon="music_note" title={t('emptyLibrary')} hint={t('emptyLibraryHint')} action={user?.role === 'admin' ? <M3eButton variant="filled" href="/admin"><m3e-icon variant="rounded" slot="icon" name="upload" />{t('upload')}</M3eButton> : undefined} />
       )}

@@ -6,6 +6,7 @@ import { useI18n, useT } from '@/lib/i18n';
 import { TrackList } from '@/components/TrackList';
 import { EmptyState } from '@/components/EmptyState';
 import { TrackListSkeleton } from '@/components/Skeleton';
+import { FlowText } from '@/components/FlowText';
 
 export default function History() {
   const { data, isLoading } = useHistory();
@@ -21,7 +22,7 @@ export default function History() {
   return (
     <div className="page pt-4">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="md-headline-md emph flex items-center gap-3"><m3e-icon variant="rounded" name="history" />{t('history')}</h1>
+        <h1 className="md-headline-md emph flex items-center gap-3"><m3e-icon variant="rounded" name="history" /><FlowText text={t('history')} /></h1>
         {!!data?.length && <M3eButton variant="tonal" onClick={async () => { if (!confirm(t('confirmDelete'))) return; await api.del('/api/me/history'); qc.invalidateQueries({ queryKey: ['history'] }); qc.invalidateQueries({ queryKey: ['home'] }); }}><m3e-icon variant="rounded" slot="icon" name="delete" />{t('clearHistory')}</M3eButton>}
       </div>
       {isLoading ? <TrackListSkeleton /> : !data?.length ? <EmptyState icon="history" title={t('nothingFound')} /> : (

@@ -16,6 +16,7 @@ import { QueuePanel } from './QueuePanel';
 import { Cover } from './Cover';
 import { TopBarQueueIndicator } from './Catalog';
 import { lastSearchUrl } from '@/lib/nav';
+import { FlowText } from '@/components/FlowText';
 
 export function Layout() {
   const user = useAuth((s) => s.user);
@@ -34,12 +35,12 @@ export function Layout() {
   if (!user && info && !info.publicLibrary) return <Navigate to="/login" replace state={{ from: loc.pathname }} />;
 
   return (
-    <div className="h-full flex flex-col bg-background text-on-background" style={{ ['--player-h' as any]: hasTrack ? '96px' : '0px', ['--nav-h' as any]: isDesktop ? '0px' : '92px' }}>
+    <div className="h-full flex flex-col bg-background text-on-background" style={{ ['--player-h' as any]: hasTrack ? '96px' : '0px', ['--nav-h' as any]: isDesktop ? '0px' : '92px', paddingLeft: 'var(--safe-l)', paddingRight: 'var(--safe-r)' }}>
       <div className="flex-1 flex min-h-0">
         {isDesktop && <Rail />}
         <main className="flex-1 min-w-0 overflow-y-auto relative" style={{ paddingBottom: 'calc(var(--player-h) + var(--nav-h) + var(--safe-b) + 16px)' }}>
           {!online && (
-            <div className="sticky top-0 z-30 bg-tertiary-container text-on-tertiary-container md-label-lg px-4 py-2 flex items-center gap-2"><m3e-icon variant="rounded" name="wifi_off" />{t('offlineMode')} <Link to="/downloads" className="underline ml-auto">{t('downloads')}</Link></div>
+            <div className="sticky top-0 z-30 bg-tertiary-container text-on-tertiary-container md-label-lg px-4 py-2 flex items-center gap-2" style={{ paddingTop: 'calc(var(--safe-t) + 8px)' }}><m3e-icon variant="rounded" name="wifi_off" />{t('offlineMode')} <Link to="/downloads" className="underline ml-auto">{t('downloads')}</Link></div>
           )}
           <TopBar />
           <Outlet />
@@ -89,7 +90,7 @@ function Rail() {
         <M3eIconButton aria-label="menu" onClick={() => setExpanded(!expanded)} className="self-start"><m3e-icon variant="rounded" name={expanded ? 'menu_open' : 'menu'} /></M3eIconButton>
         <Link to="/" className="flex items-center gap-2 px-2 py-1" onClick={() => setPoke((n) => n + 1)}>
           <Mascot mood={playing ? 'dance' : 'idle'} burst={poke} className="w-9 h-9" />
-          {expanded && <span className="md-title-lg emph text-primary">AVRmusic</span>}
+          {expanded && <FlowText text="AVRmusic" className="md-title-lg emph text-primary" intro={false} />}
         </Link>
         {user && (
           <M3eFab size={expanded ? 'medium' : 'small'} variant="tertiary-container" extended={expanded || undefined} aria-label={t('createPlaylist')} onClick={() => setEditor({ initial: { title: '', description: '', isPublic: true } })} className={`mt-1 max-w-full ${expanded ? 'self-start' : 'self-center'}`}>
@@ -160,13 +161,13 @@ function TopBar() {
     return () => main.removeEventListener('scroll', onScroll);
   }, [isDesktop, loc.pathname]);
   return (
-    <M3eAppBar size="small" className="topbar sticky top-0 z-20 glass" data-hidden={hidden || undefined} style={{ paddingTop: 'var(--safe-t)' }}>
+    <M3eAppBar size="small" className="topbar sticky top-0 z-20 glass" data-hidden={hidden || undefined} style={{ paddingTop: 'var(--safe-t-bar)' }}>
       <div slot="leading" className="flex items-center gap-1">
         <span className="hidden md:flex gap-0.5">
           <M3eIconButton aria-label="back" onClick={() => nav(-1)}><m3e-icon variant="rounded" name="arrow_back" /></M3eIconButton>
           <M3eIconButton aria-label="forward" onClick={() => nav(1)}><m3e-icon variant="rounded" name="arrow_forward" /></M3eIconButton>
         </span>
-        <Link to="/" className="md:hidden flex items-center gap-2 pl-2" onClick={() => setPoke((n) => n + 1)}><Mascot mood={playing ? 'dance' : 'idle'} burst={poke} className="w-7 h-7" /><span className="md-title-md emph text-primary">AVRmusic</span></Link>
+        <Link to="/" className="md:hidden flex items-center gap-2 pl-2" onClick={() => setPoke((n) => n + 1)}><Mascot mood={playing ? 'dance' : 'idle'} burst={poke} className="w-7 h-7" /><FlowText text="AVRmusic" className="md-title-md emph text-primary" intro={false} /></Link>
       </div>
       {!onSearch && (
         <div slot="title" className="hidden sm:block w-full max-w-[560px]">

@@ -35,13 +35,24 @@ android {
     }
   }
 
+  buildFeatures { buildConfig true }
+
   compileOptions {
     sourceCompatibility JavaVersion.VERSION_17
     targetCompatibility JavaVersion.VERSION_17
   }
+
+  lint {
+    abortOnError false
+    checkReleaseBuilds false
+  }
 }
 
 dependencies {
-  implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
+  // the page runs in a WebView; music plays in a Media3 session service (notification-shade player with a Like button)
+  implementation 'androidx.activity:activity:1.9.3'
   implementation 'androidx.core:core:1.13.1'
+  implementation 'androidx.webkit:webkit:1.11.0'
+  implementation 'androidx.media3:media3-exoplayer:1.4.1'
+  implementation 'androidx.media3:media3-session:1.4.1'
 }

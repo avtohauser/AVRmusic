@@ -9,6 +9,9 @@ process.env.DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'avrmusic-cat-'));
 process.env.JWT_SECRET = 'test-secret';
 process.env.YTDLP_PATH = path.join(process.cwd(), 'tests/fixtures/fake-ytdlp.sh');
 process.env.FFMPEG_PATH = path.join(process.cwd(), 'tests/fixtures/fake-ffmpeg.sh'); // copies input → output, enough for the canvas pipeline
+process.env.FAKE_DETAILS = fs.mkdtempSync(path.join(os.tmpdir(), 'avrmusic-yt-'));   // per-upload details for the fake yt-dlp
+process.env.AUTO_HEAL = 'false';   // the tests start the self-healing pass themselves
+process.env.YOUTUBE_OEMBED = '';   // no network: upload titles come from the fake yt-dlp
 
 const { buildApp } = await import('../src/app.js');
 const { openDatabase } = await import('../src/lib/db.js');
@@ -127,6 +130,26 @@ test('candidate scoring tells a "feat." recording from the solo one', () => {
   const featUpload = { id: 'f', title: 'Second Song (feat. Guest Star)', duration: 181, channel: 'Fake Artist - Topic' };
   assert.ok(scoreCandidate(featUpload, feat) > scoreCandidate(soloUpload, feat), 'feat version wants the upload that credits the guest');
   assert.ok(scoreCandidate(soloUpload, solo) > scoreCandidate(featUpload, solo), 'solo version avoids uploads crediting someone else');
+  // an upload that doesn't credit the guest is never good enough for the feat. version (reliable = 25+)
+  assert.ok(scoreCandidate(soloUpload, feat) < 25, `solo upload is ruled out for the feat. version (${scoreCandidate(soloUpload, feat)})`);
+  assert.ok(scoreCandidate(featUpload, solo) < 25, `feat. upload is ruled out for the solo version (${scoreCandidate(featUpload, solo)})`);
+  // YouTube Music often credits guests only in the description
+  const described = { ...soloUpload, description: 'Provided to YouTube by Label\n\nSecond Song · Fake Artist · Guest Star\n\nFake Album' };
+  assert.ok(scoreCandidate(described, feat) >= 25, 'a guest credited in the description counts');
+  // a guest listed among the recording's credits isn't "someone else"
+  const credited = { ...solo, credits: ['Guest Star'] };
+  assert.ok(scoreCandidate(featUpload, credited) >= 25, 'feat. mark naming a credited artist is fine');
+});
+
+test('sourceFits tells whether an upload is the recording a track wants', async () => {
+  const { sourceFits } = await import('../src/services/acquire.js');
+  const feat = { title: 'Second Song', artist: 'Fake Artist', durationSec: 181, featuring: ['Guest Star'] };
+  assert.equal(sourceFits({ title: 'Second Song', channel: 'Fake Artist - Topic' }, feat), false);
+  assert.equal(sourceFits({ title: 'Second Song (feat. Guest Star)', channel: 'Fake Artist - Topic' }, feat), true);
+  assert.equal(sourceFits({ title: 'Second Song', channel: 'Fake Artist - Topic', description: 'Second Song · Fake Artist · Guest Star' }, feat), true);
+  const solo = { title: 'Second Song', artist: 'Fake Artist', durationSec: 181 };
+  assert.equal(sourceFits({ title: 'Second Song (feat. Guest Star)', channel: 'Fake Artist - Topic' }, solo), false);
+  assert.equal(sourceFits({ title: 'Second Song', channel: 'Fake Artist - Topic' }, solo), true);
 });
 
 test('findCandidates merges every source and ranks lossless first', async () => {
@@ -327,29 +350,54 @@ test('a solo version and a "feat." version of the same song are different tracks
   assert.equal(dj.imported[0].id, feat.libraryTrackId);
 });
 
-test('a track that got another track\'s audio is repaired with its own source', async () => {
-  const h = { authorization: `Bearer ${access}` };
-  const feat = app.db.prepare('SELECT id, source, file_path FROM tracks WHERE deezer_id = 1002').get() as any;
+async function runHealJob() {
+  const { kickHeal } = await import('../src/services/runners.js');
+  const { getJob } = await import('../src/services/jobs.js');
+  const job = kickHeal(app.db);
+  assert.ok(job, 'there is something to heal');
+  for (let i = 0; i < 100; i++) {
+    const j: any = getJob(job!.id);
+    if (j && (j.status === 'done' || j.status === 'error')) return j;
+    await new Promise((res) => setTimeout(res, 100));
+  }
+  throw new Error('heal timeout');
+}
+
+test('a track that got another track\'s audio heals itself with its own recording', async () => {
+  const feat = app.db.prepare('SELECT id, source, file_path, source_title FROM tracks WHERE deezer_id = 1002').get() as any;
   const solo = app.db.prepare('SELECT id, source, file_path FROM tracks WHERE deezer_id = 1004').get() as any;
   assert.notEqual(feat.source, solo.source, 'new acquisitions never share a source');
+  assert.match(feat.source_title, /Guest Star/, 'the source an upload came from is recorded');
   // simulate a library from before the fix: the solo version was given the feat version's video
   app.db.prepare('UPDATE tracks SET source = ? WHERE id = ?').run(feat.source, solo.id);
-  assert.equal((await app.inject({ method: 'GET', url: '/api/admin/stats', headers: h })).json().sharedAudio, 1);
-  const r = await app.inject({ method: 'POST', url: '/api/admin/tracks/fix-shared-audio', headers: h });
-  assert.equal(r.json().count, 1);
-  const job = await waitJob(r.json().jobId);
+  const job = await runHealJob();
   assert.equal(job.status, 'done', JSON.stringify(job.log));
   assert.equal(job.stats.replaced, 1, JSON.stringify(job.log));
-  const after = app.db.prepare('SELECT id, source, file_path FROM tracks WHERE id = ?').get(solo.id) as any;
+  const after = app.db.prepare('SELECT id, source, file_path, source_ok FROM tracks WHERE id = ?').get(solo.id) as any;
   assert.notEqual(after.source, feat.source);
   assert.notEqual(after.file_path, solo.file_path);
+  assert.equal(after.source_ok, 1);
   assert.ok(fs.existsSync(after.file_path));
   assert.ok(!fs.existsSync(solo.file_path), 'the wrong file is removed');
-  assert.equal((await app.inject({ method: 'GET', url: '/api/admin/stats', headers: h })).json().sharedAudio, 0);
-  // the single-track endpoint works too
-  const one = await app.inject({ method: 'POST', url: `/api/admin/tracks/${solo.id}/refetch`, headers: h });
-  const oj = await waitJob(one.json().jobId);
-  assert.ok(oj.status === 'done' || /другого надёжного источника/.test(oj.error ?? ''), JSON.stringify(oj));
+  const { kickHeal } = await import('../src/services/runners.js');
+  assert.equal(kickHeal(app.db), null, 'nothing left to heal');
+});
+
+test('a feat. version that plays the solo recording is found out and re-fetched by itself', async () => {
+  const feat = app.db.prepare('SELECT id, source, file_path FROM tracks WHERE deezer_id = 1002').get() as any;
+  // acquired before sources were recorded, from the upload of the solo version
+  fs.writeFileSync(path.join(process.env.FAKE_DETAILS!, 'oldsolo1'), JSON.stringify({ id: 'oldsolo1', title: 'Second Song', channel: 'Fake Artist - Topic', description: 'Provided to YouTube by Label\n\nSecond Song · Fake Artist' }));
+  app.db.prepare('UPDATE tracks SET source = ?, source_title = NULL, source_ok = NULL WHERE id = ?').run('youtube:oldsolo1', feat.id);
+  const job = await runHealJob();
+  assert.equal(job.status, 'done', JSON.stringify(job.log));
+  assert.equal(job.stats.wrong, 1, JSON.stringify(job.log));
+  assert.equal(job.stats.replaced, 1, JSON.stringify(job.log));
+  const after = app.db.prepare('SELECT source, source_title, source_ok, file_path FROM tracks WHERE id = ?').get(feat.id) as any;
+  assert.notEqual(after.source, 'youtube:oldsolo1');
+  assert.match(after.source_title, /Guest Star/);
+  assert.equal(after.source_ok, 1);
+  // likes, playlists etc. hang off the same track id — it is still there, with a new file
+  assert.notEqual(after.file_path, feat.file_path);
 });
 
 test('acquire respects ACQUIRE_ROLE=admin', async () => {

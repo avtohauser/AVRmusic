@@ -1,6 +1,12 @@
 #!/bin/bash
 # Minimal yt-dlp stand-in for tests: answers --version, search dumps (derived from the query), and "downloads" by copying FAKE_WAV.
 args=("$@")
+# -J --skip-download <url>: details of one upload (from $FAKE_DETAILS/<id> when a test provides them)
+if [[ " ${args[*]} " == *" --skip-download "* ]]; then
+  url="${args[${#args[@]}-1]}"; id="${url##*v=}"
+  if [[ -n "$FAKE_DETAILS" && -f "$FAKE_DETAILS/$id" ]]; then cat "$FAKE_DETAILS/$id"; else printf '{"id":"%s","title":"Upload %s","channel":"Someone"}\n' "$id" "$id"; fi
+  exit 0
+fi
 for a in "${args[@]}"; do
   case "$a" in
     --version) echo "fake-2026.01.01"; exit 0;;
@@ -14,6 +20,7 @@ for a in "${args[@]}"; do
           "$(esc "$artist")" "$(esc "$title")" "$(esc "$artist")" "$(esc "$artist")" "$(esc "$title")" "$(esc "$artist")" "$(esc "$title")" "$(esc "$artist")"
         exit 0
       fi
+      if [[ "$q" != *" - "* ]]; then echo '{"entries":[]}'; exit 0; fi   # only "Artist - Title …" queries have results
       artist="${q%% - *}"; full="${q#* - }"; title="${full%% feat.*}"
       feat=""; [[ "$full" == *" feat. "* ]] && feat="${full#* feat. }"
       topic="$title"; [[ -n "$feat" ]] && topic="$title (feat. $feat)"

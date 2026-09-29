@@ -46,7 +46,7 @@ export default function Artist() {
         {info?.catalog && <M3eButton variant="text" href={a.deezerId ? `/catalog/artist/${a.deezerId}` : `/search?scope=catalog&q=${encodeURIComponent(a.name)}`}><m3e-icon variant="rounded" slot="icon" name="public" />{t('openInCatalog')}</M3eButton>}
       </Hero>
       <div className="page">
-        <h2 className="md-headline-sm emph mb-2">{t('popular')}</h2>
+        <h2 className="md-headline-sm emph flow-soft mb-2">{t('popular')}</h2>
         <TrackList tracks={showAll ? a.topTracks : a.topTracks.slice(0, 5)} context={`artist:${a.id}`} showAlbum />
         {a.topTracks.length > 5 && <M3eButton variant="text" className="mt-2" onClick={() => setShowAll(!showAll)}>{showAll ? t('close') : t('showAll')}</M3eButton>}
         <div className="mt-8">
@@ -57,7 +57,7 @@ export default function Artist() {
         </div>
         {a.bio && (
           <section className="mt-4 mb-8 max-w-3xl">
-            <h2 className="md-headline-sm emph mb-3">{t('about')}</h2>
+            <h2 className="md-headline-sm emph flow-soft mb-3">{t('about')}</h2>
             <div className="surface-low rounded-[28px] p-5 whitespace-pre-wrap md-body-lg">{a.bio}</div>
           </section>
         )}

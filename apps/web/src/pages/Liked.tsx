@@ -9,6 +9,7 @@ import { PlayButton } from '@/components/PlayButton';
 import { OfflineToggle } from '@/components/OfflineToggle';
 import { EmptyState } from '@/components/EmptyState';
 import { TrackListSkeleton } from '@/components/Skeleton';
+import { FlowText } from '@/components/FlowText';
 
 export default function Liked() {
   const { data, isLoading } = useLikedTracks();
@@ -28,7 +29,7 @@ export default function Liked() {
           <div className="w-44 h-44 md:w-56 md:h-56 rounded-[28px] bg-primary text-on-primary flex items-center justify-center elev-3 mx-auto sm:mx-0"><m3e-icon variant="rounded" name="favorite" filled style={{ ['--m3e-icon-size' as any]: '96px' }} /></div>
           <div className="text-center sm:text-left">
             <div className="md-label-lg muted uppercase tracking-wider">{t('playlist')}</div>
-            <h1 className="md-display-md emph mt-1">{t('likedSongs')}</h1>
+            <FlowText as="h1" text={t('likedSongs')} className="md-display-md emph mt-1" />
             <div className="md-body-md mt-3"><span className="md-title-sm">{user?.displayName}</span> · {tracksWord(tracks.length, lang)}{tracks.length ? `, ${fmtDurationLong(tracks.reduce((s, x) => s + x.durationMs, 0), lang)}` : ''}</div>
           </div>
         </div>

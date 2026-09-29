@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react';
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Layout } from '@/components/Layout';
 import { BootSplash } from '@/components/BootSplash';
@@ -10,6 +10,7 @@ import { useUI } from '@/stores/ui';
 import { usePlayer } from '@/stores/player';
 import { initAudioEngine } from '@/lib/audio';
 import { initShadeLike } from '@/lib/shadeLike';
+import { inNativeApp } from '@/lib/native';
 import { useI18n } from '@/lib/i18n';
 import { getColorFromImage } from '@/md';
 import { useSeedColor, useTheme } from '@/stores/theme';
@@ -82,6 +83,27 @@ function Boot() {
   return null;
 }
 
+/** Android app: links and the shade player open pages here; the back gesture closes overlays first. */
+function NativeHooks() {
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (!inNativeApp()) return;
+    window.__avrNavigate = (path) => navigate(path);
+    window.__avrOpenPlayer = () => { useUI.getState().closeMenu(); useUI.getState().setNowPlayingOpen(true); };
+    window.__avrBack = () => {
+      const ui = useUI.getState();
+      if (ui.menu) { ui.closeMenu(); return true; }
+      if (ui.addToPlaylist) { ui.setAddToPlaylist(null); return true; }
+      if (ui.playlistEditor) { ui.setPlaylistEditor(null); return true; }
+      if (ui.queueOpen) { ui.setQueueOpen(false); return true; }
+      if (ui.nowPlayingOpen) { ui.setNowPlayingOpen(false); return true; }
+      return false;
+    };
+    return () => { window.__avrNavigate = undefined; window.__avrOpenPlayer = undefined; window.__avrBack = undefined; };
+  }, [navigate]);
+  return null;
+}
+
 /** Dynamic colour: derive the theme seed from the playing track's cover when enabled. */
 function CoverColorSync() {
   const fromCover = useTheme((s) => s.fromCover);
@@ -125,6 +147,7 @@ export default function App() {
     <QueryClientProvider client={qc}>
       <BrowserRouter>
         <CoverColorSync />
+        <NativeHooks />
         <Boot />
         <ThemeRoot>
         <BootSplash />

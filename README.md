@@ -2,7 +2,7 @@
 
 # AVRmusic
 
-Собственный музыкальный сервис: сайт + Android-приложение (PWA / Trusted Web Activity).
+Собственный музыкальный сервис: сайт (PWA) + Android-приложение (полноэкранный WebView + собственный плеер Media3).
 Поиск, стриминг, скачивание, плейлисты, лайки, история, рекомендации, синхронизированные тексты,
 канвасы (зацикленное видео за треком, как в Spotify), офлайн-режим, импорт по ссылкам и из папки.
 
@@ -147,15 +147,15 @@ docker compose up -d --build
 | `ANDROID_PACKAGE`, `ANDROID_SHA256` | Digital Asset Links для Android-приложения |
 
 За реверс-прокси (nginx, Caddy, Traefik) включите HTTPS — без него не работают PWA-установка, Media Session
-и TWA. Пример Caddy: `music.example.com { reverse_proxy 127.0.0.1:8080 }`.
+и ссылки в приложение. Пример Caddy: `music.example.com { reverse_proxy 127.0.0.1:8080 }`.
 
 ## Android-приложение
 
-Веб-клиент — полноценное PWA (иконки, manifest, service worker, офлайн). Готовый APK (Trusted Web Activity)
-собирается автоматически и публикуется в **GitHub Releases**: workflow `android.yml` хранит ключ подписи на сервере,
-прописывает его отпечаток в `assetlinks.json` сайта и выкладывает `AVRmusic-<версия>.apk`. Проект и инструкция —
-в [`android/`](android/README.md). Тонкая оболочка: интерфейс обновляется вместе с сервером, пересобирать
-приложение нужно только при смене иконки, имени или домена.
+Веб-клиент — полноценное PWA (иконки, manifest, service worker, офлайн). Готовый APK собирается автоматически и
+публикуется в **GitHub Releases**: workflow `android.yml` хранит ключ подписи на сервере, прописывает его отпечаток
+в `assetlinks.json` сайта и выкладывает `AVRmusic-<версия>.apk`. Приложение показывает сайт на весь экран без
+системных панелей, а музыку играет своим плеером (Media3): фон, экран блокировки и плеер в шторке с кнопкой ♥.
+Интерфейс обновляется вместе с сервером. Проект и инструкция — в [`android/`](android/README.md).
 
 ## Откуда берётся музыка
 
@@ -183,7 +183,7 @@ apps/api      Fastify 5 + better-sqlite3 (FTS5) + music-metadata + archiver, JWT
 apps/web      React 19 + Vite 7 + Tailwind 4 + TanStack Query + Zustand, vite-plugin-pwa (Workbox),
               IndexedDB (idb) для офлайн-треков, Media Session API
 packages/shared  общие TypeScript-типы контракта API
-android/      конфиг Bubblewrap для TWA
+android/      Android-приложение (WebView + Media3 MediaSessionService)
 ```
 
 Основные эндпоинты (все под `/api`): `auth/*`, `home`, `search`, `catalog/search`, `catalog/artists/:id`,

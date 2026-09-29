@@ -58,6 +58,10 @@ export const config = {
   /** Auto-fetch a canvas (slice of the official clip) for tracks added from the catalogue. */
   canvasAuto: bool(process.env.CANVAS_AUTO, true),
   canvasSeconds: Math.max(4, Math.min(20, Number(process.env.CANVAS_SECONDS || 9))),
+  /** Keep checking that every catalogue track plays its own recording; re-fetch the ones that don't. */
+  autoHeal: bool(process.env.AUTO_HEAL, true),
+  /** Quick title lookup for YouTube sources ('' = always ask yt-dlp). */
+  youtubeOembed: (process.env.YOUTUBE_OEMBED ?? 'https://www.youtube.com/oembed').replace(/\/$/, ''),
   isProd: process.env.NODE_ENV === 'production',
   accessTtl: '15m',
   refreshTtlDays: 30,

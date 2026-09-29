@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/stores/auth';
 import { Mascot, type MascotMood } from './Mascot';
+import { FlowText } from '@/components/FlowText';
 
 const KEY = 'avr.booted';
 
@@ -35,7 +36,7 @@ export function BootSplash() {
   return (
     <div className={`boot-splash ${leaving ? 'leaving' : ''}`} aria-hidden="true">
       <Mascot mood={mood} burst={burst} className="w-28 h-28" />
-      <div className="boot-word md-headline-sm emph">AVRmusic</div>
+      <FlowText as="div" text="AVRmusic" className="boot-word md-headline-sm emph" speed={2.4} />
     </div>
   );
 }

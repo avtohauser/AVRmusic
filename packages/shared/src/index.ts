@@ -170,8 +170,6 @@ export interface AdminStats {
   storageBytes: number;
   withLyrics: number;
   withCanvas: number;
-  /** Tracks whose audio file is shared with another track (to be re-fetched) */
-  sharedAudio: number;
 }
 
 export interface UploadResult {

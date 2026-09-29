@@ -3,6 +3,8 @@
 // (or an installed PWA created before "fullscreen" was in the manifest) leaves the status and
 // navigation bars on screen. In that case the first tap switches the page to fullscreen with the
 // Fullscreen API, which hides both bars in any Chromium-based browser.
+import { inNativeApp } from './native';
+
 const KEY = 'avr.inApp';
 
 function detectApp(): boolean {
@@ -21,7 +23,7 @@ function detectApp(): boolean {
 }
 
 export function initAppFullscreen() {
-  if (typeof document === 'undefined' || !document.fullscreenEnabled || !detectApp()) return;
+  if (typeof document === 'undefined' || inNativeApp() || !document.fullscreenEnabled || !detectApp()) return;
   const alreadyFullscreen = () => !!document.fullscreenElement || matchMedia('(display-mode: fullscreen)').matches;
   let entered = false;
 

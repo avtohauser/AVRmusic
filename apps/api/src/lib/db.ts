@@ -196,6 +196,12 @@ const MIGRATIONS: string[] = [
   CREATE TABLE app_meta (key TEXT PRIMARY KEY, value TEXT);
   CREATE INDEX idx_tracks_source ON tracks(source);
   `,
+  // 6: what the audio source was called (to verify it is the right recording) and the self-healing state
+  `
+  ALTER TABLE tracks ADD COLUMN source_title TEXT;
+  ALTER TABLE tracks ADD COLUMN source_ok INTEGER;
+  ALTER TABLE tracks ADD COLUMN heal_at TEXT;
+  `,
 ];
 
 export function openDatabase(dbPath = config.dbPath): DB {

@@ -14,7 +14,7 @@ import { getTracksByIds } from './library.js';
 import { fetchLyricsForTrack } from './lrclib.js';
 import { queueCanvasesForImported } from './canvas.js';
 import type { Job } from './jobs.js';
-import { enabledSources, type CancelRef, type Source, type SourceCandidate, type Want } from './sources/index.js';
+import { allSources, enabledSources, type CancelRef, type Source, type SourceCandidate, type Want } from './sources/index.js';
 
 type JobApi = { log: (s: string) => void; progress: (p: number) => void; onCancel: (fn: () => void) => void };
 export type Candidate = SourceCandidate;
@@ -30,8 +30,31 @@ export function sourceUsedBy(db: DB, key: string, exceptTrackId = ''): string | 
   return (db.prepare('SELECT id FROM tracks WHERE source = ? AND id <> ? LIMIT 1').get(key, exceptTrackId) as any)?.id ?? null;
 }
 
+/** Everything an upload says about who is on it: title, channel, artist tags and the start of its description. */
+const creditText = (c: Pick<SourceCandidate, 'title' | 'channel' | 'uploader' | 'artist' | 'description'>) =>
+  norm(`${c.title} ${c.channel ?? ''} ${c.uploader ?? ''} ${c.artist ?? ''} ${c.description ?? ''}`);
+const guestKeys = (w: Want) => (w.featuring ?? []).map((f) => norm(f)).filter(Boolean);
+
+/** An upload crediting a guest that the wanted recording doesn't have (the solo version must not take it). */
+function creditsSomeoneElse(c: Pick<SourceCandidate, 'title'>, w: Want): boolean {
+  if (!FEAT_MARK.test(c.title) || FEAT_MARK.test(w.title)) return false;
+  const known = (w.credits ?? []).map((n) => norm(n)).filter(Boolean);
+  const named = parseFeaturing(c.title).featuring.map((n) => norm(n)).filter(Boolean);
+  return !named.some((n) => known.some((k) => n.includes(k) || k.includes(n)));
+}
+
+/**
+ * Is this upload the recording the track wants? A "feat." version needs an upload that credits the
+ * guest (or at least is marked as a feat. version); a solo version must not be someone's feat. version.
+ */
+export function sourceFits(c: Pick<SourceCandidate, 'title' | 'channel' | 'uploader' | 'artist' | 'description'>, w: Want): boolean {
+  const feats = guestKeys(w);
+  if (feats.length) { const hay = creditText(c); return feats.some((f) => hay.includes(f)) || FEAT_MARK.test(c.title); }
+  return !creditsSomeoneElse(c, w);
+}
+
 /** Higher is better. Exposed for tests. */
-export function scoreCandidate(c: Pick<SourceCandidate, 'title' | 'duration' | 'channel' | 'uploader' | 'artist' | 'quality' | 'source'>, w: Want): number {
+export function scoreCandidate(c: Pick<SourceCandidate, 'title' | 'duration' | 'channel' | 'uploader' | 'artist' | 'quality' | 'source' | 'description'>, w: Want): number {
   let s = 0;
   const t = norm(c.title);
   const title = norm(w.title);
@@ -39,7 +62,7 @@ export function scoreCandidate(c: Pick<SourceCandidate, 'title' | 'duration' | '
   if (t.includes(title)) s += 30; else { const words = title.split(' ').filter(Boolean); const hit = words.filter((x) => t.includes(x)).length; s += (hit / Math.max(1, words.length)) * 20; }
   const ch = norm(`${c.channel ?? ''} ${c.uploader ?? ''} ${c.artist ?? ''}`);
   if (t.includes(artist) || ch.includes(artist)) s += 20;
-  if (/ - topic$/i.test(c.channel ?? '') || /provided to youtube/i.test(c.title)) s += 15; // auto-generated official audio
+  if (/ - topic$/i.test(c.channel ?? '') || /provided to youtube/i.test(`${c.title} ${c.description ?? ''}`)) s += 15; // auto-generated official audio
   if (/official audio|official|официаль/i.test(c.title)) s += 6;
   if (c.duration && w.durationSec) {
     const d = Math.abs(c.duration - w.durationSec);
@@ -47,14 +70,15 @@ export function scoreCandidate(c: Pick<SourceCandidate, 'title' | 'duration' | '
   } else s -= 5;
   const wantBad = BAD.test(w.title);
   if (!wantBad && BAD.test(c.title)) s -= 35;
-  // "Song" and "Song (feat. X)" are different recordings: the guest must be credited on a feat version,
-  // and a solo version must not be an upload that credits someone else.
-  const feats = (w.featuring ?? []).map((f) => norm(f)).filter(Boolean);
-  const hay = `${t} ${ch}`;
+  // "Song" and "Song (feat. X)" are different recordings. A feat. version only takes an upload that
+  // credits the guest — anything else is the solo recording and is ruled out; a solo version never
+  // takes an upload crediting a guest it doesn't have.
+  const feats = guestKeys(w);
   if (feats.length) {
+    const hay = creditText(c);
     const hits = feats.filter((f) => hay.includes(f)).length;
-    s += hits ? 10 + 6 * hits : -22;
-  } else if (FEAT_MARK.test(c.title) && !FEAT_MARK.test(w.title)) s -= 25;
+    s += hits ? 12 + 8 * hits - 6 * (feats.length - hits) : FEAT_MARK.test(c.title) ? -12 : -80;
+  } else if (creditsSomeoneElse(c, w)) s -= 80;
   if (/\bvideo\b|клип/i.test(c.title) && !/audio/i.test(c.title)) s -= 4;
   if (c.quality?.lossless) s += 12;
   else if ((c.quality?.bitrate ?? 0) >= 256) s += 4;
@@ -77,6 +101,40 @@ export async function findCandidates(w: Want, log?: (s: string) => void): Promis
     for (const c of r.value.cands) ranked.push({ c, s: scoreCandidate(c, w), src: r.value.src });
   });
   return ranked.sort((a, b) => b.s - a.s);
+}
+
+type Ranked = { c: SourceCandidate; s: number; src: Source };
+
+/**
+ * Ranked candidates a track may take: reliable matches whose source no other track uses. When a feat.
+ * version's guests aren't visible in the search results, the best few uploads are looked at closer —
+ * YouTube Music often credits featured artists only in the upload's description.
+ */
+async function pickSources(db: DB, w: Want, log: (s: string) => void, except: { trackId?: string; source?: string } = {}): Promise<{ ranked: Ranked[]; reliable: Ranked[]; usable: Ranked[] }> {
+  const ranked = await findCandidates(w, log);
+  const feats = guestKeys(w);
+  if (feats.length && !ranked.slice(0, 5).some((r) => feats.some((f) => creditText(r.c).includes(f)))) {
+    for (const r of ranked.filter((x) => x.src.details).slice(0, 3)) {
+      const d = await r.src.details!(r.c).catch(() => null);
+      if (!d) continue;
+      r.c.description = d.description ?? null;
+      if (d.artist) r.c.artist = d.artist;
+      r.s = scoreCandidate(r.c, w);
+    }
+    ranked.sort((a, b) => b.s - a.s);
+  }
+  const reliable = ranked.filter((r) => r.s >= 25);
+  // a source already used by another track would give this one the other track's audio
+  const usable = reliable.filter((r) => sourceKey(r.c) !== except.source && !sourceUsedBy(db, sourceKey(r.c), except.trackId ?? '')).slice(0, 3);
+  return { ranked, reliable, usable };
+}
+
+const describeSource = (c: SourceCandidate) => `${c.title}${c.channel ? ` — ${c.channel}` : ''}`.slice(0, 300);
+
+/** Another track already has exactly this file (a re-upload of a video it was fetched from). */
+async function fileTakenBy(db: DB, file: string, exceptTrackId = ''): Promise<string | null> {
+  const hash = await hashFile(file);
+  return (db.prepare('SELECT id FROM tracks WHERE file_hash = ? AND id <> ? LIMIT 1').get(hash, exceptTrackId) as any)?.id ?? null;
 }
 
 /** Search a single source (used by the URL/legacy path and tests). */
@@ -144,16 +202,13 @@ export async function acquireTrack(db: DB, deezerTrackId: number, api: JobApi, c
   const same = findLibraryTrack(db, { isrc: t.isrc ?? null, artist: artistName, title, featuring: rawFeaturing(t), durationSec: Number(t.duration ?? 0) || null });
   if (same) { db.prepare('UPDATE tracks SET deezer_id = COALESCE(deezer_id, ?), isrc = COALESCE(isrc, ?) WHERE id = ?').run(deezerTrackId, t.isrc ?? null, same); return { status: 'exists', trackId: same }; }
 
-  const want: Want = { title, artist: artistName, durationSec: Number(t.duration ?? 0), featuring: featNames, album: t.album?.title ?? null };
-  api.log(`🔎 ${artistName} — ${title}`);
-  const ranked = await findCandidates(want, api.log);
+  const want: Want = { title, artist: artistName, durationSec: Number(t.duration ?? 0), featuring: featNames, credits: rawFeaturing(t), album: t.album?.title ?? null };
+  api.log(`🔎 ${artistName} — ${title}${featNames.length ? ` (feat. ${featNames.join(', ')})` : ''}`);
+  const { ranked, reliable, usable: good } = await pickSources(db, want, api.log);
   if (!ranked.length) return { status: 'notfound', message: 'ничего не найдено ни в одном источнике' };
-  const reliable = ranked.filter((r) => r.s >= 25);
-  // A source already used by another track would give this one the other track's audio
-  const good = reliable.filter((r) => !sourceUsedBy(db, sourceKey(r.c))).slice(0, 3);
   if (!good.length) {
     const b = reliable[0] ?? ranked[0];
-    const why = reliable.length ? 'подходящие источники уже заняты другими треками' : 'нет надёжного совпадения';
+    const why = reliable.length ? 'подходящие источники уже заняты другими треками' : featNames.length ? `нет загрузки именно с ${featNames.join(', ')}` : 'нет надёжного совпадения';
     return { status: 'notfound', message: `${why} (лучшее: ${b.c.title} · ${b.src.label}, score ${b.s.toFixed(0)})` };
   }
   const album = albumRaw ?? (t.album?.id ? await rawAlbum(db, t.album.id).catch(() => t.album) : null);
@@ -164,6 +219,7 @@ export async function acquireTrack(db: DB, deezerTrackId: number, api: JobApi, c
     api.log(`   → ${src.label}: ${c.title} [${c.channel ?? c.artist ?? '?'}] ${c.duration ?? '?'}s${c.quality?.lossless ? ' · lossless' : c.quality?.bitrate ? ` · ${c.quality.bitrate}k` : ''} (score ${score.toFixed(0)})`);
     try {
       const file = await src.download(c, dir, api.log, cancelRef, meta);
+      if (await fileTakenBy(db, file)) { fs.rmSync(dir, { recursive: true, force: true }); api.log('   ✗ этот же файл уже у другого трека — ищу дальше'); continue; }
       const trackId = await importAcquired(db, file, t, album, c);
       fs.rmSync(dir, { recursive: true, force: true });
       try { if (await fetchLyricsForTrack(db, trackId)) api.log('   ♪ текст найден (LRCLIB)'); } catch { /* optional */ }
@@ -198,12 +254,12 @@ async function importAcquired(db: DB, file: string, t: any, album: any, cand: So
   const genre = album?.genres?.data?.[0]?.name ?? null;
   const contributors: any[] = Array.isArray(t.contributors) ? t.contributors.filter((c: any) => c.id !== t.artist.id) : [];
 
-  db.prepare(`INSERT INTO tracks(id, album_id, artist_id, title, track_no, disc_no, duration_ms, file_path, file_size, file_hash, mime_type, bitrate, sample_rate, codec, explicit, genre, deezer_id, isrc, source)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+  db.prepare(`INSERT INTO tracks(id, album_id, artist_id, title, track_no, disc_no, duration_ms, file_path, file_size, file_hash, mime_type, bitrate, sample_rate, codec, explicit, genre, deezer_id, isrc, source, source_title, source_ok)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)`).run(
     id, albumId, artistId, title, t.track_position ?? null, t.disk_number ?? null,
     Math.round((fmt?.duration ?? t.duration ?? 0) * 1000), dest, stat.size, hash, audioMime(dest),
     fmt?.bitrate ? Math.round(fmt.bitrate) : null, fmt?.sampleRate ?? null, fmt?.codec ?? fmt?.container ?? null,
-    t.explicit_lyrics ? 1 : 0, genre, t.id, t.isrc ?? null, sourceKey(cand),
+    t.explicit_lyrics ? 1 : 0, genre, t.id, t.isrc ?? null, sourceKey(cand), describeSource(cand),
   );
   const feats = contributors.length ? contributors : featNames.map((n) => ({ id: null, name: n }));
   let pos = 0;
@@ -306,9 +362,9 @@ async function acquireMany(db: DB, job: Job, ids: number[], api: JobApi, album: 
 
 export function tracksOf(db: DB, ids: string[]): Track[] { return getTracksByIds(db, ids); }
 
-/* ---------- repairing tracks whose audio came from the wrong / a shared source ---------- */
+/* ---------- self-healing: every catalogue track keeps checking that it plays its own recording ---------- */
 
-/** Tracks whose file came from the same source as an earlier track (the later ones got someone else's audio). */
+/** Tracks whose file came from the same source (or is the same file) as an earlier track. */
 export function tracksWithSharedAudio(db: DB): string[] {
   const out = new Set<string>();
   const bySource = db.prepare(`SELECT source FROM tracks WHERE source IS NOT NULL GROUP BY source HAVING COUNT(*) > 1`).all() as any[];
@@ -324,16 +380,27 @@ export function tracksWithSharedAudio(db: DB): string[] {
   return [...out];
 }
 
-/** Find a fresh source for a library track and swap its audio file in place. */
-export async function refetchTrack(db: DB, trackId: string, api: JobApi, cancelRef: { cancel?: () => void }): Promise<AcquireOutcome> {
-  const row = db.prepare('SELECT t.*, a.name AS artist_name, al.title AS album_title FROM tracks t JOIN artists a ON a.id = t.artist_id LEFT JOIN albums al ON al.id = t.album_id WHERE t.id = ?').get(trackId) as any;
-  if (!row) return { status: 'error', message: 'трек не найден' };
+const TRACK_ROW = 'SELECT t.*, a.name AS artist_name, al.title AS album_title FROM tracks t JOIN artists a ON a.id = t.artist_id LEFT JOIN albums al ON al.id = t.album_id WHERE t.id = ?';
+
+/** What a library track wants from a source, from its catalogue entry (the library row as a fallback). */
+async function wantFor(db: DB, row: any): Promise<Want> {
   const raw = row.deezer_id ? await rawTrack(db, row.deezer_id).catch(() => null) : null;
-  const featuring = raw ? rawFeaturing(raw) : (db.prepare('SELECT a.name FROM track_artists ta JOIN artists a ON a.id = ta.artist_id WHERE ta.track_id = ? ORDER BY ta.position').all(trackId) as any[]).map((r) => r.name);
-  const want: Want = { title: row.title, artist: row.artist_name, durationSec: Number(raw?.duration ?? 0) || Math.round((row.duration_ms ?? 0) / 1000), featuring, album: row.album_title ?? null };
-  api.log(`🔁 ${want.artist} — ${want.title}${featuring.length ? ` (feat. ${featuring.join(', ')})` : ''}`);
-  const ranked = await findCandidates(want, api.log);
-  const good = ranked.filter((r) => r.s >= 25 && sourceKey(r.c) !== row.source && !sourceUsedBy(db, sourceKey(r.c), trackId)).slice(0, 3);
+  const album = row.album_title ?? null;
+  if (raw) {
+    const { title, featuring } = parseFeaturing(raw.title ?? '', raw.title_short);
+    return { title, artist: raw.artist?.name ?? row.artist_name, durationSec: Number(raw.duration ?? 0) || Math.round((row.duration_ms ?? 0) / 1000), featuring, credits: rawFeaturing(raw), album };
+  }
+  const credits = (db.prepare('SELECT a.name FROM track_artists ta JOIN artists a ON a.id = ta.artist_id WHERE ta.track_id = ? ORDER BY ta.position').all(row.id) as any[]).map((r) => r.name);
+  return { title: row.title, artist: row.artist_name, durationSec: Math.round((row.duration_ms ?? 0) / 1000), featuring: credits, credits, album };
+}
+
+/** Find the track's own recording again and swap the audio file in place (id, likes, playlists, lyrics, canvas stay). */
+export async function refetchTrack(db: DB, trackId: string, api: JobApi, cancelRef: { cancel?: () => void }): Promise<AcquireOutcome> {
+  const row = db.prepare(TRACK_ROW).get(trackId) as any;
+  if (!row) return { status: 'error', message: 'трек не найден' };
+  const want = await wantFor(db, row);
+  api.log(`🔁 ${want.artist} — ${want.title}${want.featuring?.length ? ` (feat. ${want.featuring.join(', ')})` : ''}`);
+  const { usable: good } = await pickSources(db, want, api.log, { trackId, source: row.source });
   if (!good.length) return { status: 'notfound', message: 'другого надёжного источника не нашлось' };
   const meta = { title: row.title, artist: row.artist_name, album: row.album_title ?? undefined, track: row.track_no ?? undefined };
   let lastError = '';
@@ -342,6 +409,7 @@ export async function refetchTrack(db: DB, trackId: string, api: JobApi, cancelR
     api.log(`   → ${src.label}: ${c.title} [${c.channel ?? c.artist ?? '?'}] ${c.duration ?? '?'}s (score ${score.toFixed(0)})`);
     try {
       const file = await src.download(c, dir, api.log, cancelRef, meta);
+      if (await fileTakenBy(db, file, trackId)) { fs.rmSync(dir, { recursive: true, force: true }); api.log('   ✗ этот же файл уже у другого трека — ищу дальше'); continue; }
       const ext = path.extname(file).toLowerCase() || '.m4a';
       const dest = path.join(config.tracksDir, `${newId()}${ext}`);
       fs.mkdirSync(config.tracksDir, { recursive: true });
@@ -350,9 +418,9 @@ export async function refetchTrack(db: DB, trackId: string, api: JobApi, cancelR
       let fmt: any = null;
       try { fmt = (await parseFile(dest, { duration: true })).format; } catch { /* keep the old length */ }
       const { audioMime } = await import('./importer.js');
-      db.prepare(`UPDATE tracks SET file_path = ?, file_size = ?, file_hash = ?, mime_type = ?, bitrate = ?, sample_rate = ?, codec = ?, duration_ms = ?, source = ? WHERE id = ?`).run(
+      db.prepare(`UPDATE tracks SET file_path = ?, file_size = ?, file_hash = ?, mime_type = ?, bitrate = ?, sample_rate = ?, codec = ?, duration_ms = ?, source = ?, source_title = ?, source_ok = 1 WHERE id = ?`).run(
         dest, fs.statSync(dest).size, hash, audioMime(dest), fmt?.bitrate ? Math.round(fmt.bitrate) : null, fmt?.sampleRate ?? null,
-        fmt?.codec ?? fmt?.container ?? null, Math.round((fmt?.duration ?? want.durationSec) * 1000) || row.duration_ms, sourceKey(c), trackId,
+        fmt?.codec ?? fmt?.container ?? null, Math.round((fmt?.duration ?? want.durationSec) * 1000) || row.duration_ms, sourceKey(c), describeSource(c), trackId,
       );
       const stillUsed = db.prepare('SELECT 1 FROM tracks WHERE file_path = ?').get(row.file_path);
       if (!stillUsed && String(row.file_path).startsWith(config.tracksDir)) { try { fs.unlinkSync(row.file_path); } catch { /* already gone */ } }
@@ -386,4 +454,87 @@ export async function runRefetch(db: DB, job: Job, trackIds: string[], api: JobA
     api.progress(((i + 1) / trackIds.length) * 100);
   }
   if (trackIds.length && !stats.replaced) throw new Error('Ни один трек не удалось перекачать');
+}
+
+const HEAL_BATCH = 80;
+const HEAL_RETRY_MS = 3 * 24 * 3600 * 1000;
+
+/** Catalogue tracks fetched before sources were recorded: their source still has to be checked. */
+function uncheckedSources(db: DB, limit: number): any[] {
+  return db.prepare(`SELECT t.*, a.name AS artist_name, al.title AS album_title FROM tracks t JOIN artists a ON a.id = t.artist_id LEFT JOIN albums al ON al.id = t.album_id
+    WHERE t.deezer_id IS NOT NULL AND t.source LIKE 'youtube:%' AND t.source_title IS NULL ORDER BY t.created_at LIMIT ?`).all(limit) as any[];
+}
+
+/** Tracks playing another track's audio or the wrong version, that weren't retried in the last days. */
+function healTargets(db: DB): string[] {
+  const bad = new Set([...tracksWithSharedAudio(db), ...(db.prepare('SELECT id FROM tracks WHERE source_ok = 0').all() as any[]).map((r) => r.id)]);
+  const cutoff = new Date(Date.now() - HEAL_RETRY_MS).toISOString();
+  const recent = db.prepare('SELECT 1 FROM tracks WHERE id = ? AND heal_at IS NOT NULL AND heal_at > ?');
+  return [...bad].filter((id) => !recent.get(id, cutoff));
+}
+
+/** Whether the self-healing job has anything to do. */
+export function healPending(db: DB): { unchecked: number; targets: number } {
+  const unchecked = (db.prepare(`SELECT COUNT(*) AS n FROM tracks WHERE deezer_id IS NOT NULL AND source LIKE 'youtube:%' AND source_title IS NULL`).get() as any).n as number;
+  return { unchecked, targets: healTargets(db).length };
+}
+
+/** Title and channel of a YouTube upload: oEmbed is instant; yt-dlp also reads the description. */
+async function youtubeInfo(id: string, deep: boolean): Promise<Pick<SourceCandidate, 'title' | 'channel' | 'artist' | 'description'> | null> {
+  if (!deep && config.youtubeOembed) {
+    try {
+      const res = await fetch(`${config.youtubeOembed}?format=json&url=${encodeURIComponent(`https://www.youtube.com/watch?v=${id}`)}`, { signal: AbortSignal.timeout(8000) });
+      if (res.ok) { const j: any = await res.json(); return { title: j.title ?? '', channel: j.author_name ?? null }; }
+    } catch { /* fall back to yt-dlp */ }
+  }
+  const yt = allSources().find((x) => x.name === 'youtube');
+  return (await yt?.details?.({ id }).catch(() => null)) ?? null;
+}
+
+/**
+ * Self-healing pass, run in the background (at start-up and every few hours):
+ * 1. checks the source of tracks fetched before sources were recorded — a "feat." version whose
+ *    upload doesn't credit the guest, or a solo version that got someone's feat. version, is marked;
+ * 2. re-fetches marked tracks and tracks sharing audio with another track from their own recording.
+ * Tracks that can't be fixed yet are retried after a few days.
+ */
+export async function runHeal(db: DB, job: Job, api: JobApi) {
+  const cancelRef: { cancel?: () => void } = {};
+  let cancelled = false;
+  api.onCancel(() => { cancelled = true; cancelRef.cancel?.(); });
+  const stats = { checked: 0, wrong: 0, replaced: 0, failed: 0 };
+  job.stats = { ...stats };
+
+  const rows = uncheckedSources(db, HEAL_BATCH);
+  if (rows.length) api.log(`Проверка источников: ${rows.length}`);
+  const mark = db.prepare('UPDATE tracks SET source_title = ?, source_ok = ? WHERE id = ?');
+  for (const row of rows) {
+    if (cancelled) throw new Error('Отменено');
+    const id = String(row.source).slice('youtube:'.length);
+    const want = await wantFor(db, row);
+    let info = await youtubeInfo(id, false);
+    // the title may not credit the guest while the description does
+    if (!info || !sourceFits(info, want)) info = (await youtubeInfo(id, true)) ?? info;
+    stats.checked++;
+    if (!info) { mark.run('', null, row.id); continue; } // upload gone: nothing to compare with, the file itself is fine
+    const ok = sourceFits(info, want);
+    mark.run(describeSource({ ...info, source: 'youtube', id } as SourceCandidate), ok ? 1 : 0, row.id);
+    if (!ok) { stats.wrong++; api.log(`⚠ ${want.artist} — ${want.title}${want.featuring?.length ? ` (feat. ${want.featuring.join(', ')})` : ''}: играл «${info.title}»`); }
+    job.stats = { ...stats };
+  }
+
+  const targets = healTargets(db);
+  if (targets.length) api.log(`Перекачиваю треки с чужим звуком: ${targets.length}`);
+  const touch = db.prepare('UPDATE tracks SET heal_at = ? WHERE id = ?');
+  for (let i = 0; i < targets.length; i++) {
+    if (cancelled) throw new Error('Отменено');
+    touch.run(new Date().toISOString(), targets[i]);
+    try {
+      const r = await refetchTrack(db, targets[i], api, cancelRef);
+      if (r.status === 'imported') { stats.replaced++; job.imported.push(...getTracksByIds(db, [targets[i]])); }
+      else { stats.failed++; api.log(`   ✗ ${r.message ?? r.status} — попробую позже`); }
+    } catch (e: any) { stats.failed++; api.log(`   ✗ ${e?.message ?? e}`); }
+    job.stats = { ...stats };
+    api.progress(((i + 1) / targets.length) * 100);
+  }
 }

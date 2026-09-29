@@ -12,6 +12,7 @@ import { AcquireQueue } from '@/components/Catalog';
 import { usePlayer } from '@/stores/player';
 import { useUI } from '@/stores/ui';
 import { useAuth } from '@/stores/auth';
+import { FlowText } from '@/components/FlowText';
 
 export default function Downloads() {
   const [items, setItems] = useState<Array<{ track: Track; savedAt: number; size: number }>>([]);
@@ -30,7 +31,7 @@ export default function Downloads() {
       <div className="flex items-center gap-4 mb-6">
         <div className="w-16 h-16 rounded-[22px] bg-tertiary-container text-on-tertiary-container flex items-center justify-center"><m3e-icon variant="rounded" name="offline_pin" filled style={{ ['--m3e-icon-size' as any]: '32px' }} /></div>
         <div className="flex-1">
-          <h1 className="md-headline-md emph">{t('downloadedTracks')}</h1>
+          <FlowText as="h1" text={t('downloadedTracks')} className="md-headline-md emph" />
           <p className="md-body-md muted">{items.length} {t('tracksCount')} · {fmtBytes(usage)}</p>
         </div>
         {tracks.length > 0 && <PlayButton size="lg" onClick={() => p.playTracks(tracks, 0, 'offline')} />}

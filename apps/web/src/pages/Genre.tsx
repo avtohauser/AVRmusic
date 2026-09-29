@@ -9,6 +9,7 @@ import { PlayButton } from '@/components/PlayButton';
 import { Shelf } from '@/components/Shelf';
 import { AlbumCard, ArtistCard } from '@/components/Cards';
 import { TrackListSkeleton } from '@/components/Skeleton';
+import { FlowText } from '@/components/FlowText';
 
 export default function Genre() {
   const { slug } = useParams();
@@ -24,7 +25,7 @@ export default function Genre() {
         <div className="hero-bg" style={{ ['--hero' as any]: genre.color }} />
         <div className="page pt-10 md:pt-16">
           <div className="md-label-lg uppercase tracking-wider muted">{t('genre')}</div>
-          <h1 className="md-display-md emph mt-1">{genre.name}</h1>
+          <FlowText as="h1" text={genre.name} className="md-display-md emph mt-1" />
           <div className="md-body-md mt-2">{tracksWord(genre.trackCount, lang)}</div>
           <div className="flex items-center gap-3 mt-6">
             <PlayButton size="lg" onClick={() => p.playTracks(tracks, 0, `genre:${genre.slug}`)} />
@@ -35,7 +36,7 @@ export default function Genre() {
       <div className="page">
         {artists.length > 0 && <Shelf title={t('artists')}>{artists.map((a) => <ArtistCard key={a.id} artist={a} />)}</Shelf>}
         {albums.length > 0 && <Shelf title={t('albums')}>{albums.map((a) => <AlbumCard key={a.id} album={a} />)}</Shelf>}
-        <h2 className="md-headline-sm emph mb-2">{t('popular')}</h2>
+        <h2 className="md-headline-sm emph flow-soft mb-2">{t('popular')}</h2>
         <TrackList tracks={tracks} context={`genre:${genre.slug}`} />
       </div>
     </div>

@@ -1,10 +1,9 @@
 @import "tailwindcss";
-@import url("https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,300..800&family=Roboto:wght@400;500;700&display=swap");
 
 /* Map Material 3 dynamic color roles (set at runtime by <m3e-theme>) onto Tailwind color utilities.
    `inline` makes utilities reference the M3 variables directly, so they resolve where the theme defines them. */
 @theme inline {
-  --font-sans: "Roboto Flex", "Roboto", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-sans: "Google Sans Flex", "Roboto Flex", system-ui, -apple-system, "Segoe UI", sans-serif;
   --color-primary: var(--md-sys-color-primary);
   --color-on-primary: var(--md-sys-color-on-primary);
   --color-primary-container: var(--md-sys-color-primary-container);
@@ -57,11 +56,15 @@
   --nav-h: 80px;
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-t: env(safe-area-inset-top, 0px);
-  --md-sys-typescale-body-font: "Roboto Flex", "Roboto", system-ui, sans-serif;
-  --md-sys-typescale-display-font: "Roboto Flex", "Roboto", system-ui, sans-serif;
-  --md-sys-typescale-headline-font: "Roboto Flex", "Roboto", system-ui, sans-serif;
-  --md-sys-typescale-title-font: "Roboto Flex", "Roboto", system-ui, sans-serif;
-  --md-sys-typescale-label-font: "Roboto Flex", "Roboto", system-ui, sans-serif;
+  --safe-l: env(safe-area-inset-left, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+  /* top bars with their buttons at the sides may run up around a centred camera hole (set by the Android app) */
+  --safe-t-bar: var(--safe-t);
+  --md-sys-typescale-body-font: "Google Sans Flex", "Roboto Flex", system-ui, sans-serif;
+  --md-sys-typescale-display-font: "Google Sans Flex", "Roboto Flex", system-ui, sans-serif;
+  --md-sys-typescale-headline-font: "Google Sans Flex", "Roboto Flex", system-ui, sans-serif;
+  --md-sys-typescale-title-font: "Google Sans Flex", "Roboto Flex", system-ui, sans-serif;
+  --md-sys-typescale-label-font: "Google Sans Flex", "Roboto Flex", system-ui, sans-serif;
 }
 
 html, body, m3e-theme#root { height: 100%; }
@@ -101,7 +104,41 @@ img { display: block; }
 .md-label-lg { font: 500 var(--md-sys-typescale-label-large-font-size, 14px)/var(--md-sys-typescale-label-large-line-height, 20px) var(--font-sans); letter-spacing: 0.1px; }
 .md-label-md { font: 500 var(--md-sys-typescale-label-medium-font-size, 12px)/var(--md-sys-typescale-label-medium-line-height, 16px) var(--font-sans); letter-spacing: 0.5px; }
 .md-label-sm { font: 500 var(--md-sys-typescale-label-small-font-size, 11px)/var(--md-sys-typescale-label-small-line-height, 16px) var(--font-sans); letter-spacing: 0.5px; }
-.emph { font-weight: 700; font-variation-settings: "wght" 700, "wdth" 110; }
+.emph { font-weight: 700; font-variation-settings: "wght" 700, "wdth" 110, "ROND" 30; }
+/* big type gets the display optical size and a softer, rounder cut (MD3 expressive) */
+.md-display-lg, .md-display-md, .md-display-sm, .md-headline-lg, .md-headline-md, .md-headline-sm { font-optical-sizing: auto; }
+.md-display-lg.emph, .md-display-md.emph, .md-display-sm.emph { font-variation-settings: "wght" 760, "wdth" 112, "ROND" 60; letter-spacing: -0.02em; }
+.md-label-lg, .md-label-md, .md-label-sm { font-variation-settings: "ROND" 40; }
+
+/* ---------- flowing type (components/FlowText.tsx) ---------- */
+.flow { --flow-dur: 5.2s; --flow-w0: 640; --flow-w1: 880; --flow-x0: 100; --flow-x1: 116; }
+.flow-w { white-space: nowrap; }
+.flow-c { font-variation-settings: "wght" var(--flow-w0), "wdth" var(--flow-x0), "ROND" 30, "slnt" 0, "GRAD" 0; }
+.flow:is([data-flow="on"], [data-flow="paused"]) .flow-c {
+  animation: flow-wave var(--flow-dur) cubic-bezier(.37, 0, .63, 1) infinite;
+  animation-delay: calc(var(--i) * -150ms);
+}
+.flow[data-flow="paused"] .flow-c { animation-play-state: paused; }
+.flow[data-flow="in"] .flow-c { animation: flow-in 950ms cubic-bezier(.2, 0, 0, 1) both; animation-delay: calc(var(--i) * 32ms); }
+.flow:hover { --flow-dur: 1.8s; }
+@keyframes flow-wave {
+  0%, 100% { font-variation-settings: "wght" var(--flow-w0), "wdth" var(--flow-x0), "ROND" 30, "slnt" 0, "GRAD" 0; }
+  50% { font-variation-settings: "wght" var(--flow-w1), "wdth" var(--flow-x1), "ROND" 100, "slnt" -9, "GRAD" 80; }
+}
+@keyframes flow-in {
+  0% { opacity: 0; font-variation-settings: "wght" 150, "wdth" 30, "ROND" 100, "slnt" -10, "GRAD" 0; }
+  60% { opacity: 1; font-variation-settings: "wght" 950, "wdth" 125, "ROND" 100, "slnt" 0, "GRAD" 100; }
+  100% { opacity: 1; font-variation-settings: "wght" var(--flow-w0), "wdth" var(--flow-x0), "ROND" 30, "slnt" 0, "GRAD" 0; }
+}
+/* a whole heading breathing at once (cheaper; for the many section titles) */
+.flow-soft { animation: flow-soft 7s cubic-bezier(.37, 0, .63, 1) infinite; }
+@keyframes flow-soft {
+  0%, 100% { font-variation-settings: "wght" 680, "wdth" 108, "ROND" 20, "GRAD" 0; }
+  50% { font-variation-settings: "wght" 800, "wdth" 116, "ROND" 90, "GRAD" 60; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .flow .flow-c, .flow-soft { animation: none !important; }
+}
 .muted { color: var(--md-sys-color-on-surface-variant); }
 
 /* ---- Surfaces & motion (Expressive shapes) ---- */

@@ -5,6 +5,7 @@ import { Mascot } from '@/components/Mascot';
 import { useAuth } from '@/stores/auth';
 import { useLikes } from '@/stores/likes';
 import { useT } from '@/lib/i18n';
+import { FlowText } from '@/components/FlowText';
 
 export default function Auth({ mode }: { mode: 'login' | 'register' }) {
   const user = useAuth((s) => s.user);
@@ -43,9 +44,9 @@ export default function Auth({ mode }: { mode: 'login' | 'register' }) {
   return (
     <div className="auth-shell text-on-surface">
       <form onSubmit={submit} className="surface-low rounded-[32px] w-full max-w-[400px] p-5 sm:p-7 space-y-3 fade-in elev-2">
-        <div className="flex items-center gap-2"><Mascot mood={busy ? 'think' : 'idle'} className="w-10 h-10" /><span className="md-title-lg emph text-primary">AVRmusic</span></div>
+        <div className="flex items-center gap-2"><Mascot mood={busy ? 'think' : 'idle'} className="w-10 h-10" /><FlowText text="AVRmusic" className="md-title-lg emph text-primary" /></div>
         <div>
-          <h1 className="md-headline-sm emph">{setup ? t('setupTitle') : isRegister ? t('createAccount') : t('login')}</h1>
+          <FlowText as="h1" text={setup ? t('setupTitle') : isRegister ? t('createAccount') : t('login')} className="md-headline-sm emph" />
           {setup && <p className="md-body-md muted mt-1">{t('setupHint')}</p>}
         </div>
         {isRegister ? (

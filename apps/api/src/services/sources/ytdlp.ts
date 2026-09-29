@@ -25,16 +25,32 @@ export function ytdlpSource(name: 'youtube' | 'soundcloud'): Source {
     label: name === 'soundcloud' ? 'SoundCloud (yt-dlp)' : 'YouTube (yt-dlp)',
     async available() { const c = await capabilities(); return c.ytdlp ? { ok: true } : { ok: false, reason: 'yt-dlp не установлен' }; },
     async search(w: Want) {
-      const q = `${w.artist} - ${w.title}${w.featuring?.length ? ` feat. ${w.featuring.join(', ')}` : ''}`;
-      const r = await run(config.ytdlpPath, [`${prefix}8:${q}`, '--flat-playlist', '--dump-single-json', '--no-warnings', '--ignore-errors']);
-      const i = r.stdout.indexOf('{');
-      if (i < 0) return [];
-      let parsed: any;
-      try { parsed = JSON.parse(r.stdout.slice(i)); } catch { return []; }
-      return ((parsed.entries ?? []) as any[]).filter(Boolean).map((e): SourceCandidate => ({
+      const feats = w.featuring ?? [];
+      // A "feat." version gets a second query led by the guests, so the upload crediting them makes the list
+      const queries = [`${w.artist} - ${w.title}${feats.length ? ` feat. ${feats.join(', ')}` : ''}`];
+      if (feats.length) queries.push(`${w.title} ${feats.join(' ')} ${w.artist}`);
+      const lists = await Promise.all(queries.map(async (q) => {
+        const r = await run(config.ytdlpPath, [`${prefix}8:${q}`, '--flat-playlist', '--dump-single-json', '--no-warnings', '--ignore-errors']);
+        const i = r.stdout.indexOf('{');
+        if (i < 0) return [];
+        try { return ((JSON.parse(r.stdout.slice(i)).entries ?? []) as any[]).filter(Boolean); } catch { return []; }
+      }));
+      const seen = new Set<string>();
+      return lists.flat().filter((e) => e.id && !seen.has(e.id) && seen.add(e.id)).map((e): SourceCandidate => ({
         source: name, id: e.id, title: e.title ?? '', duration: e.duration ?? null, channel: e.channel ?? e.uploader ?? null, uploader: e.uploader ?? null, url: e.url ?? e.webpage_url,
         quality: name === 'soundcloud' ? { codec: 'mp3/opus', bitrate: 128 } : { codec: 'opus/aac', bitrate: 160 },
       }));
+    },
+    async details(c) {
+      const url = name === 'soundcloud' ? (c.url ?? c.id) : `https://www.youtube.com/watch?v=${c.id}`;
+      const r = await run(config.ytdlpPath, ['-J', '--skip-download', '--no-playlist', '--no-warnings', url]);
+      const i = r.stdout.indexOf('{');
+      if (r.code !== 0 || i < 0) return null;
+      try {
+        const j = JSON.parse(r.stdout.slice(i));
+        const artists = Array.isArray(j.artists) ? j.artists.join(', ') : j.artist ?? j.creator ?? null;
+        return { title: j.title ?? '', channel: j.channel ?? j.uploader ?? null, artist: artists, description: typeof j.description === 'string' ? j.description.slice(0, 600) : null };
+      } catch { return null; }
     },
     async download(c, dir, log: Log, cancel: CancelRef, meta: DownloadMeta) {
       const caps = await capabilities();

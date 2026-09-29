@@ -8,7 +8,7 @@ export function EmptyState({ icon, title, hint, action }: { icon?: ReactNode | s
           {typeof icon === 'string' ? <m3e-icon variant="rounded" name={icon} style={{ ['--m3e-icon-size' as any]: '36px' }} /> : icon}
         </div>
       )}
-      <h3 className="md-title-lg emph">{title}</h3>
+      <h3 className="md-title-lg emph flow-soft">{title}</h3>
       {hint && <p className="md-body-md muted mt-1 max-w-sm">{hint}</p>}
       {action && <div className="mt-5">{action}</div>}
     </div>

@@ -6,11 +6,13 @@ import { usePlayer } from '@/stores/player';
 import { useLikes } from '@/stores/likes';
 import { useUI } from '@/stores/ui';
 import { useI18n } from '@/lib/i18n';
+import { inNativeApp } from '@/lib/native';
 
 const KEY = 'avr.shadeLike';
 const TAG = 'avr-now';
 
-export const notificationsSupported = () => typeof window !== 'undefined' && 'Notification' in window && 'serviceWorker' in navigator;
+// (the Android app has a real ♥ button in its shade player, see lib/audio.ts)
+export const notificationsSupported = () => typeof window !== 'undefined' && !inNativeApp() && 'Notification' in window && 'serviceWorker' in navigator;
 /** null = never asked, true/false = user choice */
 export function shadeLikeSetting(): boolean | null {
   try { const v = localStorage.getItem(KEY); return v === null ? null : v === '1'; } catch { return null; }

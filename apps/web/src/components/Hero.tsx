@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Cover } from './Cover';
 import { useDominantColor } from '@/lib/hooks';
+import { FlowText } from '@/components/FlowText';
 
 interface Props {
   kind: string;
@@ -26,7 +27,7 @@ export function Hero({ kind, title, cover, mosaic, round, meta, description, chi
           <Cover src={cover} mosaic={mosaic} round={round} shape={round ? 'cookie' : undefined} kind={round ? 'artist' : 'album'} className={`w-44 h-44 md:w-56 md:h-56 mx-auto sm:mx-0 ${round ? '' : 'elev-3 !rounded-[28px]'}`} />
           <div className="min-w-0 flex-1 text-center sm:text-left">
             <div className="md-label-lg text-on-surface-variant uppercase tracking-wider">{kind}</div>
-            <h1 className="md-display-md emph leading-tight mt-1 line-2 break-words">{title}</h1>
+            <FlowText as="h1" text={title} className="md-display-md emph leading-tight mt-1 line-2 break-words" />
             {description && <p className="md-body-lg muted mt-2 line-2 max-w-2xl">{description}</p>}
             {meta && <div className="md-body-md mt-2 flex flex-wrap gap-x-1 justify-center sm:justify-start items-center text-on-surface">{meta}</div>}
           </div>

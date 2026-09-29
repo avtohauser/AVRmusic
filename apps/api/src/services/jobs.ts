@@ -4,7 +4,7 @@ import type { Track } from '@avrmusic/shared';
 import type { DB } from '../lib/db.js';
 import { newId } from '../lib/util.js';
 
-export type JobKind = 'url' | 'lyrics' | 'acquire' | 'canvas';
+export type JobKind = 'url' | 'lyrics' | 'acquire' | 'canvas' | 'heal';
 
 export interface Job {
   id: string;

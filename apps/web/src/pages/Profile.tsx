@@ -137,7 +137,7 @@ export default function Profile() {
         <AvatarEditor open={avatarOpen} onClose={() => setAvatarOpen(false)} />
         <div className="min-w-0">
           <div className="md-label-lg muted uppercase tracking-wider">{t('profile')}{user.role === 'admin' && <span className="ml-2 inline-flex items-center gap-1 text-primary"><m3e-icon variant="rounded" name="shield" style={{ ['--m3e-icon-size' as any]: '14px' }} />admin</span>}</div>
-          <h1 className="emph line-2" style={{ fontSize: 'clamp(24px, 6.4vw, 45px)', lineHeight: 1.15, hyphens: 'auto', overflowWrap: 'break-word' }}>{user.displayName}</h1>
+          <h1 className="emph flow-soft line-2" style={{ fontSize: 'clamp(24px, 6.4vw, 45px)', lineHeight: 1.15, hyphens: 'auto', overflowWrap: 'break-word' }}>{user.displayName}</h1>
           <div className="md-body-md muted">@{user.username} · {user.email}</div>
         </div>
         <M3eButton variant="tonal" className="ml-auto shrink-0" onClick={async () => { await logout(); useLikes.getState().clear(); nav('/'); }}><m3e-icon variant="rounded" slot="icon" name="logout" /><span className="hidden sm:inline">{t('logout')}</span></M3eButton>

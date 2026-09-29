@@ -1,10 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
   <string name="app_name">AVRmusic</string>
-  <!-- ?app=android lets the page know it runs inside the app (fullscreen fallback) -->
-  <string name="launch_url">https://music.avthsr.space/?app=android</string>
-  <string name="asset_statements">[{ \"relation\": [\"delegate_permission/common.handle_all_urls\"], \"target\": { \"namespace\": \"web\", \"site\": \"https://music.avthsr.space\" } }]</string>
+  <!-- the site the app shows; links to it open in the app -->
+  <string name="site_url" translatable="false">https://music.avthsr.space</string>
   <string name="shortcut_search">Поиск</string>
   <string name="shortcut_library">Медиатека</string>
   <string name="shortcut_downloads">Загрузки</string>
+  <string name="like">В избранное</string>
+  <string name="unlike">Убрать из избранного</string>
+  <string name="offline_title">Нет соединения</string>
+  <string name="offline_retry">Повторить</string>
+  <string name="download_started">Загрузка началась</string>
 </resources>

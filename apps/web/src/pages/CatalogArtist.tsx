@@ -25,11 +25,11 @@ export default function CatalogArtist() {
         {a.libraryArtistId && <M3eButton variant="tonal" href={`/artist/${a.libraryArtistId}`}><m3e-icon variant="rounded" slot="icon" name="library_music" />{t('openInLibrary')}</M3eButton>}
       </Hero>
       <div className="page">
-        {data.topTracks.length > 0 && <><h2 className="md-headline-sm emph mb-2">{t('popular')}</h2><div className="mb-8">{data.topTracks.map((tr, i) => <CatalogTrackRow key={tr.id} track={tr} index={i} />)}</div></>}
+        {data.topTracks.length > 0 && <><h2 className="md-headline-sm emph flow-soft mb-2">{t('popular')}</h2><div className="mb-8">{data.topTracks.map((tr, i) => <CatalogTrackRow key={tr.id} track={tr} index={i} />)}</div></>}
         {data.albums.length > 0 && <Shelf title={t('discography')}>{data.albums.map((al) => <CatalogAlbumCard key={al.id} album={al} />)}</Shelf>}
         {data.singles.length > 0 && <Shelf title={`${t('single')} & ${t('ep')}`}>{data.singles.map((al) => <CatalogAlbumCard key={al.id} album={al} />)}</Shelf>}
         {data.compilations.length > 0 && <Shelf title={t('compilation')}>{data.compilations.map((al) => <CatalogAlbumCard key={al.id} album={al} />)}</Shelf>}
-        {data.appearsOn.length > 0 && <><h2 className="md-headline-sm emph mb-2">{t('appearsOn')}</h2><div className="mb-8">{data.appearsOn.map((tr) => <CatalogTrackRow key={tr.id} track={tr} />)}</div></>}
+        {data.appearsOn.length > 0 && <><h2 className="md-headline-sm emph flow-soft mb-2">{t('appearsOn')}</h2><div className="mb-8">{data.appearsOn.map((tr) => <CatalogTrackRow key={tr.id} track={tr} />)}</div></>}
         {data.related.length > 0 && <Shelf title={t('related')}>{data.related.map((r) => <CatalogArtistCard key={r.id} artist={r} />)}</Shelf>}
       </div>
     </div>

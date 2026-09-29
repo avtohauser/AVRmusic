@@ -31,7 +31,7 @@ export function PlayerBar() {
   const volIcon = muted || volume === 0 ? 'volume_off' : volume < 0.5 ? 'volume_down' : 'volume_up';
 
   return (
-    <div className="fixed left-0 right-0 z-[60] md:px-3 md:pb-3" style={{ bottom: 'calc(var(--nav-h) + var(--safe-b))' }} data-playerbar>
+    <div className="fixed z-[60] md:px-3 md:pb-3" style={{ bottom: 'calc(var(--nav-h) + var(--safe-b))', left: 'var(--safe-l)', right: 'var(--safe-r)' }} data-playerbar>
       {/* Phone: compact card */}
       <div className="md:hidden mini-card surface-high rounded-[28px] overflow-hidden elev-2" onClick={() => setOpen(true)}>
         <div className="flex items-center gap-3 p-2 pr-2">

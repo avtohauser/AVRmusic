@@ -71,3 +71,17 @@ export function shuffle<T>(arr: T[]): T[] {
   }
   return a;
 }
+
+/**
+ * Move a file, also across disks: the media folder may be another disk / network mount than the
+ * temp folder, where rename() fails with EXDEV. Then the file is copied and the original removed.
+ */
+export function moveFile(src: string, dest: string): void {
+  try {
+    fs.renameSync(src, dest);
+  } catch (e: any) {
+    if (e?.code !== 'EXDEV' && e?.code !== 'EPERM' && e?.code !== 'EACCES') throw e;
+    fs.copyFileSync(src, dest);
+    try { fs.unlinkSync(src); } catch { /* the copy is what matters */ }
+  }
+}

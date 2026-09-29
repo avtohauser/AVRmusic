@@ -5,7 +5,7 @@ import path from 'node:path';
 import mime from 'mime-types';
 import type { DB } from '../lib/db.js';
 import { config } from '../config.js';
-import { newId } from '../lib/util.js';
+import { moveFile, newId } from '../lib/util.js';
 import { guessFromFilename, importAudioFile, saveCover } from './importer.js';
 import { indexTrack } from './search.js';
 import type { Job } from './jobs.js';
@@ -150,7 +150,7 @@ async function importVideo(db: DB, file: string, m: { title: string; artist?: st
   const id = newId();
   const dest = path.join(config.videosDir, `${id}${ext}`);
   fs.mkdirSync(config.videosDir, { recursive: true });
-  fs.renameSync(file, dest);
+  moveFile(file, dest);
   const hash = await hashFile(dest);
   const stat = fs.statSync(dest);
   const cover = m.thumb ? saveCover(fs.readFileSync(m.thumb), (mime.lookup(m.thumb) as string) || 'image/jpeg') : null;

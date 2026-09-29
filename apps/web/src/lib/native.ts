@@ -57,8 +57,17 @@ function applyInsets(i: Partial<Insets> | null) {
   s.setProperty('--safe-t-bar', px(i.tBar ?? i.t));
 }
 
-/** Call before the first render. */
+/** Call before the first render (and before the router reads the URL). */
 export function initNativeApp() {
+  // older app versions open the site with ?app=android: keep the address clean
+  try {
+    const params = new URLSearchParams(location.search);
+    if (params.has('app')) {
+      params.delete('app');
+      const q = params.toString();
+      history.replaceState(history.state, '', `${location.pathname}${q ? `?${q}` : ''}${location.hash}`);
+    }
+  } catch { /* ignore */ }
   const b = nativeBridge();
   if (!b) return;
   document.documentElement.classList.add('native-app');

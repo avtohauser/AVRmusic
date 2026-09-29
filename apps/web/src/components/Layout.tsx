@@ -30,13 +30,22 @@ export function Layout() {
   const loc = useLocation();
   const isDesktop = useMediaQuery('(min-width: 768px)');
   useEffect(() => { document.querySelector('main')?.scrollTo({ top: 0 }); }, [loc.pathname]);
+  // Once the full-screen player has slid in, the page under it is hidden and its animations stop:
+  // nothing invisible keeps costing frame time.
+  const npOpen = useUI((s) => s.nowPlayingOpen);
+  const [covered, setCovered] = useState(false);
+  useEffect(() => {
+    if (!npOpen || !hasTrack) { setCovered(false); return; }
+    const id = setTimeout(() => setCovered(true), 450);
+    return () => clearTimeout(id);
+  }, [npOpen, hasTrack]);
   // Private library: guests never see the shell, they get the sign-in screen (a cached user renders at once).
   if (!user && !ready) return null;
   if (!user && info && !info.publicLibrary) return <Navigate to="/login" replace state={{ from: loc.pathname }} />;
 
   return (
-    <div className="h-full flex flex-col bg-background text-on-background" style={{ ['--player-h' as any]: hasTrack ? '96px' : '0px', ['--nav-h' as any]: isDesktop ? '0px' : '92px', paddingLeft: 'var(--safe-l)', paddingRight: 'var(--safe-r)' }}>
-      <div className="flex-1 flex min-h-0">
+    <div className="h-full flex flex-col bg-background text-on-background" data-np-covered={covered || undefined} style={{ ['--player-h' as any]: hasTrack ? '96px' : '0px', ['--nav-h' as any]: isDesktop ? '0px' : '92px', paddingLeft: 'var(--safe-l)', paddingRight: 'var(--safe-r)' }}>
+      <div className="app-body flex-1 flex min-h-0">
         {isDesktop && <Rail />}
         <main className="flex-1 min-w-0 overflow-y-auto relative" style={{ paddingBottom: 'calc(var(--player-h) + var(--nav-h) + var(--safe-b) + 16px)' }}>
           {!online && (

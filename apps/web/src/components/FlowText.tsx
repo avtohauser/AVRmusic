@@ -2,8 +2,8 @@
 // roundness) in a slow wave while the heading is on screen, after "pouring in" when it first appears
 // or its text changes. Google Sans Flex for Latin, Roboto Flex for Cyrillic.
 //
-// Cheap by construction: the wave moves in fixed steps ~11 times a second, so the browser only works on
-// a step and reuses cached font instances (see .flow in index.css); a looping heading also gets a frozen
+// Smooth and cheap: the wave advances every display frame through a fixed set of axis settings that the
+// browser keeps as cached font instances (see .flow in index.css), and a looping heading gets a frozen
 // box (`contain: size layout paint` + its measured height), so moving letters never re-lay out the page
 // around it. Headings that can't be boxed (inline or flex items) only pour in once.
 // Paused off-screen and while scrolling; static with prefers-reduced-motion.
@@ -22,8 +22,51 @@ let scrolling = 0;
 if (typeof document !== 'undefined') {
   document.addEventListener('scroll', () => {
     clearTimeout(scrolling);
-    scrolling = window.setTimeout(() => { scrolling = 0; }, 220);
+    scrolling = window.setTimeout(() => { scrolling = 0; }, 180);
   }, { capture: true, passive: true });
+}
+
+/**
+ * One frame loop for every flowing heading on screen. The wave has POSITIONS fixed settings per turn
+ * (1.5° apart); because they repeat, the browser keeps them as cached font instances. The heading
+ * moves on every display frame as long as frames arrive on time; when the device starts missing
+ * frames the wave updates every 2nd/3rd/4th frame instead (the steps are tiny, it still looks fluid),
+ * so the flowing text never makes the app stutter — and speeds back up when there is headroom.
+ */
+const POSITIONS = 240;
+const waves = new Map<HTMLElement, { period: number; pos: number }>();
+let raf = 0;
+let prev = 0;       // time of the previous frame
+let refresh = 1000; // shortest frame interval seen ≈ the display's refresh interval
+let skip = 1;       // update the wave every `skip` frames
+let frameNo = 0;
+let late = 0;       // recent frames that came late
+let onTime = 0;     // frames in a row that came on time
+function frame(now: number) {
+  raf = 0;
+  if (!waves.size) return;
+  const gap = prev ? now - prev : 0;
+  prev = now;
+  if (gap > 0 && gap < 60 && !scrolling) {
+    refresh = Math.max(6, Math.min(refresh, gap));
+    if (gap > refresh * 1.6) { onTime = 0; if (++late >= 3 && skip < 4) { skip++; late = 0; } }
+    else if (++onTime > 90 && skip > 1) { skip--; onTime = 0; late = 0; }
+  }
+  if (!scrolling && !document.hidden && ++frameNo % skip === 0) {
+    waves.forEach((w, el) => {
+      const pos = Math.floor(((now / w.period) % 1) * POSITIONS);
+      if (pos !== w.pos) { w.pos = pos; el.style.setProperty('--t', String(pos)); }
+    });
+  }
+  raf = requestAnimationFrame(frame);
+}
+function startWave(el: HTMLElement, seconds: number) {
+  waves.set(el, { period: seconds * 1000, pos: -1 });
+  if (!raf) raf = requestAnimationFrame(frame);
+}
+function stopWave(el: HTMLElement) {
+  waves.delete(el);
+  if (!waves.size && raf) { cancelAnimationFrame(raf); raf = 0; prev = 0; }
 }
 
 /** Can the element be boxed (block-level and not a flex/grid item)? */
@@ -59,21 +102,12 @@ export function FlowText({ text, as = 'span', className = '', style, intro = tru
     let visible = true;
     let introRunning = intro;
     let timer = 0;
-    let wave = 0;
-    let step = 0;
     let width = 0;
-    // one step of the wave (see .flow in index.css): 60 steps per wave
-    const tick = () => {
-      if (scrolling || document.hidden) return;
-      step = (step + 1) % 60;
-      el.style.setProperty('--t', String(step));
-    };
     const settle = () => {
       if (introRunning) return;
       const on = looping && visible;
       el.dataset.flow = looping ? (on ? 'on' : 'paused') : 'static';
-      if (on && !wave) wave = window.setInterval(tick, ((speed ?? 5.4) * 1000) / 60);
-      else if (!on && wave) { clearInterval(wave); wave = 0; }
+      if (on) startWave(el, speed ?? 5.4); else stopWave(el);
     };
 
     // freeze the box at its resting size; measured again when the width or the fonts change
@@ -99,7 +133,7 @@ export function FlowText({ text, as = 'span', className = '', style, intro = tru
     else settle();
     const io = new IntersectionObserver(([e]) => { visible = e.isIntersecting; settle(); });
     io.observe(el);
-    return () => { io.disconnect(); ro.disconnect(); clearTimeout(timer); clearInterval(wave); el.classList.remove('flow-box'); el.style.height = ''; };
+    return () => { io.disconnect(); ro.disconnect(); clearTimeout(timer); stopWave(el); el.classList.remove('flow-box'); el.style.height = ''; };
   }, [text, intro, loop, count, speed]);
 
   let i = 0;

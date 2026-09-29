@@ -6,7 +6,7 @@ import { parseFile } from 'music-metadata';
 import type { DB } from '../lib/db.js';
 import type { Track } from '@avrmusic/shared';
 import { config } from '../config.js';
-import { hashFile, nameKey, newId } from '../lib/util.js';
+import { hashFile, moveFile, nameKey, newId } from '../lib/util.js';
 import { findLibraryTrack, rawAlbum, rawArtist, rawArtistAllAlbums, rawArtistFeatures, rawFeaturing, rawTrack, parseFeaturing } from './catalog.js';
 import { saveCover } from './importer.js';
 import { indexAlbum, indexArtist, indexTrack } from './search.js';
@@ -240,7 +240,7 @@ async function importAcquired(db: DB, file: string, t: any, album: any, cand: So
   const id = newId();
   const dest = path.join(config.tracksDir, `${id}${ext}`);
   fs.mkdirSync(config.tracksDir, { recursive: true });
-  try { fs.renameSync(file, dest); } catch { fs.copyFileSync(file, dest); fs.unlinkSync(file); }
+  moveFile(file, dest);
   const hash = await hashFile(dest);
   const stat = fs.statSync(dest);
   let fmt: any = null;
@@ -413,7 +413,7 @@ export async function refetchTrack(db: DB, trackId: string, api: JobApi, cancelR
       const ext = path.extname(file).toLowerCase() || '.m4a';
       const dest = path.join(config.tracksDir, `${newId()}${ext}`);
       fs.mkdirSync(config.tracksDir, { recursive: true });
-      try { fs.renameSync(file, dest); } catch { fs.copyFileSync(file, dest); fs.unlinkSync(file); }
+      moveFile(file, dest);
       const hash = await hashFile(dest);
       let fmt: any = null;
       try { fmt = (await parseFile(dest, { duration: true })).format; } catch { /* keep the old length */ }

@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { AdminStats, Invite, Track, UploadResult, User } from '@avrmusic/shared';
-import { M3eButton, M3eFilterChip, M3eFilterChipSet, M3eFormField, M3eIconButton, M3eLinearProgressIndicator, M3eOption, M3eSelect } from '@/md';
+import { M3eButton, M3eFilterChip, M3eFilterChipSet, M3eFormField, M3eIconButton, M3eOption, M3eSelect } from '@/md';
+import { WavyProgress } from '@/components/WavyProgress';
 import { api } from '@/lib/api';
 import { useUI } from '@/stores/ui';
 import { useT } from '@/lib/i18n';
@@ -118,7 +119,7 @@ function UploadTab() {
       )}
       <div className="flex items-center gap-3 mt-4">
         <M3eButton variant="filled" disabled={!files.length || progress !== null || undefined} onClick={upload}><m3e-icon variant="rounded" slot="icon" name={progress !== null ? 'hourglass_empty' : 'upload'} />{t('upload')} ({files.length})</M3eButton>
-        {progress !== null && <M3eLinearProgressIndicator className="flex-1" variant="wavy" value={progress} max={100} />}
+        {progress !== null && <WavyProgress className="flex-1" value={progress} />}
       </div>
       {result && (
         <div className="mt-6 space-y-3">
@@ -187,7 +188,7 @@ function JobCard({ job }: { job: ImportJob }) {
         <M3eButton variant="text" onClick={() => setOpen(!open)}>лог</M3eButton>
         {(job.status === 'done' || job.status === 'error') && <M3eIconButton size="small" onClick={async () => { await api.del(`/api/admin/import/jobs/${job.id}`); qc.invalidateQueries({ queryKey: ['admin', 'jobs'] }); }}><m3e-icon variant="rounded" name="delete" /></M3eIconButton>}
       </div>
-      {(job.status === 'running' || job.status === 'queued') && <M3eLinearProgressIndicator className="mt-3" variant="wavy" mode={job.status === 'queued' ? 'indeterminate' : 'determinate'} value={job.progress} max={100} />}
+      {(job.status === 'running' || job.status === 'queued') && <WavyProgress className="mt-3" indeterminate={job.status === 'queued'} value={job.progress} />}
       {job.error && <p className="md-body-sm text-error mt-2">{job.error}</p>}
       {open && <pre className="mt-3 md-body-sm muted surface-highest rounded-[12px] p-3 max-h-48 overflow-auto whitespace-pre-wrap">{job.log.slice(-40).join('\n') || '—'}</pre>}
       {job.imported.length > 0 && <div className="mt-3 space-y-1">{job.imported.slice(0, 20).map((tr) => <TrackRowAdmin key={tr.id} track={tr} />)}</div>}

@@ -4,7 +4,7 @@ import { pipeline } from 'node:stream/promises';
 import type { MultipartFile } from '@fastify/multipart';
 import { IMAGE_EXT, config } from '../config.js';
 import { badRequest } from './errors.js';
-import { newId } from './util.js';
+import { moveFile, newId } from './util.js';
 
 /** Stream an uploaded multipart file to a temp path; returns the temp path. */
 export async function spoolToTmp(file: MultipartFile): Promise<{ tmpPath: string; filename: string; mimetype: string }> {
@@ -26,6 +26,6 @@ export async function saveUploadedImage(file: MultipartFile, dir: string): Promi
   const { tmpPath } = await spoolToTmp(file);
   const name = `${newId()}${IMAGE_EXT.has(ext) ? ext : '.jpg'}`;
   fs.mkdirSync(dir, { recursive: true });
-  fs.renameSync(tmpPath, path.join(dir, name));
+  moveFile(tmpPath, path.join(dir, name));
   return name;
 }

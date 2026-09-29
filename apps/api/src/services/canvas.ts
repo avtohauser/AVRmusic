@@ -6,7 +6,7 @@ import path from 'node:path';
 import mime from 'mime-types';
 import type { DB } from '../lib/db.js';
 import { config } from '../config.js';
-import { newId } from '../lib/util.js';
+import { moveFile, newId } from '../lib/util.js';
 import { notFound } from '../lib/errors.js';
 import { capabilities } from './ytdlp.js';
 import { enqueue, type Job, type JobApi } from './jobs.js';
@@ -109,7 +109,7 @@ export function setCanvas(db: DB, trackId: string, file: string, mimeType: strin
   const name = `${trackId}-${Date.now().toString(36)}${ext}`;
   fs.mkdirSync(config.canvasDir, { recursive: true });
   const dest = path.join(config.canvasDir, name);
-  try { fs.renameSync(file, dest); } catch { fs.copyFileSync(file, dest); fs.unlinkSync(file); }
+  moveFile(file, dest);
   const old = (db.prepare('SELECT canvas_path FROM tracks WHERE id = ?').get(trackId) as any)?.canvas_path;
   db.prepare('UPDATE tracks SET canvas_path = ?, canvas_mime = ? WHERE id = ?').run(name, mimeType || (mime.lookup(ext) as string) || 'video/mp4', trackId);
   if (old && old !== name) { try { fs.unlinkSync(path.join(config.canvasDir, old)); } catch { /* ignore */ } }

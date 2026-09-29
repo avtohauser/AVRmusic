@@ -26,7 +26,7 @@ export function GeneratedCanvas({ src, playing, className = '' }: { src: string 
   if (!src) return null;
   return (
     <div className={`gen-canvas ${className}`} data-paused={!playing} aria-hidden="true">
-      <img src={src} alt="" className="gen-canvas-blur" />
+      <div className="gen-canvas-drift"><img src={src} alt="" className="gen-canvas-blur" /></div>
       <img src={src} alt="" className="gen-canvas-art" />
       <div className="gen-canvas-glow" />
     </div>

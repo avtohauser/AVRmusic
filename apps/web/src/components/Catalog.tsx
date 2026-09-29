@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import type { CatalogAlbum, CatalogArtist, CatalogArtistSummary, CatalogTrack, AcquireKind, AcquireJob } from '@avrmusic/shared';
-import { M3eAssistChip, M3eButton, M3eCard, M3eIconButton, M3eLinearProgressIndicator } from '@/md';
+import { M3eAssistChip, M3eButton, M3eCard, M3eIconButton } from '@/md';
+import { WavyProgress } from './WavyProgress';
 import { api } from '@/lib/api';
 import { fmtMs, fmtCompact } from '@/lib/format';
 import { useI18n, useT } from '@/lib/i18n';
@@ -151,7 +152,7 @@ export function AcquireQueue({ compact = false }: { compact?: boolean }) {
             {!compact && <M3eButton variant="text" onClick={() => setOpen(open === j.id ? null : j.id)}>лог</M3eButton>}
             {(j.status === 'done' || j.status === 'error') && !compact && <M3eIconButton size="small" aria-label="remove" onClick={async () => { await api.del(`/api/catalog/jobs/${j.id}`); qc.invalidateQueries({ queryKey: ['acquire-jobs'] }); }}><m3e-icon variant="rounded" name="close" /></M3eIconButton>}
           </div>
-          {(j.status === 'running' || j.status === 'queued') && <M3eLinearProgressIndicator className="mt-2" variant="wavy" mode={j.status === 'queued' ? 'indeterminate' : 'determinate'} value={j.progress} max={100} />}
+          {(j.status === 'running' || j.status === 'queued') && <WavyProgress className="mt-2" indeterminate={j.status === 'queued'} value={j.progress} />}
           {open === j.id && <pre className="mt-2 md-body-sm muted surface-highest rounded-[12px] p-2 max-h-40 overflow-auto whitespace-pre-wrap">{j.log.slice(-30).join('\n') || '—'}</pre>}
           {!compact && j.imported.length > 0 && <div className="mt-2 flex flex-wrap gap-1">{j.imported.slice(0, 12).map((tr) => <M3eAssistChip key={tr.id} href={tr.album ? `/album/${tr.album.id}` : `/artist/${tr.artist.id}`}><m3e-icon variant="rounded" slot="icon" name="album" />{tr.title}</M3eAssistChip>)}</div>}
         </div>

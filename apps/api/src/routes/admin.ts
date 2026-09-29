@@ -8,7 +8,7 @@ import { CANVAS_IMAGE_EXT, CANVAS_VIDEO_EXT, config } from '../config.js';
 import { badRequest, notFound } from '../lib/errors.js';
 import { lrcToPlain, parseLrc } from '../lib/lyrics.js';
 import { saveUploadedImage, spoolToTmp } from '../lib/uploads.js';
-import { newId } from '../lib/util.js';
+import { moveFile, newId } from '../lib/util.js';
 import { getAlbum, getArtist, getTrack, getTracksByIds } from '../services/library.js';
 import { cleanupOrphans, deleteTrack, ensureAlbum, ensureArtist, importAudioFile, scanDirectory } from '../services/importer.js';
 import { indexAlbum, indexArtist, indexTrack, reindexAll, removeFromIndex } from '../services/search.js';
@@ -189,7 +189,7 @@ export default async function adminRoutes(app: FastifyInstance) {
     if (!CANVAS_VIDEO_EXT.has(ext) && !CANVAS_IMAGE_EXT.has(ext)) throw badRequest('Канвас: mp4/webm/mov или gif/webp/png/jpg/svg');
     const { tmpPath } = await spoolToTmp(file);
     const name = `${newId()}${ext}`;
-    fs.renameSync(tmpPath, path.join(config.canvasDir, name));
+    moveFile(tmpPath, path.join(config.canvasDir, name));
     db.prepare('UPDATE tracks SET canvas_path = ?, canvas_mime = ? WHERE id = ?').run(name, (mime.lookup(ext) as string) || file.mimetype, id);
     if (t.canvas_path) { try { fs.unlinkSync(path.join(config.canvasDir, t.canvas_path)); } catch { /* ignore */ } }
     return getTrack(db, id, req.userId);

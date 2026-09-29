@@ -5,7 +5,7 @@ import { parseFile, selectCover } from 'music-metadata';
 import mime from 'mime-types';
 import type { DB } from '../lib/db.js';
 import { AUDIO_EXT, config } from '../config.js';
-import { hashFile, nameKey, newId } from '../lib/util.js';
+import { hashFile, moveFile, nameKey, newId } from '../lib/util.js';
 import { linesToLrc } from '../lib/lyrics.js';
 import { indexAlbum, indexArtist, indexTrack } from './search.js';
 
@@ -149,12 +149,7 @@ export async function importAudioFile(db: DB, filePath: string, opts: ImportOpti
     fs.mkdirSync(config.tracksDir, { recursive: true });
     const id = newId();
     storedPath = path.join(config.tracksDir, `${id}${ext}`);
-    try {
-      fs.renameSync(filePath, storedPath);
-    } catch {
-      fs.copyFileSync(filePath, storedPath);
-      fs.unlinkSync(filePath);
-    }
+    moveFile(filePath, storedPath);
   }
 
   const sidecars = findSidecars(opts.mode === 'move' ? filePath : storedPath);

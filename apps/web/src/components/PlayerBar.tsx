@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { M3eIconButton, M3eLinearProgressIndicator, M3eSlider, M3eSliderThumb } from '@/md';
+import { M3eIconButton, M3eSlider, M3eSliderThumb } from '@/md';
+import { WavyProgress } from './WavyProgress';
 import { usePlayer } from '@/stores/player';
 import { useUI } from '@/stores/ui';
 import { Cover } from './Cover';
@@ -45,7 +46,7 @@ export function PlayerBar() {
             <m3e-icon variant="rounded" name={loading && playing ? 'hourglass_empty' : playing ? 'pause' : 'play_arrow'} filled />
           </M3eIconButton>
         </div>
-        <M3eLinearProgressIndicator className="mini" variant={playing ? 'wavy' : 'flat'} value={duration ? (pos / duration) * 100 : 0} max={100} />
+        <WavyProgress className="mini" moving={playing} value={duration ? (pos / duration) * 100 : 0} />
       </div>
 
       {/* Desktop */}

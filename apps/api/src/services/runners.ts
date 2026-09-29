@@ -14,8 +14,9 @@ export function registerRunners(db: DB) {
   setRunner('canvas', (job, p, api) => runCanvasJob(db, job, p, api));
   setRunner('heal', async (job, _p, api) => {
     await runHeal(db, job, api);
-    // big libraries are checked in batches, one after another
-    if (healPending(db).unchecked) setTimeout(() => kickHeal(db), 30_000).unref();
+    // big libraries are handled in small batches, one after another (after the users' own jobs)
+    const left = healPending(db);
+    if (left.unchecked || left.targets) setTimeout(() => kickHeal(db), 60_000).unref();
   });
   initJobs(db);
   if (config.autoHeal) {

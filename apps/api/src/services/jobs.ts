@@ -108,9 +108,15 @@ export function enqueue(init: Pick<Job, 'kind' | 'url' | 'mode' | 'title' | 'req
   return publicJob(job) as Job & { id: string };
 }
 
+/** Background upkeep (self-healing) that always lets the users' own jobs go first. */
+const BACKGROUND: JobKind[] = ['heal'];
+/** A user's job is waiting: a background job should wrap up and continue later. */
+export function userJobWaiting(): boolean { return queue.some((j) => !BACKGROUND.includes(j.kind)); }
+
 async function pump() {
   if (active) return;
-  const job = queue.shift();
+  const first = queue.findIndex((j) => !BACKGROUND.includes(j.kind));
+  const job = first >= 0 ? queue.splice(first, 1)[0] : queue.shift();
   if (!job) return;
   active = true;
   job.status = 'running';

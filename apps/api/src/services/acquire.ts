@@ -13,7 +13,7 @@ import { indexAlbum, indexArtist, indexTrack } from './search.js';
 import { getTracksByIds } from './library.js';
 import { fetchLyricsForTrack } from './lrclib.js';
 import { queueCanvasesForImported } from './canvas.js';
-import type { Job } from './jobs.js';
+import { userJobWaiting, type Job } from './jobs.js';
 import { allSources, enabledSources, type CancelRef, type Source, type SourceCandidate, type Want } from './sources/index.js';
 
 type JobApi = { log: (s: string) => void; progress: (p: number) => void; onCancel: (fn: () => void) => void };
@@ -457,6 +457,7 @@ export async function runRefetch(db: DB, job: Job, trackIds: string[], api: JobA
 }
 
 const HEAL_BATCH = 80;
+const HEAL_REFETCH_PER_RUN = 10;
 const HEAL_RETRY_MS = 3 * 24 * 3600 * 1000;
 
 /** Catalogue tracks fetched before sources were recorded: their source still has to be checked. */
@@ -508,8 +509,10 @@ export async function runHeal(db: DB, job: Job, api: JobApi) {
   const rows = uncheckedSources(db, HEAL_BATCH);
   if (rows.length) api.log(`Проверка источников: ${rows.length}`);
   const mark = db.prepare('UPDATE tracks SET source_title = ?, source_ok = ? WHERE id = ?');
+  const yieldToUsers = () => { if (!userJobWaiting()) return false; api.log('⏸ уступаю очередь загрузкам пользователей — продолжу позже'); return true; };
   for (const row of rows) {
     if (cancelled) throw new Error('Отменено');
+    if (yieldToUsers()) return;
     const id = String(row.source).slice('youtube:'.length);
     const want = await wantFor(db, row);
     let info = await youtubeInfo(id, false);
@@ -523,11 +526,13 @@ export async function runHeal(db: DB, job: Job, api: JobApi) {
     job.stats = { ...stats };
   }
 
-  const targets = healTargets(db);
+  // a few re-downloads per run: the server stays responsive, the rest follows in the next runs
+  const targets = healTargets(db).slice(0, HEAL_REFETCH_PER_RUN);
   if (targets.length) api.log(`Перекачиваю треки с чужим звуком: ${targets.length}`);
   const touch = db.prepare('UPDATE tracks SET heal_at = ? WHERE id = ?');
   for (let i = 0; i < targets.length; i++) {
     if (cancelled) throw new Error('Отменено');
+    if (yieldToUsers()) return;
     touch.run(new Date().toISOString(), targets[i]);
     try {
       const r = await refetchTrack(db, targets[i], api, cancelRef);

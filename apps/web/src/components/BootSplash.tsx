@@ -25,7 +25,7 @@ export function BootSplash() {
 
   useEffect(() => {
     if (!show || !ready) return;
-    const wait = Math.max(0, 1400 - (Date.now() - started.current));
+    const wait = Math.max(0, 600 - (Date.now() - started.current));
     const t1 = setTimeout(() => { setMood('idle'); setBurst((b) => b + 1); }, wait);
     const t2 = setTimeout(() => setLeaving(true), wait + 380);
     const t3 = setTimeout(() => { setShow(false); try { sessionStorage.setItem(KEY, '1'); } catch { /* ignore */ } }, wait + 820);

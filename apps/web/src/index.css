@@ -1,5 +1,13 @@
 @import "tailwindcss";
 
+/* Self-hosted variable fonts (SIL Open Font License, see public/fonts/README.md), cut to the axis ranges the
+   UI uses: ~90 KB for Latin instead of 1.4 MB for the full Google Sans Flex. Google Sans Flex has no
+   Cyrillic yet, so Russian text is set in Roboto Flex, which flexes the same way (weight, width). */
+@font-face { font-family: 'Google Sans Flex'; font-style: normal; font-stretch: 100% 112%; font-weight: 400 900; font-display: swap; src: url(/fonts/gsf-latin-ext.woff2) format('woff2'); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: 'Google Sans Flex'; font-style: normal; font-stretch: 100% 112%; font-weight: 400 900; font-display: swap; src: url(/fonts/gsf-latin.woff2) format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Roboto Flex'; font-style: normal; font-stretch: 100% 112%; font-weight: 400 900; font-display: swap; src: url(/fonts/rf-cyrillic-ext.woff2) format('woff2'); unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F; }
+@font-face { font-family: 'Roboto Flex'; font-style: normal; font-stretch: 100% 112%; font-weight: 400 900; font-display: swap; src: url(/fonts/rf-cyrillic.woff2) format('woff2'); unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+
 /* Map Material 3 dynamic color roles (set at runtime by <m3e-theme>) onto Tailwind color utilities.
    `inline` makes utilities reference the M3 variables directly, so they resolve where the theme defines them. */
 @theme inline {
@@ -104,40 +112,36 @@ img { display: block; }
 .md-label-lg { font: 500 var(--md-sys-typescale-label-large-font-size, 14px)/var(--md-sys-typescale-label-large-line-height, 20px) var(--font-sans); letter-spacing: 0.1px; }
 .md-label-md { font: 500 var(--md-sys-typescale-label-medium-font-size, 12px)/var(--md-sys-typescale-label-medium-line-height, 16px) var(--font-sans); letter-spacing: 0.5px; }
 .md-label-sm { font: 500 var(--md-sys-typescale-label-small-font-size, 11px)/var(--md-sys-typescale-label-small-line-height, 16px) var(--font-sans); letter-spacing: 0.5px; }
-.emph { font-weight: 700; font-variation-settings: "wght" 700, "wdth" 110, "ROND" 30; }
+.emph { font-weight: 700; font-variation-settings: "wght" 700, "wdth" 108, "ROND" 30; }
 /* big type gets the display optical size and a softer, rounder cut (MD3 expressive) */
-.md-display-lg, .md-display-md, .md-display-sm, .md-headline-lg, .md-headline-md, .md-headline-sm { font-optical-sizing: auto; }
 .md-display-lg.emph, .md-display-md.emph, .md-display-sm.emph { font-variation-settings: "wght" 760, "wdth" 112, "ROND" 60; letter-spacing: -0.02em; }
 .md-label-lg, .md-label-md, .md-label-sm { font-variation-settings: "ROND" 40; }
 
 /* ---------- flowing type (components/FlowText.tsx) ---------- */
-.flow { --flow-dur: 5.2s; --flow-w0: 640; --flow-w1: 880; --flow-x0: 100; --flow-x1: 116; }
 .flow-w { white-space: nowrap; }
-.flow-c { font-variation-settings: "wght" var(--flow-w0), "wdth" var(--flow-x0), "ROND" 30, "slnt" 0, "GRAD" 0; }
+.flow-c { font-variation-settings: "wght" 660, "wdth" 104, "ROND" 30; }
+/* the heading's box is frozen: moving letters never re-lay out the page around it */
+.flow-box { contain: size layout paint; }
+/* The wave: FlowText steps --t (0…59) about 11 times a second while the heading is on screen; each letter
+   is two steps behind the previous one. Stepping (instead of a CSS animation) means the browser only works
+   when a step happens, and the ~60 distinct axis settings are font instances it caches after one wave. */
 .flow:is([data-flow="on"], [data-flow="paused"]) .flow-c {
-  animation: flow-wave var(--flow-dur) cubic-bezier(.37, 0, .63, 1) infinite;
-  animation-delay: calc(var(--i) * -150ms);
+  --p: calc((var(--t, 0) + var(--i) * 2) * 6deg);
+  font-variation-settings: "wght" calc(770 - 110 * cos(var(--p))), "wdth" calc(108 - 4 * cos(var(--p))), "ROND" calc(65 - 35 * cos(var(--p)));
 }
-.flow[data-flow="paused"] .flow-c { animation-play-state: paused; }
-.flow[data-flow="in"] .flow-c { animation: flow-in 950ms cubic-bezier(.2, 0, 0, 1) both; animation-delay: calc(var(--i) * 32ms); }
-.flow:hover { --flow-dur: 1.8s; }
-@keyframes flow-wave {
-  0%, 100% { font-variation-settings: "wght" var(--flow-w0), "wdth" var(--flow-x0), "ROND" 30, "slnt" 0, "GRAD" 0; }
-  50% { font-variation-settings: "wght" var(--flow-w1), "wdth" var(--flow-x1), "ROND" 100, "slnt" -9, "GRAD" 80; }
-}
+/* pouring in: a one-off CSS animation, also stepped (cached font instances) */
+.flow[data-flow="in"] .flow-c { animation: flow-in 900ms steps(10) both; animation-delay: calc(var(--i) * 45ms); }
 @keyframes flow-in {
-  0% { opacity: 0; font-variation-settings: "wght" 150, "wdth" 30, "ROND" 100, "slnt" -10, "GRAD" 0; }
-  60% { opacity: 1; font-variation-settings: "wght" 950, "wdth" 125, "ROND" 100, "slnt" 0, "GRAD" 100; }
-  100% { opacity: 1; font-variation-settings: "wght" var(--flow-w0), "wdth" var(--flow-x0), "ROND" 30, "slnt" 0, "GRAD" 0; }
+  0% { opacity: 0; font-variation-settings: "wght" 400, "wdth" 100, "ROND" 100; }
+  60% { opacity: 1; font-variation-settings: "wght" 900, "wdth" 112, "ROND" 100; }
+  100% { opacity: 1; font-variation-settings: "wght" 660, "wdth" 104, "ROND" 30; }
 }
-/* a whole heading breathing at once (cheaper; for the many section titles) */
-.flow-soft { animation: flow-soft 7s cubic-bezier(.37, 0, .63, 1) infinite; }
-@keyframes flow-soft {
-  0%, 100% { font-variation-settings: "wght" 680, "wdth" 108, "ROND" 20, "GRAD" 0; }
-  50% { font-variation-settings: "wght" 800, "wdth" 116, "ROND" 90, "GRAD" 60; }
-}
+/* section titles: still until you point at them */
+.flow-soft { transition: font-variation-settings 480ms steps(8); }
+@media (hover: hover) { .flow-soft:hover { font-variation-settings: "wght" 860, "wdth" 112, "ROND" 100; } }
 @media (prefers-reduced-motion: reduce) {
-  .flow .flow-c, .flow-soft { animation: none !important; }
+  .flow .flow-c { animation: none !important; }
+  .flow-soft { transition: none; }
 }
 .muted { color: var(--md-sys-color-on-surface-variant); }
 
@@ -252,23 +256,21 @@ m3e-nav-bar m3e-nav-item { min-width: 0; }
 .mascot-body { width: 100%; height: 100%; overflow: visible; transform-origin: 50% 50%; will-change: transform; }
 .mascot-shape { d: path("M50 3C50 21 21 50 3 50C21 50 50 79 50 97C50 79 79 50 97 50C79 50 50 21 50 3Z"); }
 .mascot[data-mood="idle"] .mascot-body { animation: mascot-breathe 4.6s ease-in-out infinite; }
-.mascot[data-mood="idle"] .mascot-shape { animation: mascot-soft 4.6s ease-in-out infinite; }
 .mascot[data-mood="dance"] .mascot-body { animation: mascot-dance .94s ease-in-out infinite; }
-.mascot[data-mood="dance"] .mascot-shape { animation: mascot-pump .47s ease-in-out infinite alternate; }
+.mascot[data-mood="dance"] { animation: mascot-pump .47s ease-in-out infinite alternate; }
 .mascot[data-mood="sleep"] .mascot-body { animation: mascot-sleep 5.2s ease-in-out infinite; opacity: .78; filter: saturate(.7); }
 .mascot[data-mood="think"] .mascot-body { animation: mascot-spin 1.25s cubic-bezier(.45,.05,.55,.95) infinite; }
 .mascot[data-mood="think"] .mascot-shape { animation: mascot-morph 1.25s ease-in-out infinite; }
 .mascot[data-mood="hello"] .mascot-body { animation: mascot-hello 1s cubic-bezier(.34,1.56,.64,1) both; }
 .mascot[data-burst] .mascot-body { animation: mascot-party .8s cubic-bezier(.34,1.56,.64,1); }
 @keyframes mascot-breathe { 0%,100% { transform: rotate(-5deg) scale(1); } 50% { transform: rotate(5deg) scale(1.07); } }
-@keyframes mascot-soft { 0%,100% { d: path("M50 3C50 21 21 50 3 50C21 50 50 79 50 97C50 79 79 50 97 50C79 50 50 21 50 3Z"); } 50% { d: path("M50 3C50 14 14 50 3 50C14 50 50 86 50 97C50 86 86 50 97 50C86 50 50 14 50 3Z"); } }
 @keyframes mascot-dance {
   0%,100% { transform: rotate(-14deg) translateY(0) scale(1,1); }
   25% { transform: rotate(0) translateY(-9%) scale(.9,1.1); }
   50% { transform: rotate(14deg) translateY(0) scale(1.07,.93); }
   75% { transform: rotate(0) translateY(-9%) scale(.9,1.1); }
 }
-@keyframes mascot-pump { from { d: path("M50 3C50 21 21 50 3 50C21 50 50 79 50 97C50 79 79 50 97 50C79 50 50 21 50 3Z"); } to { d: path("M50 3C50 28 28 50 3 50C28 50 50 72 50 97C50 72 72 50 97 50C72 50 50 28 50 3Z"); } }
+@keyframes mascot-pump { from { transform: scale(1); } to { transform: scale(1.1, .92); } }
 @keyframes mascot-sleep { 0%,100% { transform: rotate(20deg) scale(.9); } 50% { transform: rotate(16deg) scale(.96); } }
 @keyframes mascot-spin { 0% { transform: rotate(0) scale(1); } 50% { transform: rotate(200deg) scale(.84); } 100% { transform: rotate(360deg) scale(1); } }
 @keyframes mascot-morph { 0%,100% { d: path("M50 3C50 21 21 50 3 50C21 50 50 79 50 97C50 79 79 50 97 50C79 50 50 21 50 3Z"); } 35% { d: path("M50 3C50 36 36 50 3 50C36 50 50 64 50 97C50 64 64 50 97 50C64 50 50 36 50 3Z"); } 70% { d: path("M50 3C50 8 8 50 3 50C8 50 50 92 50 97C50 92 92 50 97 50C92 50 50 8 50 3Z"); } }
@@ -290,7 +292,7 @@ m3e-nav-bar m3e-nav-item { min-width: 0; }
 .mascot-z i { position: absolute; font-style: normal; opacity: 0; animation: mascot-z 3s ease-in infinite; }
 .mascot-z i:nth-child(2) { animation-delay: 1.5s; font-size: 8px; }
 @keyframes mascot-z { 0% { opacity: 0; transform: translate(0, 6px); } 25% { opacity: .9; } 100% { opacity: 0; transform: translate(10px, -16px); } }
-@media (prefers-reduced-motion: reduce) { .mascot *, .mascot-body, .mascot-shape { animation: none !important; } }
+@media (prefers-reduced-motion: reduce) { .mascot, .mascot *, .mascot-body, .mascot-shape { animation: none !important; } }
 
 /* ---- Launch screen ---- */
 .boot-splash {

@@ -68,11 +68,13 @@ export async function buildApp(opts: { db?: DB; logger?: boolean } = {}): Promis
 
   // Serve built web client (SPA) if present
   if (fs.existsSync(path.join(config.webDist, 'index.html'))) {
-    await app.register(fastifyStatic, { root: config.webDist, prefix: '/', decorateReply: true, wildcard: false, cacheControl: false });
+    // preCompressed: the build writes .br/.gz next to each file (apps/web/scripts/compress.mjs)
+    await app.register(fastifyStatic, { root: config.webDist, prefix: '/', decorateReply: true, wildcard: false, cacheControl: false, preCompressed: true });
     // Hashed bundles are immutable; the service worker, workbox runtime and manifest must always be revalidated.
     app.addHook('onSend', async (req, reply) => {
       if (req.url.startsWith('/api/') || req.url.startsWith('/media/')) return;
       if (req.url.startsWith('/assets/')) reply.header('cache-control', 'public, max-age=31536000, immutable');
+      else if (req.url.startsWith('/fonts/')) reply.header('cache-control', 'public, max-age=2592000');
       else if (/^\/(sw\.js|workbox-[^/]+\.js|manifest\.webmanifest|index\.html)?(\?.*)?$/.test(req.url) || !/\.[a-z0-9]+(\?.*)?$/i.test(req.url)) reply.header('cache-control', 'no-cache');
     });
     app.setNotFoundHandler((req, reply) => {

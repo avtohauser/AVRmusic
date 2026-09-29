@@ -60,6 +60,10 @@ export const config = {
   canvasSeconds: Math.max(4, Math.min(20, Number(process.env.CANVAS_SECONDS || 9))),
   /** Keep checking that every catalogue track plays its own recording; re-fetch the ones that don't. */
   autoHeal: bool(process.env.AUTO_HEAL, true),
+  /** chromaprint's fpcalc: downloads are checked against the catalogue's 30-second preview of the recording. */
+  fpcalcPath: process.env.FPCALC_PATH || 'fpcalc',
+  /** Highest bit error rate (0…1) between preview and download that still counts as the same recording. */
+  previewMaxMismatch: Math.max(0.2, Math.min(0.5, Number(process.env.PREVIEW_MAX_MISMATCH || 0.4))),
   /** Quick title lookup for YouTube sources ('' = always ask yt-dlp). */
   youtubeOembed: (process.env.YOUTUBE_OEMBED ?? 'https://www.youtube.com/oembed').replace(/\/$/, ''),
   isProd: process.env.NODE_ENV === 'production',

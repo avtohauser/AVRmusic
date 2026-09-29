@@ -1,0 +1,3 @@
+# Songs the deploy dry-runs through the acquisition matcher on the server (apps/api/src/scripts/acquire-check.ts).
+# One search per line; results are in the deploy log ("Acquisition self-check"). Empty the file to skip.
+imagine dragons take me to the beach

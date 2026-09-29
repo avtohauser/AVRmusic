@@ -5,6 +5,7 @@ import path from 'node:path';
 import { config } from '../../config.js';
 import { capabilities } from '../ytdlp.js';
 import type { CancelRef, DownloadMeta, Log, Source, SourceCandidate, Want } from './types.js';
+import { parseProvidedCredits, titleCredits, wantedGuests } from '../matching.js';
 
 function run(bin: string, args: string[], onLine?: (l: string) => void, cancel?: CancelRef): Promise<{ code: number; stdout: string }> {
   return new Promise((resolve, reject) => {
@@ -18,6 +19,9 @@ function run(bin: string, args: string[], onLine?: (l: string) => void, cancel?:
   });
 }
 
+// one lookup per upload per process: the same videos come up for a song's solo and feat. versions
+const detailsCache = new Map<string, NonNullable<Awaited<ReturnType<NonNullable<Source['details']>>>>>();
+
 export function ytdlpSource(name: 'youtube' | 'soundcloud'): Source {
   const prefix = name === 'soundcloud' ? 'scsearch' : 'ytsearch';
   return {
@@ -25,12 +29,14 @@ export function ytdlpSource(name: 'youtube' | 'soundcloud'): Source {
     label: name === 'soundcloud' ? 'SoundCloud (yt-dlp)' : 'YouTube (yt-dlp)',
     async available() { const c = await capabilities(); return c.ytdlp ? { ok: true } : { ok: false, reason: 'yt-dlp не установлен' }; },
     async search(w: Want) {
-      const feats = w.featuring ?? [];
-      // A "feat." version gets a second query led by the guests, so the upload crediting them makes the list
-      const queries = [`${w.artist} - ${w.title}${feats.length ? ` feat. ${feats.join(', ')}` : ''}`];
-      if (feats.length) queries.push(`${w.title} ${feats.join(' ')} ${w.artist}`);
+      const guests = wantedGuests(w);
+      // the song with every credited artist; a version with guests gets a second query led by them,
+      // and YouTube Music's "Songs" search lists the official audio uploads (with exact credits)
+      const queries = [`${prefix}8:${w.artist} - ${w.title}${guests.length ? ` feat. ${guests.join(', ')}` : ''}`];
+      if (guests.length) queries.push(`${prefix}8:${w.title} ${guests.join(' ')} ${w.artist}`);
+      if (name === 'youtube') queries.push(`https://music.youtube.com/search?q=${encodeURIComponent([w.artist, w.title, ...guests].join(' '))}#songs`);
       const lists = await Promise.all(queries.map(async (q) => {
-        const r = await run(config.ytdlpPath, [`${prefix}8:${q}`, '--flat-playlist', '--dump-single-json', '--no-warnings', '--ignore-errors']);
+        const r = await run(config.ytdlpPath, [q, '--flat-playlist', '--playlist-end', '8', '--dump-single-json', '--no-warnings', '--ignore-errors']);
         const i = r.stdout.indexOf('{');
         if (i < 0) return [];
         try { return ((JSON.parse(r.stdout.slice(i)).entries ?? []) as any[]).filter(Boolean); } catch { return []; }
@@ -42,14 +48,26 @@ export function ytdlpSource(name: 'youtube' | 'soundcloud'): Source {
       }));
     },
     async details(c) {
+      const hit = detailsCache.get(`${name}:${c.id}`);
+      if (hit) return hit;
       const url = name === 'soundcloud' ? (c.url ?? c.id) : `https://www.youtube.com/watch?v=${c.id}`;
       const r = await run(config.ytdlpPath, ['-J', '--skip-download', '--no-playlist', '--no-warnings', url]);
       const i = r.stdout.indexOf('{');
       if (r.code !== 0 || i < 0) return null;
       try {
         const j = JSON.parse(r.stdout.slice(i));
-        const artists = Array.isArray(j.artists) ? j.artists.join(', ') : j.artist ?? j.creator ?? null;
-        return { title: j.title ?? '', channel: j.channel ?? j.uploader ?? null, artist: artists, description: typeof j.description === 'string' ? j.description.slice(0, 600) : null };
+        const description = typeof j.description === 'string' ? j.description.slice(0, 1500) : null;
+        const tagged: string[] = Array.isArray(j.artists) ? j.artists : j.artist ? String(j.artist).split(/\s*,\s*/) : [];
+        // YouTube Music's own credits when present; otherwise the music tags and whatever the title names
+        let credits = parseProvidedCredits(description);
+        if (!credits) {
+          const fromTitle = titleCredits(j.title ?? c.id);
+          credits = { title: j.track || fromTitle.title, artists: [...new Set([...fromTitle.artists, ...tagged])], album: j.album ?? null, structured: false };
+        }
+        const out = { title: j.title ?? '', channel: j.channel ?? j.uploader ?? null, artist: tagged.join(', ') || null, description, credits, duration: typeof j.duration === 'number' ? j.duration : undefined };
+        detailsCache.set(`${name}:${c.id}`, out);
+        if (detailsCache.size > 500) detailsCache.delete(detailsCache.keys().next().value!);
+        return out;
       } catch { return null; }
     },
     async download(c, dir, log: Log, cancel: CancelRef, meta: DownloadMeta) {

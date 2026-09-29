@@ -4,11 +4,13 @@ args=("$@")
 # -J --skip-download <url>: details of one upload (from $FAKE_DETAILS/<id> when a test provides them)
 if [[ " ${args[*]} " == *" --skip-download "* ]]; then
   url="${args[${#args[@]}-1]}"; id="${url##*v=}"
-  if [[ -n "$FAKE_DETAILS" && -f "$FAKE_DETAILS/$id" ]]; then cat "$FAKE_DETAILS/$id"; else printf '{"id":"%s","title":"Upload %s","channel":"Someone"}\n' "$id" "$id"; fi
+  dd="${FAKE_DETAILS:-${TMPDIR:-/tmp}/avr-fake-details}"
+  if [[ -f "$dd/$id" ]]; then cat "$dd/$id"; else exit 1; fi
   exit 0
 fi
 for a in "${args[@]}"; do
   case "$a" in
+    https://music.youtube.com/search*) echo '{"entries":[]}'; exit 0;;
     --version) echo "fake-2026.01.01"; exit 0;;
     ytsearch*|scsearch*)
       q="${a#*:}"                       # "Artist - Title feat. X"
@@ -26,6 +28,11 @@ for a in "${args[@]}"; do
       topic="$title"; [[ -n "$feat" ]] && topic="$title (feat. $feat)"
       gid="$(printf '%s' "$artist|$topic" | md5sum | cut -c1-8)"   # one video per distinct recording
       esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
+      # the official audio upload's details, as YouTube Music writes them ("Title · Artist · Guest")
+      dd="${FAKE_DETAILS:-${TMPDIR:-/tmp}/avr-fake-details}"; mkdir -p "$dd"
+      credits="$(esc "$topic") · $(esc "$artist")"; [[ -n "$feat" ]] && credits="$credits · $(esc "${feat//, / · }")"
+      [[ -f "$dd/good-$gid" ]] || printf '{"id":"good-%s","title":"%s","channel":"%s - Topic","duration":181,"description":"Provided to YouTube by Fake Label\\n\\n%s\\n\\n%s\\n\\n℗ 2026 Fake Label"}\n' \
+        "$gid" "$(esc "$topic")" "$(esc "$artist")" "$credits" "$(esc "$title")" > "$dd/good-$gid"
       printf '{"entries":[{"id":"live-%s","title":"%s - %s (Live at Arena)","duration":250,"channel":"RandomUploads"},{"id":"good-%s","title":"%s","duration":181,"channel":"%s - Topic","uploader":"%s - Topic"},{"id":"cover-%s","title":"%s (cover)","duration":182,"channel":"Someone"}]}\n' \
         "$gid" "$(esc "$artist")" "$(esc "$title")" "$gid" "$(esc "$topic")" "$(esc "$artist")" "$(esc "$artist")" "$gid" "$(esc "$title")"
       exit 0;;

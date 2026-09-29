@@ -256,3 +256,5 @@ export async function rawArtistFeatures(db: DB, artist: { id: number | string; n
   return out;
 }
 export const rawTrack = (db: DB, id: number) => dz(db, `/track/${id}`);
+/** Raw catalogue track search (used by the acquisition dry run). */
+export const rawSearchTracks = async (db: DB, q: string, limit = 25): Promise<any[]> => ((await dz(db, `/search/track?q=${encodeURIComponent(q)}&limit=${limit}`, TTL_MS.search)).data ?? []);

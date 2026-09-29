@@ -116,8 +116,8 @@ test('candidate scoring prefers official topic audio with matching duration', ()
   const live = scoreCandidate({ id: 'b', title: 'Fake Artist - Fake Song (Live at Arena)', duration: 250, channel: 'Random' }, want);
   const cover = scoreCandidate({ id: 'c', title: 'Fake Song (cover)', duration: 182, channel: 'Someone' }, want);
   const video = scoreCandidate({ id: 'd', title: 'Fake Artist - Fake Song (Official Video)', duration: 183, channel: 'FakeArtistVEVO' }, want);
-  assert.ok(topic > video && video > cover && cover > live, `${topic} ${video} ${cover} ${live}`);
-  assert.ok(live < 25);
+  assert.ok(topic > video && video >= 25, `${topic} ${video}`);
+  assert.ok(cover < 0 && live < 0, `other versions of the song are never taken: ${cover} ${live}`);
   const flac = scoreCandidate({ source: 'archive', title: 'Fake Song', duration: 181, artist: 'Fake Artist', quality: { lossless: true } }, want);
   const yt = scoreCandidate({ source: 'youtube', title: 'Fake Song', duration: 181, channel: 'Fake Artist' }, want);
   assert.ok(flac > yt, 'lossless file outranks a plain lossy match');
@@ -150,6 +150,61 @@ test('sourceFits tells whether an upload is the recording a track wants', async 
   const solo = { title: 'Second Song', artist: 'Fake Artist', durationSec: 181 };
   assert.equal(sourceFits({ title: 'Second Song (feat. Guest Star)', channel: 'Fake Artist - Topic' }, solo), false);
   assert.equal(sourceFits({ title: 'Second Song', channel: 'Fake Artist - Topic' }, solo), true);
+});
+
+test('Take Me to the Beach: the solo, the feat. Ado and the feat. Baker Boy versions are told apart exactly', async () => {
+  const { judgeUpload } = await import('../src/services/matching.js');
+  const { scoreCandidate } = await import('../src/services/acquire.js');
+  const solo = { title: 'Take Me to the Beach', artist: 'Imagine Dragons', durationSec: 158, featuring: [], credits: [], album: 'LOOM' };
+  const ado = { title: 'Take Me to the Beach', artist: 'Imagine Dragons', durationSec: 160, featuring: ['Ado'], credits: ['Ado'], album: 'Take Me to the Beach (feat. Ado)' };
+  const ytm = (title: string, artists: string[], album: string) => ({ source: 'youtube' as const, id: 'x', title, duration: 159, channel: 'Imagine Dragons - Topic', credits: { title, artists, album, structured: true } });
+  const upSolo = ytm('Take Me to the Beach', ['Imagine Dragons'], 'LOOM');
+  const upAdo = ytm('Take Me to the Beach (feat. Ado)', ['Imagine Dragons', 'Ado'], 'Take Me to the Beach (feat. Ado)');
+  const upAdoPlainTitle = ytm('Take Me to the Beach', ['Imagine Dragons', 'Ado'], 'Take Me to the Beach');
+  const upBaker = ytm('Take Me to the Beach (feat. Baker Boy)', ['Imagine Dragons', 'Baker Boy'], 'Take Me to the Beach (feat. Baker Boy)');
+  const ok = (c: any, w: any) => judgeUpload(c, w).ok;
+  // the solo version: only the upload crediting Imagine Dragons alone
+  assert.ok(ok(upSolo, solo));
+  assert.ok(!ok(upAdo, solo), judgeUpload(upAdo, solo).why);
+  assert.ok(!ok(upAdoPlainTitle, solo), 'Ado credited only in the YouTube Music credits still makes it the Ado version');
+  assert.ok(!ok(upBaker, solo));
+  // the Ado version: only the upload crediting exactly Imagine Dragons + Ado
+  assert.ok(ok(upAdo, ado) && judgeUpload(upAdo, ado).exact);
+  assert.ok(ok(upAdoPlainTitle, ado));
+  assert.ok(!ok(upSolo, ado), judgeUpload(upSolo, ado).why);
+  assert.ok(!ok(upBaker, ado), 'another guest is another version');
+  assert.ok(scoreCandidate(upAdo, ado) > scoreCandidate(upAdoPlainTitle, ado), 'same release (album) ranks first');
+  // plain uploads are judged by the artists their title names
+  assert.ok(ok({ title: 'Imagine Dragons - Take Me to the Beach (Official Music Video)', channel: 'ImagineDragonsVEVO' }, solo));
+  assert.ok(!ok({ title: 'Imagine Dragons, Ado - Take Me to the Beach', channel: 'x' }, solo));
+  assert.ok(!ok({ title: 'Imagine Dragons x Ado - Take Me to the Beach', channel: 'x' }, solo));
+  assert.ok(ok({ title: 'Imagine Dragons x Ado - Take Me to the Beach', channel: 'x' }, ado));
+  assert.ok(!ok({ title: 'Imagine Dragons - Take Me to the Beach', channel: 'Tornado Music' }, ado), '"Ado" inside "Tornado" is not Ado');
+  assert.ok(!ok({ title: 'Take Me to the Beach (Sped Up)', channel: 'x' }, solo));
+  assert.ok(!ok({ title: 'Imagine Dragons - Take Me to the Beach (Live From Las Vegas)', channel: 'x' }, solo));
+  assert.ok(!ok(ytm('Bones', ['Imagine Dragons'], 'Mercury'), solo), 'another song');
+  // the same people written in another script pair up
+  const yonezu = { title: 'KICK BACK', artist: 'Kenshi Yonezu', durationSec: 193, featuring: [], credits: [] };
+  assert.ok(ok({ ...ytm('KICK BACK', ['米津玄師'], 'KICK BACK'), channel: '米津玄師 - Topic' }, yonezu));
+});
+
+test('YouTube Music credits are read from "Provided to YouTube by" descriptions', async () => {
+  const { parseProvidedCredits } = await import('../src/services/matching.js');
+  const d = 'Provided to YouTube by KIDinaKORNER/Interscope Records\n\nTake Me to the Beach (feat. Ado) · Imagine Dragons · Ado\n\nTake Me to the Beach (feat. Ado)\n\n℗ 2024 KIDinaKORNER/Interscope Records\n\nReleased on: 2024-07-12';
+  assert.deepEqual(parseProvidedCredits(d), { title: 'Take Me to the Beach (feat. Ado)', artists: ['Imagine Dragons', 'Ado'], album: 'Take Me to the Beach (feat. Ado)', structured: true });
+  assert.equal(parseProvidedCredits('Official video for "Bones"'), null);
+});
+
+test('audio check finds the catalogue preview inside the downloaded track', async () => {
+  const { bestAlignment } = await import('../src/services/fingerprint.js');
+  let seed = 2463534242;
+  const rnd = () => { seed ^= seed << 13; seed >>>= 0; seed ^= seed >>> 17; seed ^= seed << 5; seed >>>= 0; return seed; }; // xorshift32
+  const track = Array.from({ length: 1400 }, rnd);
+  // the preview: 30 s from the middle of the same recording, re-encoded (a few bits differ)
+  const preview = track.slice(600, 842).map((x, i) => (i % 3 === 0 ? (x ^ (1 << (i % 32))) >>> 0 : x));
+  const other = Array.from({ length: 1400 }, rnd);
+  assert.ok(bestAlignment(preview, track) < 0.05, `same recording: ${bestAlignment(preview, track)}`);
+  assert.ok(bestAlignment(preview, other) > 0.35, `another recording: ${bestAlignment(preview, other)}`);
 });
 
 test('findCandidates merges every source and ranks lossless first', async () => {

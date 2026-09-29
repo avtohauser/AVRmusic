@@ -108,3 +108,20 @@ jobs:
             done
             echo "::error::service did not become healthy"; cd /opt/avrmusic
             docker compose -f docker-compose.prod.yml ps; docker compose -f docker-compose.prod.yml logs --tail 80; exit 1
+
+      # Dry run of the acquisition matcher on the server (real catalogue + YouTube) for the songs listed in
+      # deploy/acquire-check.txt: shows which upload each version (solo / feat. …) would get and why.
+      - name: Acquisition self-check
+        if: ${{ hashFiles('deploy/acquire-check.txt') != '' && env.TARGET_PASSWORD != '' }}
+        continue-on-error: true
+        env:
+          SSHPASS: ${{ env.TARGET_PASSWORD }}
+        run: |
+          command -v sshpass >/dev/null || { sudo apt-get update -qq >/dev/null; sudo apt-get install -y -qq sshpass >/dev/null; }
+          while IFS= read -r q || [ -n "$q" ]; do
+            q="${q%%#*}"; q="$(printf '%s' "$q" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')"; [ -z "$q" ] && continue
+            echo "::group::$q"
+            sshpass -e ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o ConnectTimeout=20 "$TARGET_USER@$TARGET_HOST" \
+              "cd /opt/avrmusic && timeout 900 docker compose -f docker-compose.prod.yml exec -T avrmusic node /app/api/dist/scripts/acquire-check.js $(printf '%q' "$q") --audio" || echo "(check failed)"
+            echo "::endgroup::"
+          done < deploy/acquire-check.txt

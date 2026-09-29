@@ -202,6 +202,12 @@ const MIGRATIONS: string[] = [
   ALTER TABLE tracks ADD COLUMN source_ok INTEGER;
   ALTER TABLE tracks ADD COLUMN heal_at TEXT;
   `,
+  // 7: acoustic match with the catalogue preview; every catalogue track is checked again with the
+  //    stricter matching (exact credited artists, YouTube Music credits, audio)
+  `
+  ALTER TABLE tracks ADD COLUMN audio_match REAL;
+  UPDATE tracks SET source_title = NULL, source_ok = NULL, heal_at = NULL WHERE deezer_id IS NOT NULL AND source LIKE 'youtube:%';
+  `,
 ];
 
 export function openDatabase(dbPath = config.dbPath): DB {

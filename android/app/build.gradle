@@ -50,6 +50,8 @@ android {
 
 dependencies {
   // the page runs in a WebView; music plays in a Media3 session service (notification-shade player with a Like button)
+  // one Kotlin stdlib for everyone (older libraries pull kotlin-stdlib-jdk7/jdk8 1.6 next to 1.8: duplicate classes)
+  implementation platform('org.jetbrains.kotlin:kotlin-bom:1.8.22')
   implementation 'androidx.activity:activity:1.9.3'
   implementation 'androidx.core:core:1.13.1'
   implementation 'androidx.webkit:webkit:1.11.0'

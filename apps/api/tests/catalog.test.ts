@@ -11,6 +11,7 @@ process.env.YTDLP_PATH = path.join(process.cwd(), 'tests/fixtures/fake-ytdlp.sh'
 process.env.FFMPEG_PATH = path.join(process.cwd(), 'tests/fixtures/fake-ffmpeg.sh'); // copies input → output, enough for the canvas pipeline
 process.env.FAKE_DETAILS = fs.mkdtempSync(path.join(os.tmpdir(), 'avrmusic-yt-'));   // per-upload details for the fake yt-dlp
 process.env.AUTO_HEAL = 'false';   // the tests start the self-healing pass themselves
+process.env.HEAL_PAUSE_MS = '0';
 process.env.YOUTUBE_OEMBED = '';   // no network: upload titles come from the fake yt-dlp
 
 const { buildApp } = await import('../src/app.js');

@@ -1,3 +1,5 @@
-# Songs the deploy dry-runs through the acquisition matcher on the server (apps/api/src/scripts/acquire-check.ts).
-# One search per line; results are in the deploy log ("Acquisition self-check"). Empty the file to skip.
-imagine dragons take me to the beach
+# Songs the deploy dry-runs through the acquisition matcher on the server (apps/api/src/scripts/acquire-check.ts):
+# one search per line, results in the deploy log ("Acquisition self-check"). Lines starting with # are skipped.
+# Last run (Imagine Dragons "Take Me to the Beach": solo, Ado, Baker Boy, Jungeli) — each version got its own
+# upload; audio vs its own preview 0.06–0.07, vs the other versions 0.26–0.35.
+# imagine dragons take me to the beach

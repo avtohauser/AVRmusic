@@ -548,6 +548,7 @@ export async function runHeal(db: DB, job: Job, api: JobApi) {
     const want = await wantFor(db, row);
     // the upload's full credits (YouTube Music lists every artist of the recording); its title as a fallback
     const info = (await youtubeInfo(id, true)) ?? (await youtubeInfo(id, false));
+    await new Promise((r) => setTimeout(r, config.healPauseMs)); // gentle on YouTube: this runs through the whole library
     stats.checked++;
     // and the audio itself against the catalogue's preview of the recording
     const mismatch = fs.existsSync(row.file_path) ? await previewMismatch(want.preview, row.file_path) : null;

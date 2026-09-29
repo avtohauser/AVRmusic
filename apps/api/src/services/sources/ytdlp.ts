@@ -39,12 +39,15 @@ export function ytdlpSource(name: 'youtube' | 'soundcloud'): Source {
         const r = await run(config.ytdlpPath, [q, '--flat-playlist', '--playlist-end', '8', '--dump-single-json', '--no-warnings', '--ignore-errors']);
         const i = r.stdout.indexOf('{');
         if (i < 0) return [];
-        try { return ((JSON.parse(r.stdout.slice(i)).entries ?? []) as any[]).filter(Boolean); } catch { return []; }
+        const ytm = q.startsWith('https://music.youtube.com/');
+        try { return ((JSON.parse(r.stdout.slice(i)).entries ?? []) as any[]).filter(Boolean).map((e) => ({ ...e, ytm })); } catch { return []; }
       }));
       const seen = new Set<string>();
       return lists.flat().filter((e) => e.id && !seen.has(e.id) && seen.add(e.id)).map((e): SourceCandidate => ({
         source: name, id: e.id, title: e.title ?? '', duration: e.duration ?? null, channel: e.channel ?? e.uploader ?? null, uploader: e.uploader ?? null, url: e.url ?? e.webpage_url,
         quality: name === 'soundcloud' ? { codec: 'mp3/opus', bitrate: 128 } : { codec: 'opus/aac', bitrate: 160 },
+        // a YouTube Music "Songs" result: an official audio upload, looked at first
+        extra: e.ytm ? { ytmSong: true } : undefined,
       }));
     },
     async details(c) {

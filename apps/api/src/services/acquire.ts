@@ -88,7 +88,7 @@ export async function findCandidates(w: Want, log?: (s: string) => void): Promis
 
 type Ranked = { c: SourceCandidate; s: number; src: Source; why?: string };
 
-const DETAIL_LOOKUPS = 6;
+const DETAIL_LOOKUPS = 8;
 
 /**
  * Ranked candidates a track may take. The most promising uploads are looked up in full (YouTube Music
@@ -100,7 +100,7 @@ export async function pickSources(db: DB, w: Want, log: (s: string) => void, exc
   const ranked: Ranked[] = await findCandidates(w, log);
   // look closer at uploads of the same song (not other songs), most promising first: official audio
   // channels and uploads of the right length
-  const promise = (c: SourceCandidate) => (/ - topic$/i.test(c.channel ?? '') ? 3 : 0)
+  const promise = (c: SourceCandidate) => (c.extra?.ytmSong ? 4 : 0) + (/ - topic$/i.test(c.channel ?? '') ? 3 : 0)
     + (c.duration && w.durationSec ? (Math.abs(c.duration - w.durationSec) <= 3 ? 2 : Math.abs(c.duration - w.durationSec) <= 8 ? 1 : -1) : 0)
     + (titleMatch(titleCredits(c.title).title, w.title) === 'exact' || titleMatch(c.title, w.title) === 'exact' ? 1 : 0);
   const toCheck = ranked

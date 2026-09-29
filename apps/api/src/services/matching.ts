@@ -59,7 +59,7 @@ export function titleCredits(title: string): UploadCredits {
 }
 
 // words that make a title another recording of the song
-const VERSION_WORDS = /\b(live|remix|rmx|mix|acoustic|unplugged|instrumental|karaoke|cover|sped|slowed|reverb|nightcore|8d|edit|extended|demo|session|sessions|reprise|orchestral|piano|acapella|cappella|mashup|bootleg|vip|rework|flip|ремикс|кавер|версия|минус|live)\b/;
+const VERSION_WORDS = /\b(live|remix|rmx|mix|acoustic|unplugged|instrumental|karaoke|cover|sped|slowed|reverb|nightcore|8d|edit|extended|demo|session|sessions|reprise|orchestral|piano|acapella|cappella|mashup|bootleg|vip|rework|flip|hour|hours|loop|reaction|reacts|analysis|tutorial|ремикс|кавер|версия|минус|реакция|час)\b/;
 // words that only describe the upload
 const NOISE = /\b(official|music|video|audio|lyric|lyrics|visualizer|visualiser|hd|hq|4k|mv|clip|клип|премьера|topic|version|full|song|single)\b/g;
 

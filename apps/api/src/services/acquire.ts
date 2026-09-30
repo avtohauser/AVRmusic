@@ -89,6 +89,8 @@ export async function findCandidates(w: Want, log?: (s: string) => void): Promis
 type Ranked = { c: SourceCandidate; s: number; src: Source; why?: string };
 
 const DETAIL_LOOKUPS = 8;
+/** Uploads being downloaded right now (several tracks run at once): never taken twice. */
+const inFlight = new Set<string>();
 
 /**
  * Ranked candidates a track may take. The most promising uploads are looked up in full (YouTube Music
@@ -107,22 +109,29 @@ export async function pickSources(db: DB, w: Want, log: (s: string) => void, exc
     .filter((r) => r.src.details && (titleMatch(titleCredits(r.c.title).title, w.title) !== 'no' || titleMatch(r.c.title, w.title) !== 'no'))
     .sort((a, b) => promise(b.c) - promise(a.c))
     .slice(0, DETAIL_LOOKUPS);
-  for (let i = 0; i < toCheck.length; i += 3) {
-    await Promise.all(toCheck.slice(i, i + 3).map(async (r) => {
-      const d = await r.src.details!(r.c).catch(() => null);
-      if (!d) return;
-      r.c.description = d.description ?? r.c.description ?? null;
-      if (d.artist) r.c.artist = d.artist;
-      if (d.credits) r.c.credits = d.credits;
-      if (d.duration && !r.c.duration) r.c.duration = d.duration;
+  // four at a time, in one yt-dlp run per batch; stop once YouTube Music's own credits confirm one
+  for (let i = 0; i < toCheck.length; i += 4) {
+    const batch = toCheck.slice(i, i + 4);
+    const bySource = new Map<Source, Ranked[]>();
+    batch.forEach((r) => bySource.set(r.src, [...(bySource.get(r.src) ?? []), r]));
+    await Promise.all([...bySource].map(async ([src, rs]) => {
+      const found = src.detailsMany ? await src.detailsMany(rs.map((r) => r.c)).catch(() => new Map()) : new Map(await Promise.all(rs.map(async (r) => [r.c.id, await src.details!(r.c).catch(() => null)] as const)));
+      for (const r of rs) {
+        const d = found.get(r.c.id);
+        if (!d) continue;
+        r.c.description = d.description ?? r.c.description ?? null;
+        if (d.artist) r.c.artist = d.artist;
+        if (d.credits) r.c.credits = d.credits;
+        if (d.duration && !r.c.duration) r.c.duration = d.duration;
+      }
     }));
-    if (toCheck.slice(0, i + 3).some((r) => assessCandidate(r.c, w).verdict.exact)) break; // confirmed: no need to look further
+    if (toCheck.slice(0, i + 4).some((r) => assessCandidate(r.c, w).verdict.exact)) break; // confirmed: no need to look further
   }
   for (const r of ranked) { const a = assessCandidate(r.c, w); r.s = a.score; r.why = a.verdict.why; }
   ranked.sort((a, b) => b.s - a.s);
   const reliable = ranked.filter((r) => r.s >= 25);
   // a source already used by another track would give this one the other track's audio
-  const usable = reliable.filter((r) => sourceKey(r.c) !== except.source && !sourceUsedBy(db, sourceKey(r.c), except.trackId ?? '')).slice(0, 3);
+  const usable = reliable.filter((r) => sourceKey(r.c) !== except.source && !inFlight.has(sourceKey(r.c)) && !sourceUsedBy(db, sourceKey(r.c), except.trackId ?? '')).slice(0, 3);
   return { ranked, reliable, usable };
 }
 
@@ -214,6 +223,9 @@ export async function acquireTrack(db: DB, deezerTrackId: number, api: JobApi, c
   const meta = { title, artist: artistName, album: album?.title, track: t.track_position ?? undefined, year: album?.release_date ? Number(String(album.release_date).slice(0, 4)) : undefined };
   let lastError = '';
   for (const { c, s: score, src } of good) {
+    if (inFlight.has(sourceKey(c))) continue;
+    inFlight.add(sourceKey(c));
+    try {
     const dir = path.join(config.tmpDir, `acq-${newId()}`);
     api.log(`   → ${src.label}: ${c.title} [${c.channel ?? c.artist ?? '?'}] ${c.duration ?? '?'}s${c.quality?.lossless ? ' · lossless' : c.quality?.bitrate ? ` · ${c.quality.bitrate}k` : ''} (score ${score.toFixed(0)})`);
     try {
@@ -223,7 +235,8 @@ export async function acquireTrack(db: DB, deezerTrackId: number, api: JobApi, c
       if (match === false) { fs.rmSync(dir, { recursive: true, force: true }); continue; }
       const trackId = await importAcquired(db, file, t, album, c, typeof match === 'number' ? match : null);
       fs.rmSync(dir, { recursive: true, force: true });
-      try { if (await fetchLyricsForTrack(db, trackId)) api.log('   ♪ текст найден (LRCLIB)'); } catch { /* optional */ }
+      // lyrics arrive in the background: the next track doesn't wait for them
+      fetchLyricsForTrack(db, trackId).then((ok) => { if (ok) api.log(`   ♪ текст найден: ${title}`); }).catch(() => { /* optional */ });
       return { status: 'imported', trackId };
     } catch (e: any) {
       fs.rmSync(dir, { recursive: true, force: true });
@@ -231,6 +244,7 @@ export async function acquireTrack(db: DB, deezerTrackId: number, api: JobApi, c
       api.log(`   ✗ ${src.label}: ${lastError}`);
       if (/Отменено|abort/i.test(lastError)) break;
     }
+    } finally { inFlight.delete(sourceKey(c)); }
   }
   return { status: 'error', message: lastError || 'не удалось скачать' };
 }
@@ -369,23 +383,33 @@ export async function runAcquireArtist(db: DB, job: Job, deezerArtistId: number,
   await acquireMany(db, job, ids, api, null, albumOf);
 }
 
+/** Tracks of one album / discography fetched at the same time. */
+const PARALLEL_TRACKS = 3;
+
 async function acquireMany(db: DB, job: Job, ids: number[], api: JobApi, album: any, albumsByTrack?: Map<number, any>) {
-  const cancelRef: { cancel?: () => void } = {};
+  const refs: Array<{ cancel?: () => void }> = [];
   let cancelled = false;
-  api.onCancel(() => { cancelled = true; cancelRef.cancel?.(); });
+  api.onCancel(() => { cancelled = true; refs.forEach((r) => r.cancel?.()); });
   const stats = { total: ids.length, imported: 0, exists: 0, failed: 0 };
   summarize(job, stats);
-  for (let i = 0; i < ids.length; i++) {
-    if (cancelled) throw new Error('Отменено');
-    try {
-      const r = await acquireTrack(db, ids[i], api, cancelRef, albumsByTrack?.get(ids[i]) ?? album);
-      if (r.status === 'imported') { stats.imported++; job.imported.push(...getTracksByIds(db, [r.trackId!])); }
-      else if (r.status === 'exists') stats.exists++;
-      else { stats.failed++; api.log(`   ✗ ${r.message ?? r.status}`); }
-    } catch (e: any) { stats.failed++; api.log(`   ✗ ${e?.message ?? e}`); }
-    summarize(job, { ...stats });
-    api.progress(((i + 1) / ids.length) * 100);
-  }
+  let next = 0, done = 0;
+  const worker = async () => {
+    const cancelRef: { cancel?: () => void } = {};
+    refs.push(cancelRef);
+    while (!cancelled && next < ids.length) {
+      const id = ids[next++];
+      try {
+        const r = await acquireTrack(db, id, api, cancelRef, albumsByTrack?.get(id) ?? album);
+        if (r.status === 'imported') { stats.imported++; job.imported.push(...getTracksByIds(db, [r.trackId!])); }
+        else if (r.status === 'exists') stats.exists++;
+        else { stats.failed++; api.log(`   ✗ ${r.message ?? r.status}`); }
+      } catch (e: any) { stats.failed++; api.log(`   ✗ ${e?.message ?? e}`); }
+      summarize(job, { ...stats });
+      api.progress((++done / ids.length) * 100);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(PARALLEL_TRACKS, ids.length) }, worker));
+  if (cancelled) throw new Error('Отменено');
   if (!stats.imported && !stats.exists && ids.length) throw new Error('Ни один трек не удалось получить');
   if (stats.imported) queueCanvasesForImported(db, job);
 }

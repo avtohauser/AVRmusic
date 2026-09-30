@@ -34,7 +34,9 @@ const jobs = new Map<string, Job>();
 const queue: Job[] = [];
 const runners = new Map<JobKind, Runner>();
 let db: DB | null = null;
-let active = false;
+/** Jobs running right now (at most MAX_RUNNING; background jobs only when nothing else runs). */
+let running = 0;
+const MAX_RUNNING = 2;
 
 export function setRunner(kind: JobKind, run: Runner) {
   runners.set(kind, run);
@@ -108,17 +110,19 @@ export function enqueue(init: Pick<Job, 'kind' | 'url' | 'mode' | 'title' | 'req
   return publicJob(job) as Job & { id: string };
 }
 
-/** Background upkeep (self-healing) that always lets the users' own jobs go first. */
-const BACKGROUND: JobKind[] = ['heal'];
+/** Background upkeep (self-healing, canvases) that always lets the users' own downloads go first. */
+const BACKGROUND: JobKind[] = ['heal', 'canvas'];
 /** A user's job is waiting: a background job should wrap up and continue later. */
 export function userJobWaiting(): boolean { return queue.some((j) => !BACKGROUND.includes(j.kind)); }
 
 async function pump() {
-  if (active) return;
+  if (running >= MAX_RUNNING) return;
   const first = queue.findIndex((j) => !BACKGROUND.includes(j.kind));
+  if (first < 0 && running > 0) return; // background work waits until the users' jobs are done
   const job = first >= 0 ? queue.splice(first, 1)[0] : queue.shift();
   if (!job) return;
-  active = true;
+  running++;
+  void pump(); // a second slot may be free
   job.status = 'running';
   save(job);
   // progress/log are written at most once a second
@@ -143,7 +147,7 @@ async function pump() {
     job.finishedAt = new Date().toISOString();
     job.cancel = undefined;
     save(job);
-    active = false;
+    running--;
     void pump();
   }
 }

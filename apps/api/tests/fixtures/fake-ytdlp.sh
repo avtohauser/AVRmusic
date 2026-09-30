@@ -3,9 +3,13 @@
 args=("$@")
 # -J --skip-download <url>: details of one upload (from $FAKE_DETAILS/<id> when a test provides them)
 if [[ " ${args[*]} " == *" --skip-download "* ]]; then
-  url="${args[${#args[@]}-1]}"; id="${url##*v=}"
-  dd="${FAKE_DETAILS:-${TMPDIR:-/tmp}/avr-fake-details}"
-  if [[ -f "$dd/$id" ]]; then cat "$dd/$id"; else exit 1; fi
+  dd="${FAKE_DETAILS:-${TMPDIR:-/tmp}/avr-fake-details}"; found=0
+  for url in "${args[@]}"; do
+    [[ "$url" == http* ]] || continue
+    id="${url##*v=}"
+    if [[ -f "$dd/$id" ]]; then tr -d '\n' < "$dd/$id"; echo; found=1; fi
+  done
+  [[ $found == 1 ]] || exit 1
   exit 0
 fi
 for a in "${args[@]}"; do

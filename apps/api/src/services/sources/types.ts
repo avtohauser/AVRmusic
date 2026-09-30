@@ -32,6 +32,8 @@ export interface SourceCandidate {
   extra?: Record<string, unknown>;
 }
 
+export type UploadDetails = Pick<SourceCandidate, 'title' | 'channel' | 'description' | 'artist' | 'credits' | 'duration'>;
+
 export interface DownloadMeta { title: string; artist: string; album?: string; track?: number; year?: number }
 export interface CancelRef { cancel?: () => void }
 export type Log = (s: string) => void;
@@ -43,7 +45,9 @@ export interface Source {
   available(): Promise<{ ok: boolean; reason?: string }>;
   search(want: Want): Promise<SourceCandidate[]>;
   /** Full title / channel / description of one upload, for sources whose search results are terse. */
-  details?(c: Pick<SourceCandidate, 'id' | 'url'>): Promise<Pick<SourceCandidate, 'title' | 'channel' | 'description' | 'artist' | 'credits' | 'duration'> | null>;
+  details?(c: Pick<SourceCandidate, 'id' | 'url'>): Promise<UploadDetails | null>;
+  /** Several uploads in one go (one process instead of one per upload). */
+  detailsMany?(cs: Array<Pick<SourceCandidate, 'id' | 'url'>>): Promise<Map<string, UploadDetails>>;
   /** Download the candidate into `dir`; resolves with the file path. */
   download(c: SourceCandidate, dir: string, log: Log, cancel: CancelRef, meta: DownloadMeta): Promise<string>;
 }

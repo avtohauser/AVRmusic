@@ -243,6 +243,49 @@ function TracksTab() {
   );
 }
 
+/** YouTube cookies for yt-dlp: uploaded as a file, kept only on the server, never shown back. */
+function YoutubeCookiesSection() {
+  const toast = useUI((s) => s.toast);
+  const qc = useQueryClient();
+  const { data } = useQuery({ queryKey: ['admin', 'yt-cookies'], queryFn: () => api.get<{ present: boolean; updatedAt: string | null; youtubeCookies: number; loggedIn: boolean }>('/api/admin/youtube-cookies') });
+  const [busy, setBusy] = useState(false);
+  const upload = async (file: File | undefined) => {
+    if (!file) return;
+    setBusy(true);
+    try {
+      const form = new FormData(); form.append('file', file);
+      await api.upload('/api/admin/youtube-cookies', form);
+      toast('Cookies сохранены — yt-dlp использует их во всех запросах к YouTube', 'success');
+      qc.invalidateQueries({ queryKey: ['admin', 'yt-cookies'] });
+    } catch (e: any) { toast(e.message, 'error'); } finally { setBusy(false); }
+  };
+  const remove = async () => {
+    setBusy(true);
+    try { await api.del('/api/admin/youtube-cookies'); qc.invalidateQueries({ queryKey: ['admin', 'yt-cookies'] }); toast('Cookies удалены', 'success'); }
+    catch (e: any) { toast(e.message, 'error'); } finally { setBusy(false); }
+  };
+  return (
+    <div className="surface-low rounded-[24px] p-4 mt-6">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <h2 className="md-title-lg emph">Cookies YouTube</h2>
+          <p className="md-body-sm muted mt-1">
+            {data?.present
+              ? `Загружены ${data.updatedAt ? new Date(data.updatedAt).toLocaleString() : ''}: ${data.youtubeCookies} cookies youtube.com${data.loggedIn ? ', вход в аккаунт есть' : ' — входа в аккаунт нет, YouTube может не пустить'}`
+              : 'Не загружены. Нужны, если загрузки падают с «Sign in to confirm you’re not a bot».'}
+          </p>
+          <p className="md-body-sm muted mt-1">Файл cookies.txt (формат Netscape) из отдельного Google-аккаунта. Хранится только на сервере и назад не показывается.</p>
+        </div>
+        <label className={`inline-flex items-center gap-2 px-4 h-10 rounded-full bg-primary text-on-primary md-label-lg cursor-pointer ${busy ? 'opacity-60 pointer-events-none' : ''}`}>
+          <m3e-icon variant="rounded" name="upload_file" />{data?.present ? 'Заменить' : 'Загрузить cookies.txt'}
+          <input type="file" accept=".txt,text/plain" className="hidden" onChange={(e) => { void upload(e.target.files?.[0]); e.target.value = ''; }} />
+        </label>
+        {data?.present && <M3eButton variant="text" disabled={busy || undefined} onClick={remove}>Удалить</M3eButton>}
+      </div>
+    </div>
+  );
+}
+
 /** One-time invite codes: the only way to register after the first (admin) account. */
 function InvitesSection() {
   const t = useT();
@@ -309,6 +352,7 @@ function UsersTab() {
   return (
     <div className="fade-in max-w-3xl space-y-1">
       <InvitesSection />
+      <YoutubeCookiesSection />
       <h2 className="md-title-lg emph px-2 pb-2">{t('users')}</h2>
       {(data ?? []).map((u) => (
         <div key={u.id} className="flex items-center gap-3 p-2 rounded-[20px] state-layer">

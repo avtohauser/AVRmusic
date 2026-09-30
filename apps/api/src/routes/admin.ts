@@ -15,6 +15,7 @@ import { indexAlbum, indexArtist, indexTrack, reindexAll, removeFromIndex } from
 import { mapUser } from '../services/auth.js';
 import { createInvite, deleteInvite, listInvites } from '../services/invites.js';
 import { enqueueCanvasJob } from '../services/canvas.js';
+import { cookiesStatus, removeCookies, saveCookies } from '../services/youtubeCookies.js';
 
 export default async function adminRoutes(app: FastifyInstance) {
   const db = app.db;
@@ -289,6 +290,17 @@ export default async function adminRoutes(app: FastifyInstance) {
     return createInvite(db, req.userId!, body);
   });
   app.delete('/api/admin/invites/:code', admin, async (req) => { deleteInvite(db, (req.params as any).code); return { ok: true }; });
+
+  /** YouTube cookies for yt-dlp: status only (never the content), upload a cookies.txt, remove. */
+  app.get('/api/admin/youtube-cookies', admin, async () => cookiesStatus());
+  app.post('/api/admin/youtube-cookies', admin, async (req) => {
+    const file = await req.file();
+    if (!file) throw badRequest('Файл не передан');
+    const buf = await file.toBuffer();
+    if (buf.length > 512 * 1024) throw badRequest('Слишком большой файл');
+    return saveCookies(buf.toString('utf8'));
+  });
+  app.delete('/api/admin/youtube-cookies', admin, async () => { removeCookies(); return cookiesStatus(); });
 
   app.get('/api/admin/users', admin, async () => (db.prepare('SELECT * FROM users ORDER BY created_at').all() as any[]).map(mapUser));
 

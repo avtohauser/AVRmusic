@@ -18,3 +18,21 @@ test('moveFile works across disks (rename fails with EXDEV)', () => {
   assert.throws(() => moveFile(path.join(dir, 'missing'), path.join(dir, 'c')), /ENOENT/);
   fs.rmSync(dir, { recursive: true, force: true });
 });
+
+test('YouTube cookies: validated, stored with a yt-dlp config pointing at them, removable', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'avr-ck-'));
+  process.env.XDG_CONFIG_HOME = path.join(dir, 'config');
+  const { config } = await import('../src/config.js');
+  const prev = config.dataDir;
+  (config as any).dataDir = dir;
+  try {
+    const { saveCookies, cookiesStatus, removeCookies } = await import('../src/services/youtubeCookies.js');
+    assert.throws(() => saveCookies('not a cookies file'), /cookies\.txt/);
+    const st = saveCookies('# Netscape HTTP Cookie File\n.youtube.com\tTRUE\t/\tTRUE\t1999999999\tSAPISID\tabc\n.youtube.com\tTRUE\t/\tTRUE\t1999999999\tPREF\tx\n');
+    assert.equal(st.present, true); assert.equal(st.loggedIn, true); assert.equal(st.youtubeCookies, 2);
+    assert.match(fs.readFileSync(path.join(dir, 'config', 'yt-dlp', 'config'), 'utf8'), /--cookies .*youtube-cookies\.txt/);
+    removeCookies();
+    assert.equal(cookiesStatus().present, false);
+    assert.ok(!fs.existsSync(path.join(dir, 'config', 'yt-dlp', 'config')));
+  } finally { (config as any).dataDir = prev; delete process.env.XDG_CONFIG_HOME; fs.rmSync(dir, { recursive: true, force: true }); }
+});

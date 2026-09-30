@@ -15,12 +15,15 @@ RUN pnpm build \
 
 # ---- runtime stage -----------------------------------------------------------
 FROM node:22-bookworm-slim
+# XDG_CONFIG_HOME: yt-dlp reads /data/config/yt-dlp/config (the YouTube cookies uploaded in the admin panel)
 ENV NODE_ENV=production PORT=8080 HOST=0.0.0.0 DATA_DIR=/data WEB_DIST=/app/web \
-    PIP_BREAK_SYSTEM_PACKAGES=1
+    PIP_BREAK_SYSTEM_PACKAGES=1 XDG_CONFIG_HOME=/data/config
+# Deno: the JavaScript runtime current yt-dlp versions need to read YouTube's player
+COPY --from=denoland/deno:bin /deno /usr/local/bin/deno
 # ffmpeg: audio extraction/merge for URL imports; yt-dlp: YouTube/SoundCloud/… importer;
 # fpcalc (chromaprint): downloads are checked against the catalogue's preview of the recording
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg python3 python3-pip ca-certificates tini libchromaprint-tools \
- && pip3 install --no-cache-dir yt-dlp \
+ && pip3 install --no-cache-dir "yt-dlp[default]" \
  && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /out/api /app/api

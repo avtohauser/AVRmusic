@@ -61,7 +61,7 @@ export const config = {
   /** Keep checking that every catalogue track plays its own recording; re-fetch the ones that don't. */
   autoHeal: bool(process.env.AUTO_HEAL, true),
   /** Pause between two upload lookups of the self-healing check. */
-  healPauseMs: Math.max(0, Number(process.env.HEAL_PAUSE_MS ?? 1500)),
+  healPauseMs: Math.max(0, Number(process.env.HEAL_PAUSE_MS ?? 4000)),
   /** chromaprint's fpcalc: downloads are checked against the catalogue's 30-second preview of the recording. */
   fpcalcPath: process.env.FPCALC_PATH || 'fpcalc',
   /**

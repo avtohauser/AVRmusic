@@ -86,7 +86,7 @@ export function ytdlpSource(name: 'youtube' | 'soundcloud'): Source {
       fs.mkdirSync(dir, { recursive: true });
       const url = name === 'soundcloud' ? (c.url ?? c.id) : `https://www.youtube.com/watch?v=${c.id}`;
       // chunked requests keep YouTube from throttling a single long download; DASH parts come in parallel
-      const args = ['-f', 'bestaudio/best', '--no-playlist', '--no-warnings', '--newline', '--http-chunk-size', '10M', '--concurrent-fragments', '4', '-o', path.join(dir, '%(id)s.%(ext)s')];
+      const args = ['-f', 'bestaudio/best', '--no-playlist', '--no-warnings', '--newline', '--http-chunk-size', '10M', '--retries', '3', '-o', path.join(dir, '%(id)s.%(ext)s')];
       if (caps.ffmpeg) {
         args.push('-x', '--audio-format', 'best', '--audio-quality', '0', '--embed-metadata');
         const lit = (s: string) => s.replace(/%/g, '%%').replace(/:/g, ' ');
@@ -96,8 +96,16 @@ export function ytdlpSource(name: 'youtube' | 'soundcloud'): Source {
         if (meta.year) args.push('--parse-metadata', `${meta.year}:(?P<meta_date>.+)`);
       }
       args.push(url);
-      const r = await run(config.ytdlpPath, args, (l) => { if (!/\[download\]\s+\d/.test(l)) log(l); }, cancel);
-      if (r.code !== 0) throw new Error(`yt-dlp завершился с кодом ${r.code}`);
+      let lastError = '';
+      const attempt = () => run(config.ytdlpPath, args, (l) => { if (/^ERROR/i.test(l)) lastError = l.replace(/^ERROR:\s*/i, ''); if (!/\[download\]\s+\d/.test(l)) log(l); }, cancel);
+      let r = await attempt();
+      // YouTube sometimes refuses for a moment (rate limit, bot check): one more try after a pause
+      if (r.code > 0 && /429|too many|rate|bot|sign in|temporar|timed? ?out|reset|unavailable|403/i.test(lastError)) {
+        log('   … YouTube отказал, повтор через 15 с');
+        await new Promise((res) => setTimeout(res, 15_000));
+        r = await attempt();
+      }
+      if (r.code !== 0) throw new Error(lastError ? `yt-dlp: ${lastError.slice(0, 200)}` : `yt-dlp завершился с кодом ${r.code}`);
       const files = fs.readdirSync(dir).filter((f) => !f.endsWith('.part') && !f.endsWith('.json'));
       if (!files.length) throw new Error('файл не скачан');
       return path.join(dir, files[0]);

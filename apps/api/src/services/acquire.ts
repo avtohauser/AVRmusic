@@ -384,7 +384,7 @@ export async function runAcquireArtist(db: DB, job: Job, deezerArtistId: number,
 }
 
 /** Tracks of one album / discography fetched at the same time. */
-const PARALLEL_TRACKS = 3;
+const PARALLEL_TRACKS = 2;
 
 async function acquireMany(db: DB, job: Job, ids: number[], api: JobApi, album: any, albumsByTrack?: Map<number, any>) {
   const refs: Array<{ cancel?: () => void }> = [];

@@ -36,7 +36,7 @@ const runners = new Map<JobKind, Runner>();
 let db: DB | null = null;
 /** Jobs running right now (at most MAX_RUNNING; background jobs only when nothing else runs). */
 let running = 0;
-const MAX_RUNNING = 2;
+const MAX_RUNNING = 1;
 
 export function setRunner(kind: JobKind, run: Runner) {
   runners.set(kind, run);

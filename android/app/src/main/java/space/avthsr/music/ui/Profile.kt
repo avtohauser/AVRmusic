@@ -69,7 +69,7 @@ fun ProfileScreen() {
   }
 
   Page {
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 56.dp, bottom = 24.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = screenPadding(top = 56.dp, bottom = 24.dp)) {
       item {
         Row(Modifier.padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
           Box {
@@ -178,7 +178,7 @@ fun HistoryScreen() {
   var clear by remember { mutableStateOf(false) }
   Page {
     Loaded(loader) { list ->
-      LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 56.dp, bottom = 24.dp)) {
+      LazyColumn(Modifier.fillMaxSize(), contentPadding = screenPadding(top = 56.dp, bottom = 24.dp)) {
         item {
           Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(tr("История"), style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))

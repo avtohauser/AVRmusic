@@ -116,7 +116,7 @@ fun AdminScreen() {
   var tab by rememberSaveable { mutableIntStateOf(0) }
   Page {
     Column(Modifier.fillMaxSize()) {
-      FlowText(tr("Админ-панель"), MaterialTheme.typography.headlineMedium, Modifier.padding(start = 60.dp, top = 10.dp, bottom = 6.dp), maxLines = 1)
+      FlowText(tr("Админ-панель"), MaterialTheme.typography.headlineMedium, Modifier.padding(start = 60.dp, top = 10.dp + LocalEdges.current.top, bottom = 6.dp), maxLines = 1)
       Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         adminTabs.forEachIndexed { i, label -> FilterChip(selected = tab == i, onClick = { tab = i }, label = { Text(label) }) }
       }
@@ -141,7 +141,7 @@ fun AdminScreen() {
 private fun AdminOverview() {
   val stats = rememberLoad(Unit) { Api.adminStats() }
   val activity = rememberLoad(Unit) { Api.adminActivity() }
-  LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)) {
+  LazyColumn(Modifier.fillMaxSize(), contentPadding = screenPadding(top = 8.dp, bottom = 24.dp, hero = true)) {
     stats.data?.let { s ->
       item {
         StatGrid(
@@ -207,7 +207,7 @@ private fun AdminUsers() {
   val nav = LocalNav.current
   val loader = rememberLoad(Unit) { Api.adminUsers() }
   var sort by rememberSaveable { mutableIntStateOf(0) }
-  LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)) {
+  LazyColumn(Modifier.fillMaxSize(), contentPadding = screenPadding(top = 8.dp, bottom = 24.dp, hero = true)) {
     item {
       Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         userSorts.forEachIndexed { i, l -> FilterChip(selected = sort == i, onClick = { sort = i }, label = { Text(l) }) }
@@ -268,7 +268,7 @@ fun AdminUserScreen(id: String) {
   Page {
     Loaded(loader) { d ->
       val u = d.user
-      LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 56.dp, bottom = 24.dp)) {
+      LazyColumn(Modifier.fillMaxSize(), contentPadding = screenPadding(top = 56.dp, bottom = 24.dp)) {
         item {
           Row(Modifier.padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
             Cover(u.avatarUrl, Modifier.size(72.dp), AvatarShape, R.drawable.ic_person)
@@ -371,7 +371,7 @@ private fun AdminInvites() {
       .putExtra(Intent.EXTRA_TEXT, tr("Приглашение в AVRmusic: {}\nКод: {}", (inviteLink(code)), code))
     context.startActivity(Intent.createChooser(send, tr("Отправить приглашение")))
   }
-  LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+  LazyColumn(Modifier.fillMaxSize(), contentPadding = screenPadding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp, hero = true), verticalArrangement = Arrangement.spacedBy(8.dp)) {
     item {
       Text(
         tr("Каждый код одноразовый: после регистрации он сгорает. Ссылка открывает регистрацию с уже вписанным кодом."),
@@ -437,7 +437,7 @@ private fun AdminDownloads() {
   }
   val pick = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { list -> if (list.isNotEmpty()) files = list }
   val caps by produceState<space.avthsr.music.api.Capabilities?>(null) { value = runCatching { Api.capabilities() }.getOrNull() }
-  LazyColumn(Modifier.fillMaxSize().imePadding(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+  LazyColumn(Modifier.fillMaxSize().imePadding(), contentPadding = screenPadding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp, hero = true), verticalArrangement = Arrangement.spacedBy(8.dp)) {
     item {
       Text(tr("Загрузить файлы"), style = MaterialTheme.typography.titleLarge)
       Text(tr("Аудиофайлы с телефона попадут в библиотеку с тегами из файлов."), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -561,7 +561,7 @@ private fun AdminYoutube() {
       act(tr("Аккаунт добавлен"), then = { label = ""; tick++ }) { Api.addYtAccount(context, uri, name) }
     }
   }
-  LazyColumn(Modifier.fillMaxSize().imePadding(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+  LazyColumn(Modifier.fillMaxSize().imePadding(), contentPadding = screenPadding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp, hero = true), verticalArrangement = Arrangement.spacedBy(8.dp)) {
     item {
       Text(
         tr("Каждый аккаунт качает по 2 трека одновременно с остальными. Если YouTube откажет аккаунту, он отдохнёт 20 минут, а загрузка перейдёт на следующий. Нужен cookies.txt (формат Netscape) из отдельного Google-аккаунта; хранится только на сервере."),
@@ -615,7 +615,7 @@ private fun AdminTracks() {
   var query by remember { mutableStateOf("") }
   LaunchedEffect(q) { delay(350); query = q.trim() }
   val loader = rememberLoad(query) { Api.adminTracks(query) }
-  LazyColumn(Modifier.fillMaxSize().imePadding(), contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)) {
+  LazyColumn(Modifier.fillMaxSize().imePadding(), contentPadding = screenPadding(top = 8.dp, bottom = 24.dp, hero = true)) {
     item {
       OutlinedTextField(q, { q = it }, Modifier.fillMaxWidth().padding(horizontal = 16.dp), label = { Text(tr("Название, исполнитель или альбом")) }, singleLine = true)
       loader.data?.let { Text(tr("Найдено: {}", it.total), Modifier.padding(horizontal = 20.dp, vertical = 6.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
@@ -655,7 +655,7 @@ fun AdminTrackScreen(id: String) {
       var synced by remember(lyrics) { mutableStateOf(lyrics.lyricsSynced.orEmpty()) }
       var plain by remember(lyrics) { mutableStateOf(lyrics.lyricsPlain.orEmpty()) }
       Column(
-        Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 56.dp, bottom = 24.dp),
+        Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(screenPadding(start = 16.dp, end = 16.dp, top = 56.dp, bottom = 24.dp)),
         verticalArrangement = Arrangement.spacedBy(8.dp),
       ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -734,7 +734,7 @@ private fun SectionTitleInline(text: String) {
 private fun AdminErrors() {
   val loader = rememberLoad(Unit) { Api.clientErrors() }
   var open by remember { mutableStateOf<Long?>(null) }
-  LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+  LazyColumn(Modifier.fillMaxSize(), contentPadding = screenPadding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp, hero = true), verticalArrangement = Arrangement.spacedBy(8.dp)) {
     val list = loader.data.orEmpty()
     if (loader.data != null && list.isEmpty()) item { Text(tr("Ошибок нет 🎉"), color = MaterialTheme.colorScheme.onSurfaceVariant) }
     items(list) { e ->

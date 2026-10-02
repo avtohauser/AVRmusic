@@ -104,9 +104,9 @@ fun HomeScreen() {
     isRefreshing = refreshing,
     onRefresh = { refreshing = true; loader.reload() },
     state = refresh,
-    indicator = { PullToRefreshDefaults.LoadingIndicator(state = refresh, isRefreshing = refreshing, modifier = Modifier.align(Alignment.TopCenter)) },
+    indicator = { PullToRefreshDefaults.LoadingIndicator(state = refresh, isRefreshing = refreshing, modifier = Modifier.align(Alignment.TopCenter).padding(top = LocalEdges.current.top)) },
   ) {
-  LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+  LazyColumn(Modifier.fillMaxSize(), contentPadding = screenPadding(bottom = 24.dp)) {
     item {
       Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         val greeting = localGreeting()

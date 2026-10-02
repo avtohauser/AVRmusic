@@ -2,6 +2,8 @@
 
 package space.avthsr.music.ui
 
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Surface
 import space.avthsr.music.tr
 import android.app.DownloadManager
 import android.content.ClipData
@@ -131,7 +133,7 @@ fun DownloadsScreen() {
   val list = saved.values.sortedByDescending { it.savedAt }
   val tracks = list.map { it.track }
   Page {
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 56.dp, bottom = 24.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = screenPadding(top = 56.dp, bottom = 24.dp)) {
       item {
         Column(Modifier.padding(horizontal = 20.dp)) {
           FlowText(tr("Скачанные"), MaterialTheme.typography.headlineMedium, maxLines = 1)
@@ -164,15 +166,15 @@ fun DownloadsScreen() {
   }
 }
 
-/** Shown at the top while the phone has no internet. */
+/** A floating note above the mini player while the phone has no internet. */
 @Composable
 fun OfflineBanner(onOpen: () -> Unit) {
-  Row(
-    Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
-    verticalAlignment = Alignment.CenterVertically,
-  ) {
-    Ico(R.drawable.ic_cloud_off, null, Modifier.size(18.dp), MaterialTheme.colorScheme.error)
-    Text(tr("  Вы офлайн — доступны сохранённые треки"), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.error, modifier = Modifier.weight(1f))
-    TextButton(onClick = onOpen) { Text(tr("Открыть")) }
+  val cs = MaterialTheme.colorScheme
+  Surface(Modifier.padding(horizontal = 12.dp), shape = CircleShape, color = cs.errorContainer, contentColor = cs.onErrorContainer, shadowElevation = 3.dp) {
+    Row(Modifier.padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+      Ico(R.drawable.ic_cloud_off, null, Modifier.size(18.dp))
+      Text(tr("  Вы офлайн — доступны сохранённые треки"), style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f, fill = false))
+      TextButton(onClick = onOpen) { Text(tr("Открыть")) }
+    }
   }
 }

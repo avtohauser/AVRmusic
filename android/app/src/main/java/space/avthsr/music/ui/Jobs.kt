@@ -48,7 +48,7 @@ fun JobsScreen() {
   }
   Page {
     val list = jobs
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 56.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = screenPadding(start = 16.dp, end = 16.dp, top = 56.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
       item {
         Text(tr("Загрузки на сервер"), style = MaterialTheme.typography.headlineMedium)
         Text(

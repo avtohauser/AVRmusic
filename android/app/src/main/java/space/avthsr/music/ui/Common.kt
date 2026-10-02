@@ -2,6 +2,8 @@
 
 package space.avthsr.music.ui
 
+import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.Immutable
 import space.avthsr.music.tr
 import space.avthsr.music.Lang
 import androidx.compose.material3.IconButtonDefaults
@@ -464,12 +466,28 @@ fun PlaylistPicker(trackIds: List<String>, onDone: () -> Unit) {
   )
 }
 
+/**
+ * What the screens keep clear of, edge to edge: the camera cutout on top and the floating mini player
+ * and navigation island at the bottom. Content runs under both; only its padding leaves the room.
+ */
+@Immutable
+data class Edges(val top: Dp = 0.dp, val bottom: Dp = 0.dp)
+
+val LocalEdges = compositionLocalOf { Edges() }
+
+/** Padding for a screen's scrolling content; [hero] screens start with a picture that runs under the cutout. */
+@Composable
+fun screenPadding(start: Dp = 0.dp, top: Dp = 0.dp, end: Dp = 0.dp, bottom: Dp = 0.dp, hero: Boolean = false): PaddingValues {
+  val e = LocalEdges.current
+  return PaddingValues(start = start, top = top + if (hero) 0.dp else e.top, end = end, bottom = bottom + e.bottom)
+}
+
 /** A page with a back arrow over its top-left corner. */
 @Composable
 fun Page(back: Boolean = true, content: @Composable () -> Unit) {
   Box(Modifier.fillMaxSize()) {
     content()
-    if (back) BackButton(Modifier.align(Alignment.TopStart))
+    if (back) BackButton(Modifier.align(Alignment.TopStart).padding(top = LocalEdges.current.top))
   }
 }
 

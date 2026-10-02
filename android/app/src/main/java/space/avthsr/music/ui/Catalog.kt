@@ -122,7 +122,7 @@ fun CatalogAlbumScreen(id: Long) {
   val loader = rememberLoad(id) { Api.catalogAlbum(id) }
   Page { Loaded(loader) { a ->
     var sent by remember(a.id) { mutableStateOf(false) }
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = screenPadding(bottom = 24.dp, hero = true)) {
       item {
         Header(
           cover = a.coverUrl,
@@ -153,7 +153,7 @@ fun CatalogArtistScreen(id: Long) {
   var confirm by remember { mutableStateOf(false) }
   Page { Loaded(loader) { p ->
     val a = p.artist
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = screenPadding(bottom = 24.dp, hero = true)) {
       item {
         Header(cover = a.imageUrl, title = a.name, meta = if (a.fans > 0) tr("{} поклонников в Deezer", a.fans) else "", circle = true) {
           if (a.libraryArtistId != null) FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { nav.artist(a.libraryArtistId) }) { Text(tr("В медиатеке")) }
@@ -188,7 +188,7 @@ fun DiscoverScreen() {
   var fresh by remember { mutableIntStateOf(0) }
   val loader = rememberLoad(fresh) { Api.suggestions(fresh > 0) }
   Page { Column(Modifier.fillMaxSize()) {
-    Row(Modifier.fillMaxWidth().padding(start = 56.dp, end = 8.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().padding(start = 56.dp, end = 8.dp, top = 8.dp + LocalEdges.current.top), verticalAlignment = Alignment.CenterVertically) {
       FlowText(tr("Предложка"), MaterialTheme.typography.headlineMedium, Modifier.weight(1f), maxLines = 1)
       IconButton(onClick = { fresh++ }) { Ico(R.drawable.ic_refresh, tr("Обновить")) }
     }
@@ -199,7 +199,7 @@ fun DiscoverScreen() {
             tr("Послушайте и лайкните побольше треков — тогда здесь появятся новинки для вас."),
             Modifier.fillMaxWidth().padding(32.dp), textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
-        } else LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+        } else LazyColumn(Modifier.fillMaxSize(), contentPadding = screenPadding(bottom = 24.dp, hero = true)) {
           if (s.releases.isNotEmpty()) item {
             SectionTitle(tr("Новые релизы"), tr("Свежее от исполнителей, которых вы слушаете"))
             CardRow(s.releases) { a -> CatalogAlbumCard(a, a.reason ?: a.artist.name) }
@@ -229,7 +229,7 @@ fun Header(
   val cs = MaterialTheme.colorScheme
   Box(Modifier.fillMaxWidth()) {
     Backdrop(cover)
-    Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 56.dp, bottom = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 56.dp + LocalEdges.current.top, bottom = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
       Cover(cover, Modifier.size(224.dp), if (circle) ArtistShape else RoundedCornerShape(28.dp), if (circle) R.drawable.ic_person else R.drawable.ic_album)
       Spacer(Modifier.height(18.dp))
       FlowText(title, MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center, maxLines = 3)
@@ -249,7 +249,7 @@ fun Header(
 @Composable
 fun Backdrop(cover: String?) {
   val bg = MaterialTheme.colorScheme.background
-  Box(Modifier.fillMaxWidth().height(300.dp)) {
+  Box(Modifier.fillMaxWidth().height(300.dp + LocalEdges.current.top)) {
     BlurredCover(cover, Modifier.fillMaxSize(), alpha = 0.5f)
     Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(bg.copy(alpha = 0.2f), bg))))
   }

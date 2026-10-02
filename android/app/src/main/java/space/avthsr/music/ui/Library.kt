@@ -119,7 +119,7 @@ fun LibraryScreen() {
   val allArtists = rememberLoad(artistSort, tab == 2 && scope == 1) { if (tab == 2 && scope == 1) Api.allArtists(artistSort) else emptyList() }
   val community = rememberLoad(tab == 3) { if (tab == 3) Api.publicPlaylists() else emptyList() }
 
-  LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+  LazyColumn(Modifier.fillMaxSize(), contentPadding = screenPadding(bottom = 24.dp)) {
     item {
       Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         FlowText(tr("Медиатека"), MaterialTheme.typography.headlineMedium, Modifier.weight(1f), maxLines = 1)
@@ -232,9 +232,9 @@ fun LikedScreen() {
   val loader = rememberLoad(liked.size) { Api.likedTracks() }
   Page {
     Loaded(loader) { tracks ->
-      LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+      LazyColumn(Modifier.fillMaxSize(), contentPadding = screenPadding(bottom = 24.dp, hero = true)) {
         item {
-          Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 64.dp, bottom = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+          Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 64.dp + LocalEdges.current.top, bottom = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Box(
               Modifier.size(180.dp).clip(RoundedCornerShape(36.dp))
                 .background(Brush.linearGradient(listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.tertiary))),
@@ -260,7 +260,7 @@ fun AlbumScreen(id: String) {
   val loader = rememberLoad(id) { Api.album(id) }
   Page {
     Loaded(loader) { a ->
-      LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+      LazyColumn(Modifier.fillMaxSize(), contentPadding = screenPadding(bottom = 24.dp, hero = true)) {
         item {
           Header(
             cover = a.coverUrl, title = a.title, subtitle = a.artist.name, onSubtitle = { nav.artist(a.artist.id) },
@@ -295,7 +295,7 @@ fun ArtistScreen(id: String) {
   val loader = rememberLoad(id) { Api.artist(id) }
   Page {
     Loaded(loader) { a ->
-      LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+      LazyColumn(Modifier.fillMaxSize(), contentPadding = screenPadding(bottom = 24.dp, hero = true)) {
         item {
           Header(
             cover = a.imageUrl ?: a.headerUrl, title = a.name, circle = true,
@@ -341,7 +341,7 @@ fun PlaylistScreen(id: String) {
   Page {
     Loaded(loader) { p ->
       val own = p.isOwner == true || p.owner?.id == Api.user?.id
-      LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+      LazyColumn(Modifier.fillMaxSize(), contentPadding = screenPadding(bottom = 24.dp, hero = true)) {
         item {
           Header(
             cover = p.coverUrl ?: p.mosaic.firstOrNull(), title = p.title, subtitle = p.owner?.displayName,
@@ -377,10 +377,10 @@ fun GenreScreen(slug: String) {
   Page {
     Loaded(loader) { g ->
       val color = parseColor(g.genre.color, MaterialTheme.colorScheme.primaryContainer)
-      LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+      LazyColumn(Modifier.fillMaxSize(), contentPadding = screenPadding(bottom = 24.dp, hero = true)) {
         item {
           Column(
-            Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(color, Color.Transparent))).padding(start = 20.dp, end = 20.dp, top = 72.dp, bottom = 16.dp),
+            Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(color, Color.Transparent))).padding(start = 20.dp, end = 20.dp, top = 72.dp + LocalEdges.current.top, bottom = 16.dp),
           ) {
             Text(g.genre.name, style = MaterialTheme.typography.displaySmall)
             Text(tracksWord(g.genre.trackCount), color = MaterialTheme.colorScheme.onSurfaceVariant)

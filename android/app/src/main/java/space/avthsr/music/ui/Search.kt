@@ -97,7 +97,7 @@ fun SearchScreen() {
     TextField(
       value = q,
       onValueChange = { q = it },
-      modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp),
+      modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp + LocalEdges.current.top, bottom = 8.dp),
       placeholder = { Text(tr("Что хотите послушать?")) },
       leadingIcon = { Ico(R.drawable.ic_search) },
       trailingIcon = { if (q.isNotEmpty()) IconButton(onClick = { q = "" }) { Ico(R.drawable.ic_close, tr("Очистить")) } },
@@ -112,7 +112,7 @@ fun SearchScreen() {
         types.forEach { (id, label) -> FilterChip(selected = type == id, onClick = { type = id }, label = { Text(label) }) }
       }
     }
-    LazyColumn(Modifier.weight(1f).imePadding(), contentPadding = PaddingValues(bottom = 24.dp)) {
+    LazyColumn(Modifier.weight(1f).imePadding(), contentPadding = screenPadding(bottom = 24.dp, hero = true)) {
       if (query.isEmpty()) {
         if (recent.isNotEmpty()) {
           item {

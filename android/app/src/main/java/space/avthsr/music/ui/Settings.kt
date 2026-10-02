@@ -45,7 +45,7 @@ fun SettingsScreen() {
   val contrast by Look.contrast.collectAsStateWithLifecycle()
   val speed by PlayerConn.speed.collectAsStateWithLifecycle()
   Page {
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, top = 60.dp, bottom = 32.dp)) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding(start = 20.dp, end = 20.dp, top = 60.dp, bottom = 32.dp))) {
       FlowText(tr("Оформление"), MaterialTheme.typography.headlineMedium, maxLines = 1)
       Group(tr("Язык")) { Choices(Lang.choices, Lang.code) { Lang.set(it) } }
       Group(tr("Тема")) { Choices(Look.modes, mode) { Look.set(mode = it) } }

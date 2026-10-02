@@ -2,6 +2,24 @@
 
 package space.avthsr.music.ui
 
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.animate
+import androidx.compose.ui.unit.Velocity
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.material3.Surface
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.Arrangement
 import space.avthsr.music.tr
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -121,28 +139,43 @@ private fun Main() {
     link?.let { MainActivity.deepLink.value = null; playerOpen = false; nav.route(it) }
   }
 
-  CompositionLocalProvider(LocalNav provides nav) {
+  // edge to edge: the content runs under the camera cutout and under the floating bars; screens pad by LocalEdges
+  val density = LocalDensity.current
+  val cutout = with(density) { SafeBars.getTop(density).toDp() }
+  var barsPx by remember { mutableIntStateOf(0) }
+  var islandPx by remember { mutableIntStateOf(0) }
+  val edges = Edges(top = cutout, bottom = with(density) { barsPx.toDp() } + 8.dp)
+
+  // like an M3 Expressive floating toolbar: the island slides away while the content scrolls down and comes
+  // back on the way up; the mini player drops into its place
+  val hide = remember { mutableFloatStateOf(0f) }
+  val hideOnScroll = remember {
+    object : NestedScrollConnection {
+      override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+        hide.floatValue = (hide.floatValue - consumed.y).coerceIn(0f, islandPx.toFloat())
+        return Offset.Zero
+      }
+
+      override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+        val from = hide.floatValue
+        val to = if (from > islandPx / 2f) islandPx.toFloat() else 0f
+        if (from != to) animate(from, to, animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) { v, _ -> hide.floatValue = v }
+        return Velocity.Zero
+      }
+    }
+  }
+  val entry by controller.currentBackStackEntryAsState()
+  LaunchedEffect(entry?.destination?.route) { hide.floatValue = 0f }
+
+  CompositionLocalProvider(LocalNav provides nav, LocalEdges provides edges) {
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-      Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        snackbarHost = { SnackbarHost(snack) },
-        bottomBar = {
-          Column {
-            val online by Net.online.collectAsStateWithLifecycle()
-            if (!online) OfflineBanner { nav.downloads() }
-            MiniPlayer(onOpen = { playerOpen = true })
-            BottomBar(controller)
-          }
-        },
-      ) { pad ->
-        NavHost(
-          controller,
-          startDestination = "home",
-          modifier = Modifier.padding(pad).windowInsetsPadding(SafeBars.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)),
-          enterTransition = { fadeIn(tween(220)) },
-          exitTransition = { fadeOut(tween(160)) },
-        ) {
+      NavHost(
+        controller,
+        startDestination = "home",
+        modifier = Modifier.fillMaxSize().nestedScroll(hideOnScroll).windowInsetsPadding(SafeBars.only(WindowInsetsSides.Horizontal)),
+        enterTransition = { fadeIn(tween(220)) },
+        exitTransition = { fadeOut(tween(160)) },
+      ) {
           composable("home") { HomeScreen() }
           composable("search") { SearchScreen() }
           composable("library") { LibraryScreen() }
@@ -162,8 +195,29 @@ private fun Main() {
           composable("admin") { AdminScreen() }
           composable("admin/user/{id}") { AdminUserScreen(it.arguments?.getString("id").orEmpty()) }
           composable("admin/track/{id}") { AdminTrackScreen(it.arguments?.getString("id").orEmpty()) }
-        }
       }
+      // a soft protection under the camera: text scrolling up there fades out instead of running into it
+      if (cutout > 0.dp) {
+        val bg = MaterialTheme.colorScheme.background
+        Box(Modifier.fillMaxWidth().height(cutout).background(Brush.verticalGradient(listOf(bg.copy(alpha = 0.9f), bg.copy(alpha = 0f)))))
+      }
+
+      // the floating stack: offline note, mini player, navigation island
+      Column(
+        Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+          .onSizeChanged { barsPx = it.height }
+          .graphicsLayer { translationY = hide.floatValue }
+          .windowInsetsPadding(SafeBars.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
+          .padding(bottom = 12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+      ) {
+        val online by Net.online.collectAsStateWithLifecycle()
+        if (!online) OfflineBanner { nav.downloads() }
+        MiniPlayer(onOpen = { playerOpen = true })
+        NavIsland(controller, Modifier.onSizeChanged { islandPx = it.height + with(density) { 12.dp.roundToPx() } })
+      }
+
       AnimatedVisibility(
         visible = playerOpen,
         enter = slideInVertically(tween(320)) { it } + fadeIn(tween(200)),
@@ -171,6 +225,7 @@ private fun Main() {
       ) {
         NowPlayingScreen(onClose = { playerOpen = false })
       }
+      SnackbarHost(snack, Modifier.align(Alignment.BottomCenter).padding(bottom = if (playerOpen) 104.dp else edges.bottom))
     }
     BackHandler(enabled = playerOpen) { playerOpen = false }
   }
@@ -184,27 +239,28 @@ private val tabs get() = listOf(
   Tab("library", tr("Медиатека"), R.drawable.ic_library),
 )
 
+/** Navigation as a floating island (a full-rounded M3 Expressive container), not a bar across the screen. */
 @Composable
-private fun BottomBar(c: NavController) {
+private fun NavIsland(c: NavController, modifier: Modifier = Modifier) {
   val entry by c.currentBackStackEntryAsState()
   val route = entry?.destination?.route
-  ShortNavigationBar(
-    containerColor = MaterialTheme.colorScheme.surfaceContainer,
-    windowInsets = SafeBars.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal),
-  ) {
-    tabs.forEach { tab ->
-      ShortNavigationBarItem(
-        selected = route == tab.route,
-        onClick = {
-          c.navigate(tab.route) {
-            popUpTo(c.graph.findStartDestination().id) { saveState = true }
-            launchSingleTop = true
-            restoreState = true
-          }
-        },
-        icon = { Ico(tab.icon, tab.label) },
-        label = { Text(tab.label) },
-      )
+  Surface(modifier, shape = CircleShape, color = MaterialTheme.colorScheme.surfaceContainer, shadowElevation = 6.dp) {
+    Row(Modifier.height(64.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+      tabs.forEach { tab ->
+        ShortNavigationBarItem(
+          selected = route == tab.route,
+          onClick = {
+            c.navigate(tab.route) {
+              popUpTo(c.graph.findStartDestination().id) { saveState = true }
+              launchSingleTop = true
+              restoreState = true
+            }
+          },
+          icon = { Ico(tab.icon, tab.label) },
+          label = { Text(tab.label, maxLines = 1) },
+          modifier = Modifier.width(92.dp),
+        )
+      }
     }
   }
 }
@@ -222,7 +278,8 @@ private fun MiniPlayer(onOpen: () -> Unit) {
   val dur = s.durationMs
   val interaction = remember { MutableInteractionSource() }
   Column(
-    Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp).pressSquash(interaction, 0.97f).clip(RoundedCornerShape(26.dp))
+    Modifier.fillMaxWidth().padding(horizontal = 12.dp).pressSquash(interaction, 0.97f)
+      .shadow(6.dp, RoundedCornerShape(28.dp)).clip(RoundedCornerShape(28.dp))
       .background(MaterialTheme.colorScheme.surfaceContainerHigh)
       .clickable(interactionSource = interaction, indication = LocalIndication.current, onClick = onOpen),
   ) {

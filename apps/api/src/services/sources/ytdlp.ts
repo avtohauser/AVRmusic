@@ -6,16 +6,37 @@ import { config } from '../../config.js';
 import { capabilities } from '../ytdlp.js';
 import type { CancelRef, DownloadMeta, Log, Source, SourceCandidate, UploadDetails, Want } from './types.js';
 import { parseProvidedCredits, titleCredits, wantedGuests } from '../matching.js';
+import { withAccount, withLookupCookies, type AccountUse } from '../youtubeAccounts.js';
 
-function run(bin: string, args: string[], onLine?: (l: string) => void, cancel?: CancelRef): Promise<{ code: number; stdout: string }> {
+interface RunOpts { onLine?: (l: string) => void; cancel?: CancelRef; timeoutMs?: number; idleMs?: number }
+
+/**
+ * Runs yt-dlp. It is killed when it runs longer than `timeoutMs` or prints nothing for `idleMs`
+ * (a stalled download must never hold the queue); `timedOut` then says so.
+ */
+function run(bin: string, args: string[], opts: RunOpts = {}): Promise<{ code: number; stdout: string; timedOut?: string }> {
   return new Promise((resolve, reject) => {
     const child = spawn(bin, args, { stdio: ['ignore', 'pipe', 'pipe'] });
     let out = '';
-    child.stdout.on('data', (d) => { const s = d.toString(); out += s; onLine && s.split(/\r?\n|\r/).forEach((l: string) => l.trim() && onLine(l.trim())); });
-    child.stderr.on('data', (d) => { onLine && d.toString().split(/\r?\n/).forEach((l: string) => l.trim() && onLine(l.trim())); });
+    let timedOut: string | undefined;
+    const kill = (why: string) => { timedOut = why; child.kill('SIGKILL'); };
+    const total = opts.timeoutMs ? setTimeout(() => kill(`нет ответа ${Math.round(opts.timeoutMs! / 1000)} с`), opts.timeoutMs) : null;
+    let idle: NodeJS.Timeout | null = null;
+    const alive = () => {
+      if (!opts.idleMs) return;
+      if (idle) clearTimeout(idle);
+      idle = setTimeout(() => kill(`загрузка стоит ${Math.round(opts.idleMs! / 1000)} с`), opts.idleMs);
+    };
+    alive();
+    child.stdout.on('data', (d) => { alive(); const s = d.toString(); out += s; opts.onLine && s.split(/\r?\n|\r/).forEach((l: string) => l.trim() && opts.onLine!(l.trim())); });
+    child.stderr.on('data', (d) => { alive(); opts.onLine && d.toString().split(/\r?\n/).forEach((l: string) => l.trim() && opts.onLine!(l.trim())); });
     child.on('error', (e) => reject(new Error(`Не удалось запустить ${bin}: ${e.message}`)));
-    child.on('close', (code) => resolve({ code: code ?? -1, stdout: out }));
-    if (cancel) cancel.cancel = () => child.kill('SIGTERM');
+    child.on('close', (code) => {
+      if (total) clearTimeout(total);
+      if (idle) clearTimeout(idle);
+      resolve({ code: code ?? -1, stdout: out, timedOut });
+    });
+    if (opts.cancel) opts.cancel.cancel = () => child.kill('SIGTERM');
   });
 }
 
@@ -35,7 +56,7 @@ export function ytdlpSource(name: 'youtube' | 'soundcloud'): Source {
       const queries = [`${prefix}8:${w.artist} - ${w.title}${guests.length ? ` feat. ${guests.join(', ')}` : ''}`];
       if (name === 'youtube') queries.push(`https://music.youtube.com/search?q=${encodeURIComponent([w.artist, w.title, ...guests].join(' '))}#songs`);
       const lists = await Promise.all(queries.map(async (q) => {
-        const r = await run(config.ytdlpPath, [q, '--flat-playlist', '--playlist-end', '8', '--dump-single-json', '--no-warnings', '--ignore-errors']);
+        const r = await withLookupCookies((ck) => run(config.ytdlpPath, [q, '--flat-playlist', '--playlist-end', '8', '--dump-single-json', '--no-warnings', '--ignore-errors', ...ck], { timeoutMs: 60_000 }));
         const i = r.stdout.indexOf('{');
         if (i < 0) return [];
         const ytm = q.startsWith('https://music.youtube.com/');
@@ -58,7 +79,7 @@ export function ytdlpSource(name: 'youtube' | 'soundcloud'): Source {
       if (!todo.length) return out;
       const urls = todo.map((c) => (name === 'soundcloud' ? (c.url ?? c.id) : `https://www.youtube.com/watch?v=${c.id}`));
       // one yt-dlp run for the whole batch: one JSON line per upload
-      const r = await run(config.ytdlpPath, ['-j', '--skip-download', '--no-playlist', '--no-warnings', '--ignore-errors', '--ignore-no-formats-error', ...urls]);
+      const r = await withLookupCookies((ck) => run(config.ytdlpPath, ['-j', '--skip-download', '--no-playlist', '--no-warnings', '--ignore-errors', '--ignore-no-formats-error', ...ck, ...urls], { timeoutMs: 120_000 }));
       for (const line of r.stdout.split('\n')) {
         const i = line.indexOf('{');
         if (i < 0) continue;
@@ -96,16 +117,27 @@ export function ytdlpSource(name: 'youtube' | 'soundcloud'): Source {
         if (meta.year) args.push('--parse-metadata', `${meta.year}:(?P<meta_date>.+)`);
       }
       args.push(url);
-      let lastError = '';
-      const attempt = () => run(config.ytdlpPath, args, (l) => { if (/^ERROR/i.test(l)) lastError = l.replace(/^ERROR:\s*/i, ''); if (!/\[download\]\s+\d/.test(l)) log(l); }, cancel);
-      let r = await attempt();
-      // YouTube sometimes refuses for a moment (rate limit, bot check): one more try after a pause
-      if (r.code > 0 && /429|too many|rate|bot|sign in|temporar|timed? ?out|reset|unavailable|403/i.test(lastError)) {
-        log('   … YouTube отказал, повтор через 15 с');
-        await new Promise((res) => setTimeout(res, 15_000));
-        r = await attempt();
-      }
-      if (r.code !== 0) throw new Error(lastError ? `yt-dlp: ${lastError.slice(0, 200)}` : `yt-dlp завершился с кодом ${r.code}`);
+      let cancelled = false;
+      const current: CancelRef = {};
+      cancel.cancel = () => { cancelled = true; current.cancel?.(); };
+      // one download per YouTube account at a time; a refused account hands over to the next one
+      const fetchWith = async (a: AccountUse) => {
+        if (cancelled) throw new Error('Отменено');
+        fs.rmSync(dir, { recursive: true, force: true });
+        fs.mkdirSync(dir, { recursive: true });
+        if (a.cookies) log(`   ⤓ аккаунт YouTube: ${a.label}`);
+        let lastError = '';
+        const r = await run(config.ytdlpPath, a.cookies ? ['--cookies', a.cookies, ...args] : args, {
+          onLine: (l) => { if (/^ERROR/i.test(l)) lastError = l.replace(/^ERROR:\s*/i, ''); if (!/\[download\]\s+\d/.test(l)) log(l); },
+          cancel: current,
+          idleMs: 120_000,
+          timeoutMs: 15 * 60_000,
+        });
+        if (cancelled) throw new Error('Отменено');
+        if (r.timedOut) throw new Error(`yt-dlp: ${r.timedOut} — прервано`);
+        if (r.code !== 0) throw new Error(lastError ? `yt-dlp: ${lastError.slice(0, 200)}` : `yt-dlp завершился с кодом ${r.code}`);
+      };
+      await (name === 'youtube' ? withAccount(fetchWith, { log, cancelled: () => cancelled }) : fetchWith({ cookies: null, label: '' }));
       const files = fs.readdirSync(dir).filter((f) => !f.endsWith('.part') && !f.endsWith('.json'));
       if (!files.length) throw new Error('файл не скачан');
       return path.join(dir, files[0]);

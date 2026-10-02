@@ -17,6 +17,7 @@ import { userJobWaiting, type Job } from './jobs.js';
 import { allSources, enabledSources, type CancelRef, type Source, type SourceCandidate, type Want } from './sources/index.js';
 import { judgeUpload, norm, titleCredits, titleMatch, uploadCredits, wantedGuests, type Verdict } from './matching.js';
 import { previewMismatch } from './fingerprint.js';
+import { downloadSlots } from './youtubeAccounts.js';
 
 type JobApi = { log: (s: string) => void; progress: (p: number) => void; onCancel: (fn: () => void) => void };
 export type Candidate = SourceCandidate;
@@ -383,8 +384,8 @@ export async function runAcquireArtist(db: DB, job: Job, deezerArtistId: number,
   await acquireMany(db, job, ids, api, null, albumOf);
 }
 
-/** Tracks of one album / discography fetched at the same time. */
-const PARALLEL_TRACKS = 2;
+/** Tracks of one album / discography fetched at the same time: one per YouTube account, plus one searching ahead. */
+const parallelTracks = () => Math.min(6, Math.max(2, downloadSlots() + 1));
 
 async function acquireMany(db: DB, job: Job, ids: number[], api: JobApi, album: any, albumsByTrack?: Map<number, any>) {
   const refs: Array<{ cancel?: () => void }> = [];
@@ -408,7 +409,7 @@ async function acquireMany(db: DB, job: Job, ids: number[], api: JobApi, album: 
       api.progress((++done / ids.length) * 100);
     }
   };
-  await Promise.all(Array.from({ length: Math.min(PARALLEL_TRACKS, ids.length) }, worker));
+  await Promise.all(Array.from({ length: Math.min(parallelTracks(), ids.length) }, worker));
   if (cancelled) throw new Error('Отменено');
   if (!stats.imported && !stats.exists && ids.length) throw new Error('Ни один трек не удалось получить');
   if (stats.imported) queueCanvasesForImported(db, job);

@@ -44,7 +44,13 @@ object PlayerConn {
   fun connect(context: Context) {
     if (future != null) return
     val app = context.applicationContext
-    val f = MediaController.Builder(app, SessionToken(app, ComponentName(app, PlaybackService::class.java))).buildAsync()
+    val f = try {
+      MediaController.Builder(app, SessionToken(app, ComponentName(app, PlaybackService::class.java))).buildAsync()
+    } catch (e: Exception) {
+      App.report(android.util.Log.getStackTraceString(e))
+      App.say("Плеер не запустился: ${e.message}")
+      return
+    }
     future = f
     f.addListener({
       val c = try { f.get() } catch (e: Exception) { null }

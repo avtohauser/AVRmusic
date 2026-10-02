@@ -136,6 +136,14 @@ object Api {
     _session.value?.let { save(it.copy(user = u)) }
   }
 
+  /** Sends a crash report (the admin sees it; signed in or not). */
+  suspend fun reportError(message: String, stack: String, device: String) {
+    call("POST", "/api/client-errors", buildJsonObject {
+      put("app", "android"); put("version", space.avthsr.music.BuildConfig.VERSION_NAME); put("device", device.take(120))
+      put("message", message.take(1000)); put("stack", stack.take(20_000))
+    }.toString())
+  }
+
   /** A separate session for the web pages opened inside the app (raw AuthTokens JSON, as the site stores it). */
   suspend fun forkSession(): String = call("POST", "/api/auth/fork")
 

@@ -245,43 +245,69 @@ function TracksTab() {
 }
 
 /** YouTube cookies for yt-dlp: uploaded as a file, kept only on the server, never shown back. */
-function YoutubeCookiesSection() {
+interface YtAccount {
+  id: string; label: string; createdAt: string; updatedAt: string; cookies: number; loggedIn: boolean;
+  busy: boolean; coolingUntil: string | null; ok: number; failed: number; lastError: string | null; lastUsedAt: string | null;
+}
+
+/** YouTube accounts for downloads: each one fetches its own track at the same time as the others. */
+function YoutubeAccountsSection() {
   const toast = useUI((s) => s.toast);
   const qc = useQueryClient();
-  const { data } = useQuery({ queryKey: ['admin', 'yt-cookies'], queryFn: () => api.get<{ present: boolean; updatedAt: string | null; youtubeCookies: number; loggedIn: boolean }>('/api/admin/youtube-cookies') });
+  const { data = [] } = useQuery({ queryKey: ['admin', 'yt-accounts'], queryFn: () => api.get<YtAccount[]>('/api/admin/youtube-accounts'), refetchInterval: 5000 });
   const [busy, setBusy] = useState(false);
-  const upload = async (file: File | undefined) => {
-    if (!file) return;
+  const [label, setLabel] = useState('');
+  const refresh = () => qc.invalidateQueries({ queryKey: ['admin', 'yt-accounts'] });
+  const act = async (fn: () => Promise<unknown>, done: string) => {
     setBusy(true);
-    try {
-      const form = new FormData(); form.append('file', file);
-      await api.upload('/api/admin/youtube-cookies', form);
-      toast('Cookies сохранены — yt-dlp использует их во всех запросах к YouTube', 'success');
-      qc.invalidateQueries({ queryKey: ['admin', 'yt-cookies'] });
-    } catch (e: any) { toast(e.message, 'error'); } finally { setBusy(false); }
+    try { await fn(); refresh(); toast(done, 'success'); } catch (e: any) { toast(e.message, 'error'); } finally { setBusy(false); }
   };
-  const remove = async () => {
-    setBusy(true);
-    try { await api.del('/api/admin/youtube-cookies'); qc.invalidateQueries({ queryKey: ['admin', 'yt-cookies'] }); toast('Cookies удалены', 'success'); }
-    catch (e: any) { toast(e.message, 'error'); } finally { setBusy(false); }
+  const upload = (file: File | undefined) => {
+    if (!file) return;
+    const form = new FormData();
+    if (label.trim()) form.append('label', label.trim());
+    form.append('file', file);
+    void act(() => api.upload('/api/admin/youtube-accounts', form), 'Аккаунт добавлен — загрузки пойдут параллельно').then(() => setLabel(''));
   };
   return (
     <div className="surface-low rounded-[24px] p-4 mt-6">
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="min-w-0 flex-1">
-          <h2 className="md-title-lg emph">Cookies YouTube</h2>
-          <p className="md-body-sm muted mt-1">
-            {data?.present
-              ? `Загружены ${data.updatedAt ? new Date(data.updatedAt).toLocaleString() : ''}: ${data.youtubeCookies} cookies youtube.com${data.loggedIn ? ', вход в аккаунт есть' : ' — входа в аккаунт нет, YouTube может не пустить'}`
-              : 'Не загружены. Нужны, если загрузки падают с «Sign in to confirm you’re not a bot».'}
-          </p>
-          <p className="md-body-sm muted mt-1">Файл cookies.txt (формат Netscape) из отдельного Google-аккаунта. Хранится только на сервере и назад не показывается.</p>
-        </div>
+      <h2 className="md-title-lg emph">Аккаунты YouTube · {data.length}</h2>
+      <p className="md-body-sm muted mt-1">
+        Каждый аккаунт качает свой трек одновременно с остальными: 3 аккаунта — 3 трека сразу. Если YouTube откажет
+        аккаунту («not a bot», 429), он отдохнёт 20 минут, а загрузка перейдёт на следующий. Файл cookies.txt
+        (формат Netscape) из отдельного Google-аккаунта; хранится только на сервере и назад не показывается.
+      </p>
+      <div className="mt-3 flex flex-col gap-2">
+        {data.map((a) => {
+          const state = a.busy ? 'качает' : a.coolingUntil ? `отдыхает до ${new Date(a.coolingUntil).toLocaleTimeString()}` : 'свободен';
+          return (
+            <div key={a.id} className="surface rounded-[18px] px-4 py-3 flex flex-wrap items-center gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="md-title-sm">{a.label} <span className={`md-label-md ${a.coolingUntil ? 'text-error' : a.busy ? 'text-primary' : 'muted'}`}>· {state}</span></div>
+                <div className="md-body-sm muted">
+                  {a.cookies} cookies{a.loggedIn ? ', вход есть' : ' — входа в аккаунт нет'} · скачано {a.ok}, ошибок {a.failed}
+                  {a.lastUsedAt ? ` · последний раз ${new Date(a.lastUsedAt).toLocaleString()}` : ''}
+                </div>
+                {a.lastError && <div className="md-body-sm text-error truncate" title={a.lastError}>{a.lastError}</div>}
+              </div>
+              {a.coolingUntil && <M3eButton variant="tonal" disabled={busy || undefined} onClick={() => act(() => api.post(`/api/admin/youtube-accounts/${a.id}/wake`), 'Аккаунт снова в работе')}>Вернуть в работу</M3eButton>}
+              <M3eButton variant="text" disabled={busy || undefined} onClick={() => act(() => api.del(`/api/admin/youtube-accounts/${a.id}`), 'Аккаунт удалён')}>Удалить</M3eButton>
+            </div>
+          );
+        })}
+        {!data.length && <p className="md-body-sm muted">Аккаунтов нет: загрузки идут без входа, по 2 одновременно.</p>}
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <input
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+          placeholder="Название (необязательно)"
+          className="h-10 px-4 rounded-full surface md-body-md outline-none min-w-0 flex-1 max-w-xs"
+        />
         <label className={`inline-flex items-center gap-2 px-4 h-10 rounded-full bg-primary text-on-primary md-label-lg cursor-pointer ${busy ? 'opacity-60 pointer-events-none' : ''}`}>
-          <m3e-icon variant="rounded" name="upload_file" />{data?.present ? 'Заменить' : 'Загрузить cookies.txt'}
-          <input type="file" accept=".txt,text/plain" className="hidden" onChange={(e) => { void upload(e.target.files?.[0]); e.target.value = ''; }} />
+          <m3e-icon variant="rounded" name="upload_file" />Добавить cookies.txt
+          <input type="file" accept=".txt,text/plain" className="hidden" onChange={(e) => { upload(e.target.files?.[0]); e.target.value = ''; }} />
         </label>
-        {data?.present && <M3eButton variant="text" disabled={busy || undefined} onClick={remove}>Удалить</M3eButton>}
       </div>
     </div>
   );
@@ -459,7 +485,7 @@ function UsersTab() {
   return (
     <div className="fade-in max-w-4xl space-y-1">
       <InvitesSection />
-      <YoutubeCookiesSection />
+      <YoutubeAccountsSection />
       <div className="flex flex-wrap items-center gap-2 px-2 pt-6 pb-2">
         <h2 className="md-title-lg emph flex-1">{t('users')} · {rows.length}</h2>
         {([['seen', 'Активность'], ['plays', 'Прослушивания'], ['added', 'Добавили'], ['downloads', 'Скачивания']] as const).map(([k, l]) => (

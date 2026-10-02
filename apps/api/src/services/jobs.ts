@@ -34,9 +34,14 @@ const jobs = new Map<string, Job>();
 const queue: Job[] = [];
 const runners = new Map<JobKind, Runner>();
 let db: DB | null = null;
-/** Jobs running right now (at most MAX_RUNNING; background jobs only when nothing else runs). */
+/**
+ * Jobs running right now. The users' jobs (fetching from the catalogue, imports) run two at a time and
+ * never wait for background upkeep; background jobs (self-healing, canvases) run one at a time and
+ * only start while no user job is running or waiting.
+ */
 let running = 0;
-const MAX_RUNNING = 1;
+let userRunning = 0;
+const MAX_USER = 2;
 
 export function setRunner(kind: JobKind, run: Runner) {
   runners.set(kind, run);
@@ -113,16 +118,24 @@ export function enqueue(init: Pick<Job, 'kind' | 'url' | 'mode' | 'title' | 'req
 /** Background upkeep (self-healing, canvases) that always lets the users' own downloads go first. */
 const BACKGROUND: JobKind[] = ['heal', 'canvas'];
 /** A user's job is waiting: a background job should wrap up and continue later. */
-export function userJobWaiting(): boolean { return queue.some((j) => !BACKGROUND.includes(j.kind)); }
+export function userJobWaiting(): boolean { return userRunning > 0 || queue.some((j) => !BACKGROUND.includes(j.kind)); }
 
 async function pump() {
-  if (running >= MAX_RUNNING) return;
   const first = queue.findIndex((j) => !BACKGROUND.includes(j.kind));
-  if (first < 0 && running > 0) return; // background work waits until the users' jobs are done
-  const job = first >= 0 ? queue.splice(first, 1)[0] : queue.shift();
+  let job: Job | undefined;
+  if (first >= 0) {
+    if (userRunning >= MAX_USER) return;
+    job = queue.splice(first, 1)[0];
+  } else {
+    // background work waits until nothing else runs
+    if (running > 0 || !queue.length) return;
+    job = queue.shift();
+  }
   if (!job) return;
+  const user = !BACKGROUND.includes(job.kind);
   running++;
-  void pump(); // a second slot may be free
+  if (user) userRunning++;
+  void pump(); // another slot may be free
   job.status = 'running';
   save(job);
   // progress/log are written at most once a second
@@ -148,6 +161,7 @@ async function pump() {
     job.cancel = undefined;
     save(job);
     running--;
+    if (user) userRunning--;
     void pump();
   }
 }

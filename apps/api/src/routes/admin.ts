@@ -17,7 +17,7 @@ import { indexAlbum, indexArtist, indexTrack, reindexAll, removeFromIndex } from
 import { mapUser } from '../services/auth.js';
 import { createInvite, deleteInvite, listInvites } from '../services/invites.js';
 import { enqueueCanvasJob } from '../services/canvas.js';
-import { cookiesStatus, removeCookies, saveCookies } from '../services/youtubeCookies.js';
+import { addAccount, listAccounts, removeAccount, wakeAccount } from '../services/youtubeAccounts.js';
 
 export default async function adminRoutes(app: FastifyInstance) {
   const db = app.db;
@@ -293,16 +293,19 @@ export default async function adminRoutes(app: FastifyInstance) {
   });
   app.delete('/api/admin/invites/:code', admin, async (req) => { deleteInvite(db, (req.params as any).code); return { ok: true }; });
 
-  /** YouTube cookies for yt-dlp: status only (never the content), upload a cookies.txt, remove. */
-  app.get('/api/admin/youtube-cookies', admin, async () => cookiesStatus());
-  app.post('/api/admin/youtube-cookies', admin, async (req) => {
+  /** YouTube accounts for yt-dlp (a cookies.txt each): status only (never the content), add, wake, remove. */
+  app.get('/api/admin/youtube-accounts', admin, async () => listAccounts());
+  app.post('/api/admin/youtube-accounts', admin, async (req) => {
     const file = await req.file();
     if (!file) throw badRequest('Файл не передан');
     const buf = await file.toBuffer();
     if (buf.length > 512 * 1024) throw badRequest('Слишком большой файл');
-    return saveCookies(buf.toString('utf8'));
+    const label = (file.fields as any)?.label?.value as string | undefined;
+    return addAccount(buf.toString('utf8'), label);
   });
-  app.delete('/api/admin/youtube-cookies', admin, async () => { removeCookies(); return cookiesStatus(); });
+  app.get('/api/admin/client-errors', admin, async () => db.prepare(`SELECT e.*, u.username FROM client_errors e LEFT JOIN users u ON u.id = e.user_id ORDER BY e.id DESC LIMIT 30`).all());
+  app.post('/api/admin/youtube-accounts/:id/wake', admin, async (req) => wakeAccount((req.params as any).id));
+  app.delete('/api/admin/youtube-accounts/:id', admin, async (req) => removeAccount((req.params as any).id));
 
   /* ---------- users: list with activity, details, management ---------- */
   const userRow = (r: any): AdminUserRow => ({

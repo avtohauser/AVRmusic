@@ -233,6 +233,19 @@ const MIGRATIONS: string[] = [
   );
   CREATE INDEX idx_tracks_added_by ON tracks(added_by);
   `,
+  // 9: crash reports from the apps (shown in the admin panel and the deploy report)
+  `
+  CREATE TABLE client_errors (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT,
+    app TEXT NOT NULL,
+    version TEXT,
+    device TEXT,
+    message TEXT NOT NULL,
+    stack TEXT,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+  );
+  `,
 ];
 
 export function openDatabase(dbPath = config.dbPath): DB {

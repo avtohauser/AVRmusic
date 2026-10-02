@@ -111,6 +111,16 @@ jobs:
 
       # Dry run of the acquisition matcher on the server (real catalogue + YouTube) for the songs listed in
       # deploy/acquire-check.txt: shows which upload each version (solo / feat. …) would get and why.
+      - name: Server report (app crashes, download queue)
+        if: ${{ env.TARGET_PASSWORD != '' }}
+        continue-on-error: true
+        env:
+          SSHPASS: ${{ env.TARGET_PASSWORD }}
+        run: |
+          command -v sshpass >/dev/null || { sudo apt-get update -qq >/dev/null; sudo apt-get install -y -qq sshpass >/dev/null; }
+          sshpass -e ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o ConnectTimeout=20 "$TARGET_USER@$TARGET_HOST" \
+            "cd /opt/avrmusic && timeout 120 docker compose -f docker-compose.prod.yml exec -T avrmusic node /app/api/dist/scripts/report.js" || echo "(report failed)"
+
       - name: Acquisition self-check
         if: ${{ hashFiles('deploy/acquire-check.txt') != '' && env.TARGET_PASSWORD != '' }}
         continue-on-error: true

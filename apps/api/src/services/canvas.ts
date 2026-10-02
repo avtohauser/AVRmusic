@@ -16,9 +16,12 @@ export interface WantVideo { title: string; artist: string; durationSec: number 
 type Log = (s: string) => void;
 type CancelRef = { cancel?: () => void };
 
-function run(bin: string, args: string[], onLine?: Log, cancel?: CancelRef): Promise<{ code: number; stdout: string }> {
+/** Runs a tool; killed after `timeoutMs` (6 min by default) so a stuck clip download never holds the queue. */
+function run(bin: string, args: string[], onLine?: Log, cancel?: CancelRef, timeoutMs = 6 * 60_000): Promise<{ code: number; stdout: string }> {
   return new Promise((resolve, reject) => {
     const child = spawn(bin, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    const timer = setTimeout(() => child.kill('SIGKILL'), timeoutMs);
+    child.on('close', () => clearTimeout(timer));
     let out = '';
     child.stdout.on('data', (d) => { const s = d.toString(); out += s; onLine && s.split(/\r?\n|\r/).forEach((l: string) => l.trim() && onLine(l.trim())); });
     child.stderr.on('data', (d) => { onLine && d.toString().split(/\r?\n/).forEach((l: string) => l.trim() && onLine(l.trim())); });

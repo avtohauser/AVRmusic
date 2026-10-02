@@ -1,22 +1,29 @@
 package space.avthsr.music
 
 import android.app.Application
+import android.os.Build
+import android.util.Log
 import coil.ImageLoader
 import coil.ImageLoaderFactory
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import space.avthsr.music.api.Api
 import space.avthsr.music.api.Likes
 import space.avthsr.music.player.Queue
+import java.io.File
 
 class App : Application(), ImageLoaderFactory {
   override fun onCreate() {
     super.onCreate()
+    installCrashCatcher()
     Api.init(this)
     Queue.init(this)
+    reportLastCrash()
     if (Api.session.value != null) scope.launch {
       Likes.load()
       runCatching { Api.refreshMe() }
@@ -25,9 +32,41 @@ class App : Application(), ImageLoaderFactory {
 
   override fun newImageLoader(): ImageLoader = ImageLoader.Builder(this).crossfade(180).build()
 
+  private val crashFile get() = File(filesDir, "crash.txt")
+
+  /** A crash is written down before the app goes; the next start shows it and sends it to the server. */
+  private fun installCrashCatcher() {
+    val previous = Thread.getDefaultUncaughtExceptionHandler()
+    Thread.setDefaultUncaughtExceptionHandler { thread, e ->
+      runCatching { crashFile.writeText(Log.getStackTraceString(e)) }
+      previous?.uncaughtException(thread, e)
+    }
+  }
+
+  private fun reportLastCrash() {
+    val text = runCatching { crashFile.takeIf { it.exists() }?.readText() }.getOrNull() ?: return
+    crashFile.delete()
+    lastCrash.value = text
+    report(text)
+  }
+
   companion object {
+    /** the stack trace of the previous run's crash, shown once */
+    val lastCrash = MutableStateFlow<String?>(null)
+
+    fun report(stack: String) {
+      val device = "${Build.MANUFACTURER} ${Build.MODEL}, Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
+      scope.launch { runCatching { Api.reportError(stack.lineSequence().firstOrNull().orEmpty(), stack, device) } }
+    }
+
+    /** an error in background work is reported and shown, never a crash */
+    private val handler = CoroutineExceptionHandler { _, e ->
+      report(Log.getStackTraceString(e))
+      say(e.message ?: "Что-то пошло не так")
+    }
+
     /** Work that must outlive a screen (likes, play reports, requests to the server). */
-    val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main + handler)
 
     /** Short messages shown as a snackbar. */
     val messages = MutableSharedFlow<String>(extraBufferCapacity = 8)

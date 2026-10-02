@@ -61,6 +61,21 @@ export default async function authRoutes(app: FastifyInstance) {
     return u;
   });
 
+  /** A crash report from an app (signed in or not); the last 100 are kept. */
+  app.post('/api/client-errors', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (req) => {
+    const body = z.object({
+      app: z.string().max(40), version: z.string().max(40).optional(), device: z.string().max(120).optional(),
+      message: z.string().max(1000), stack: z.string().max(20_000).optional(),
+    }).parse(req.body);
+    let userId: string | null = null;
+    try { userId = ((await req.jwtVerify()) as any)?.sub ?? null; } catch { /* anonymous */ }
+    db.prepare('INSERT INTO client_errors(user_id, app, version, device, message, stack) VALUES (?,?,?,?,?,?)')
+      .run(userId, body.app, body.version ?? null, body.device ?? null, body.message, body.stack ?? null);
+    db.prepare('DELETE FROM client_errors WHERE id NOT IN (SELECT id FROM client_errors ORDER BY id DESC LIMIT 100)').run();
+    req.log.warn({ app: body.app, version: body.version, message: body.message }, 'client error');
+    return { ok: true };
+  });
+
   /** A second, independent session for the same user (the Android app opens the web admin with it). */
   app.post('/api/auth/fork', { preHandler: app.authenticate, config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (req) => {
     const u = getUser(db, req.userId!);

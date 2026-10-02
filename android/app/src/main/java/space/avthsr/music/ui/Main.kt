@@ -28,7 +28,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -71,6 +77,21 @@ import space.avthsr.music.player.PlayerConn
 fun Root() {
   val session by Api.session.collectAsStateWithLifecycle()
   if (session == null) LoginScreen() else Main()
+  val crash by App.lastCrash.collectAsStateWithLifecycle()
+  crash?.let { text ->
+    AlertDialog(
+      onDismissRequest = { App.lastCrash.value = null },
+      title = { Text("Приложение закрылось с ошибкой") },
+      text = {
+        Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) {
+          Text("Отчёт уже отправлен на сервер. Вот что случилось:", style = MaterialTheme.typography.bodyMedium)
+          Spacer(Modifier.height(8.dp))
+          SelectionContainer { Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        }
+      },
+      confirmButton = { TextButton(onClick = { App.lastCrash.value = null }) { Text("Понятно") } },
+    )
+  }
 }
 
 @Composable

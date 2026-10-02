@@ -2,6 +2,7 @@
 
 package space.avthsr.music.ui
 
+import androidx.compose.material3.LocalContentColor
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavGraphBuilder
 import kotlin.coroutines.cancellation.CancellationException
@@ -107,7 +108,11 @@ import space.avthsr.music.player.PlayerConn
 @Composable
 fun Root() {
   val session by Api.session.collectAsStateWithLifecycle()
-  if (session == null) LoginScreen() else Main()
+  // the default colour of text and icons: the theme's "on background" (light text in the dark theme);
+  // without a Scaffold or Surface above, Compose would fall back to black
+  CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onBackground) {
+    if (session == null) LoginScreen() else Main()
+  }
   val crash by App.lastCrash.collectAsStateWithLifecycle()
   crash?.let { text ->
     AlertDialog(

@@ -45,9 +45,12 @@ class MorphShape(private val morph: Morph, private val progress: Float) : Shape 
 }
 
 /** Shapes for people and artists (expressive variety instead of plain circles). */
-val ArtistShape: Shape @Composable get() = remember { MaterialShapes.Cookie9Sided.toShape() }
-val AvatarShape: Shape @Composable get() = remember { MaterialShapes.Cookie12Sided.toShape() }
-val LogoShape: Shape @Composable get() = remember { MaterialShapes.Clover4Leaf.toShape() }
+val ArtistShape: Shape
+  @Composable get() = remember { MaterialShapes.Cookie9Sided.toShape() }
+val AvatarShape: Shape
+  @Composable get() = remember { MaterialShapes.Cookie12Sided.toShape() }
+val LogoShape: Shape
+  @Composable get() = remember { MaterialShapes.Clover4Leaf.toShape() }
 
 /**
  * The play button of Material 3 Expressive media players: a playful cookie while paused that morphs

@@ -79,15 +79,17 @@ private fun ListRow(
   subtitle: String,
   circle: Boolean = false,
   menu: (@Composable (expanded: Boolean, close: () -> Unit) -> Unit)? = null,
+  share: String? = null,
   onClick: () -> Unit,
 ) {
   var open by remember { mutableStateOf(false) }
+  val token = rememberSaveable { java.util.UUID.randomUUID().toString() }
   Row(
-    Modifier.fillMaxWidth().combinedClickable(onClick = onClick, onLongClick = menu?.let { { open = true } })
+    Modifier.fillMaxWidth().combinedClickable(onClick = { if (share != null) SharedCover.tap(token, share); onClick() }, onLongClick = menu?.let { { open = true } })
       .padding(start = 16.dp, end = if (menu != null) 4.dp else 16.dp, top = 8.dp, bottom = 8.dp),
     verticalAlignment = Alignment.CenterVertically,
   ) {
-    Cover(cover, Modifier.size(56.dp), if (circle) ArtistShape else RoundedCornerShape(14.dp), if (circle) R.drawable.ic_person else R.drawable.ic_album)
+    Cover(cover, Modifier.size(56.dp).sharedCover(share, token), if (circle) ArtistShape else RoundedCornerShape(14.dp), if (circle) R.drawable.ic_person else R.drawable.ic_album)
     Spacer(Modifier.width(14.dp))
     Column(Modifier.weight(1f)) {
       Text(title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -181,22 +183,22 @@ fun LibraryScreen() {
       0 -> {
         val list = playlists.data.orEmpty()
         if (list.isEmpty()) item { Hint(if (playlists.state is Load.Loading) tr("Загрузка…") else tr("Плейлистов пока нет — создайте первый кнопкой +")) }
-        items(list) { p -> ListRow(p.coverUrl ?: p.mosaic.firstOrNull(), p.title, listOfNotNull(p.owner?.displayName, tracksWord(p.trackCount)).joinToString(" · "), menu = { e, c -> PlaylistMenu(p, e, c) }) { nav.playlist(p.id) } }
+        items(list, key = { "p:" + it.id }) { p -> Box(Modifier.animateItem(Motion.expressive.defaultEffectsSpec(), Motion.expressive.defaultSpatialSpec(), Motion.expressive.fastEffectsSpec())) { ListRow(p.coverUrl ?: p.mosaic.firstOrNull(), p.title, listOfNotNull(p.owner?.displayName, tracksWord(p.trackCount)).joinToString(" · "), menu = { e, c -> PlaylistMenu(p, e, c) }, share = "playlist:${p.id}") { nav.playlist(p.id) } } }
       }
       1 -> {
         val list = (if (scope == 0) albums.data else allAlbums.data).orEmpty()
         if (list.isEmpty()) item { Hint(if (scope == 0) tr("Лайкните альбом — он появится здесь") else tr("Загрузка…")) }
-        items(list) { a -> ListRow(a.coverUrl, a.title, listOfNotNull(a.artist.name, a.year?.toString()).joinToString(" · "), menu = { e, c -> AlbumMenu(a.id, a.title, a.artist.id, a.artist.name, e, c) }) { nav.album(a.id) } }
+        items(list, key = { "a:" + it.id }) { a -> Box(Modifier.animateItem(Motion.expressive.defaultEffectsSpec(), Motion.expressive.defaultSpatialSpec(), Motion.expressive.fastEffectsSpec())) { ListRow(a.coverUrl, a.title, listOfNotNull(a.artist.name, a.year?.toString()).joinToString(" · "), menu = { e, c -> AlbumMenu(a.id, a.title, a.artist.id, a.artist.name, e, c) }, share = "album:${a.id}") { nav.album(a.id) } } }
       }
       2 -> {
         val list = (if (scope == 0) artists.data else allArtists.data).orEmpty()
         if (list.isEmpty()) item { Hint(if (scope == 0) tr("Лайкните исполнителя — он появится здесь") else tr("Загрузка…")) }
-        items(list) { a -> ListRow(a.imageUrl, a.name, "", circle = true) { nav.artist(a.id) } }
+        items(list, key = { "r:" + it.id }) { a -> Box(Modifier.animateItem(Motion.expressive.defaultEffectsSpec(), Motion.expressive.defaultSpatialSpec(), Motion.expressive.fastEffectsSpec())) { ListRow(a.imageUrl, a.name, "", circle = true, share = "artist:${a.id}") { nav.artist(a.id) } } }
       }
       else -> {
         val list = community.data.orEmpty()
         if (list.isEmpty()) item { Hint(if (community.state is Load.Loading) tr("Загрузка…") else tr("Публичных плейлистов пока нет")) }
-        items(list) { p -> ListRow(p.coverUrl ?: p.mosaic.firstOrNull(), p.title, listOfNotNull(p.owner?.displayName, tracksWord(p.trackCount)).joinToString(" · "), menu = { e, c -> PlaylistMenu(p, e, c) }) { nav.playlist(p.id) } }
+        items(list, key = { "p:" + it.id }) { p -> Box(Modifier.animateItem(Motion.expressive.defaultEffectsSpec(), Motion.expressive.defaultSpatialSpec(), Motion.expressive.fastEffectsSpec())) { ListRow(p.coverUrl ?: p.mosaic.firstOrNull(), p.title, listOfNotNull(p.owner?.displayName, tracksWord(p.trackCount)).joinToString(" · "), menu = { e, c -> PlaylistMenu(p, e, c) }, share = "playlist:${p.id}") { nav.playlist(p.id) } } }
       }
     }
   }
@@ -263,6 +265,7 @@ fun AlbumScreen(id: String) {
       LazyColumn(Modifier.fillMaxSize(), contentPadding = screenPadding(bottom = 24.dp, hero = true)) {
         item {
           Header(
+            share = "album:${a.id}",
             cover = a.coverUrl, title = a.title, subtitle = a.artist.name, onSubtitle = { nav.artist(a.artist.id) },
             meta = listOfNotNull(albumType(a.type), a.year?.toString(), tracksWord(a.tracks.size), fmtTime(a.tracks.sumOf { it.durationMs })).joinToString(" · "),
           ) {
@@ -298,6 +301,7 @@ fun ArtistScreen(id: String) {
       LazyColumn(Modifier.fillMaxSize(), contentPadding = screenPadding(bottom = 24.dp, hero = true)) {
         item {
           Header(
+            share = "artist:${a.id}",
             cover = a.imageUrl ?: a.headerUrl, title = a.name, circle = true,
             meta = if (a.monthlyListeners > 0) tr("{} слушателей за месяц", a.monthlyListeners) else "",
           ) {
@@ -315,15 +319,15 @@ fun ArtistScreen(id: String) {
         }
         if (a.albums.isNotEmpty()) item {
           SectionTitle(tr("Альбомы и синглы"))
-          CardRow(a.albums) { al -> MediaCard(al.title, listOfNotNull(albumType(al.type), al.year?.toString()).joinToString(" · "), al.coverUrl, { nav.album(al.id) }, menu = { e, c -> AlbumMenu(al.id, al.title, al.artist.id, al.artist.name, e, c) }) }
+          CardRow(a.albums) { al -> MediaCard(al.title, listOfNotNull(albumType(al.type), al.year?.toString()).joinToString(" · "), al.coverUrl, { nav.album(al.id) }, share = "album:${al.id}", menu = { e, c -> AlbumMenu(al.id, al.title, al.artist.id, al.artist.name, e, c) }) }
         }
         if (a.appearsOn.isNotEmpty()) item {
           SectionTitle(tr("Участвует"))
-          CardRow(a.appearsOn) { al -> MediaCard(al.title, al.artist.name, al.coverUrl, { nav.album(al.id) }, menu = { e, c -> AlbumMenu(al.id, al.title, al.artist.id, al.artist.name, e, c) }) }
+          CardRow(a.appearsOn) { al -> MediaCard(al.title, al.artist.name, al.coverUrl, { nav.album(al.id) }, share = "album:${al.id}", menu = { e, c -> AlbumMenu(al.id, al.title, al.artist.id, al.artist.name, e, c) }) }
         }
         if (a.related.isNotEmpty()) item {
           SectionTitle(tr("Похожие исполнители"))
-          CardRow(a.related) { r -> MediaCard(r.name, "", r.imageUrl, { nav.artist(r.id) }, circle = true, width = 124.dp) }
+          CardRow(a.related) { r -> MediaCard(r.name, "", r.imageUrl, { nav.artist(r.id) }, share = "artist:${r.id}", circle = true, width = 124.dp) }
         }
         if (!a.bio.isNullOrBlank()) item {
           SectionTitle(tr("Об исполнителе"))
@@ -344,6 +348,7 @@ fun PlaylistScreen(id: String) {
       LazyColumn(Modifier.fillMaxSize(), contentPadding = screenPadding(bottom = 24.dp, hero = true)) {
         item {
           Header(
+            share = "playlist:${p.id}",
             cover = p.coverUrl ?: p.mosaic.firstOrNull(), title = p.title, subtitle = p.owner?.displayName,
             meta = listOfNotNull(p.description?.takeIf { it.isNotBlank() }, tracksWord(p.tracks.size)).joinToString(" · "),
           ) {
@@ -390,11 +395,11 @@ fun GenreScreen(slug: String) {
         }
         if (g.artists.isNotEmpty()) item {
           SectionTitle(tr("Исполнители"))
-          CardRow(g.artists) { a -> MediaCard(a.name, "", a.imageUrl, { nav.artist(a.id) }, circle = true, width = 124.dp) }
+          CardRow(g.artists) { a -> MediaCard(a.name, "", a.imageUrl, { nav.artist(a.id) }, share = "artist:${a.id}", circle = true, width = 124.dp) }
         }
         if (g.albums.isNotEmpty()) item {
           SectionTitle(tr("Альбомы"))
-          CardRow(g.albums) { a -> MediaCard(a.title, a.artist.name, a.coverUrl, { nav.album(a.id) }, menu = { e, c -> AlbumMenu(a.id, a.title, a.artist.id, a.artist.name, e, c) }) }
+          CardRow(g.albums) { a -> MediaCard(a.title, a.artist.name, a.coverUrl, { nav.album(a.id) }, share = "album:${a.id}", menu = { e, c -> AlbumMenu(a.id, a.title, a.artist.id, a.artist.name, e, c) }) }
         }
         if (g.tracks.isNotEmpty()) {
           item { SectionTitle(tr("Треки")) }

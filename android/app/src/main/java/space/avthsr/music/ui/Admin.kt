@@ -2,6 +2,7 @@
 
 package space.avthsr.music.ui
 
+import androidx.compose.animation.animateContentSize
 import space.avthsr.music.tr
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -486,7 +487,7 @@ private fun AdminDownloads() {
     val active = jobs.filter { it.status == "running" || it.status == "queued" }.sortedWith(compareBy({ if (it.status == "running") 0 else 1 }, { it.position ?: Int.MAX_VALUE }))
     val done = jobs.filter { it.status == "done" || it.status == "error" }.take(30)
     if (jobs.isEmpty()) item { Text(tr("Задач нет"), color = MaterialTheme.colorScheme.onSurfaceVariant) }
-    items(active + done) { j -> ServerJobCard(j, open == j.id, { open = if (open == j.id) null else j.id }) }
+    items(active + done, key = { it.id }) { j -> Box(Modifier.animateItem(Motion.expressive.defaultEffectsSpec(), Motion.expressive.defaultSpatialSpec(), Motion.expressive.fastEffectsSpec())) { ServerJobCard(j, open == j.id, { open = if (open == j.id) null else j.id }) } }
   }
   if (files.isNotEmpty()) FormDialog(
     tr("Загрузить {} {}", files.size, (if (files.size == 1) tr("файл") else tr("файлов"))),
@@ -517,7 +518,7 @@ private fun ServerJobCard(j: ServerJob, expanded: Boolean, toggle: () -> Unit) {
     "done" -> tr("готово") + (s?.let { tr(" · загружено {}, было {}, не найдено {}", (it["imported"] ?: 0), (it["exists"] ?: 0), (it["failed"] ?: 0)) } ?: "")
     else -> tr("ошибка: {}", (j.error ?: ""))
   }
-  Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(cs.surfaceContainer).clickable(onClick = toggle).padding(14.dp)) {
+  Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(cs.surfaceContainer).clickable(onClick = toggle).animateContentSize(Motion.expressive.defaultSpatialSpec()).padding(14.dp)) {
     Row(verticalAlignment = Alignment.CenterVertically) {
       Column(Modifier.weight(1f)) {
         Text(j.title ?: j.url ?: kind, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)

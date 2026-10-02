@@ -93,7 +93,7 @@ fun ProfileScreen() {
         item { StatGrid(listOf(s.plays.toString() to tr("прослушиваний"), fmtListened(s.msListened) to tr("музыки всего"))) }
         if (s.topArtists.isNotEmpty()) item {
           SectionTitle(tr("Чаще всего слушаете"))
-          CardRow(s.topArtists) { a -> MediaCard(a.name, "", a.imageUrl, { nav.artist(a.id) }, circle = true, width = 116.dp) }
+          CardRow(s.topArtists) { a -> MediaCard(a.name, "", a.imageUrl, { nav.artist(a.id) }, share = "artist:${a.id}", circle = true, width = 116.dp) }
         }
         if (s.topTracks.isNotEmpty()) {
           item { SectionTitle(tr("Любимые треки по прослушиваниям")) }

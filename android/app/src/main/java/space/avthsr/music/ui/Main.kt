@@ -2,6 +2,14 @@
 
 package space.avthsr.music.ui
 
+import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NavGraphBuilder
+import kotlin.coroutines.cancellation.CancellationException
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SharedTransitionLayout
+import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalDensity
@@ -167,34 +175,51 @@ private fun Main() {
   val entry by controller.currentBackStackEntryAsState()
   LaunchedEffect(entry?.destination?.route) { hide.floatValue = 0f }
 
-  CompositionLocalProvider(LocalNav provides nav, LocalEdges provides edges) {
+  // a back swipe on the open player shrinks it toward the edge before it goes (predictive back)
+  var backTarget by remember { mutableFloatStateOf(0f) }
+  val back by animateFloatAsState(backTarget, Motion.expressive.fastSpatialSpec(), label = "back")
+  LaunchedEffect(playerOpen) { if (playerOpen) backTarget = 0f }
+  PredictiveBackHandler(enabled = playerOpen) { events ->
+    try {
+      events.collect { backTarget = it.progress }
+      playerOpen = false
+    } catch (e: CancellationException) {
+      backTarget = 0f
+      throw e
+    }
+  }
+
+  SharedTransitionLayout {
+  CompositionLocalProvider(LocalNav provides nav, LocalEdges provides edges, LocalShared provides this) {
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
       NavHost(
         controller,
         startDestination = "home",
         modifier = Modifier.fillMaxSize().nestedScroll(hideOnScroll).windowInsetsPadding(SafeBars.only(WindowInsetsSides.Horizontal)),
-        enterTransition = { fadeIn(tween(220)) },
-        exitTransition = { fadeOut(tween(160)) },
+        enterTransition = Motion.enter,
+        exitTransition = Motion.exit,
+        popEnterTransition = Motion.popEnter,
+        popExitTransition = Motion.popExit,
       ) {
-          composable("home") { HomeScreen() }
-          composable("search") { SearchScreen() }
-          composable("library") { LibraryScreen() }
-          composable("liked") { LikedScreen() }
-          composable("discover") { DiscoverScreen() }
-          composable("profile") { ProfileScreen() }
-          composable("jobs") { JobsScreen() }
-          composable("album/{id}") { AlbumScreen(it.arguments?.getString("id").orEmpty()) }
-          composable("artist/{id}") { ArtistScreen(it.arguments?.getString("id").orEmpty()) }
-          composable("playlist/{id}") { PlaylistScreen(it.arguments?.getString("id").orEmpty()) }
-          composable("genre/{id}") { GenreScreen(it.arguments?.getString("id").orEmpty()) }
-          composable("calbum/{id}") { CatalogAlbumScreen(it.arguments?.getString("id")?.toLongOrNull() ?: 0L) }
-          composable("cartist/{id}") { CatalogArtistScreen(it.arguments?.getString("id")?.toLongOrNull() ?: 0L) }
-          composable("history") { HistoryScreen() }
-          composable("downloads") { DownloadsScreen() }
-          composable("settings") { SettingsScreen() }
-          composable("admin") { AdminScreen() }
-          composable("admin/user/{id}") { AdminUserScreen(it.arguments?.getString("id").orEmpty()) }
-          composable("admin/track/{id}") { AdminTrackScreen(it.arguments?.getString("id").orEmpty()) }
+          screen("home") { HomeScreen() }
+          screen("search") { SearchScreen() }
+          screen("library") { LibraryScreen() }
+          screen("liked") { LikedScreen() }
+          screen("discover") { DiscoverScreen() }
+          screen("profile") { ProfileScreen() }
+          screen("jobs") { JobsScreen() }
+          screen("album/{id}") { AlbumScreen(it.arguments?.getString("id").orEmpty()) }
+          screen("artist/{id}") { ArtistScreen(it.arguments?.getString("id").orEmpty()) }
+          screen("playlist/{id}") { PlaylistScreen(it.arguments?.getString("id").orEmpty()) }
+          screen("genre/{id}") { GenreScreen(it.arguments?.getString("id").orEmpty()) }
+          screen("calbum/{id}") { CatalogAlbumScreen(it.arguments?.getString("id")?.toLongOrNull() ?: 0L) }
+          screen("cartist/{id}") { CatalogArtistScreen(it.arguments?.getString("id")?.toLongOrNull() ?: 0L) }
+          screen("history") { HistoryScreen() }
+          screen("downloads") { DownloadsScreen() }
+          screen("settings") { SettingsScreen() }
+          screen("admin") { AdminScreen() }
+          screen("admin/user/{id}") { AdminUserScreen(it.arguments?.getString("id").orEmpty()) }
+          screen("admin/track/{id}") { AdminTrackScreen(it.arguments?.getString("id").orEmpty()) }
       }
       // a soft protection under the camera: text scrolling up there fades out instead of running into it
       if (cutout > 0.dp) {
@@ -214,22 +239,40 @@ private fun Main() {
       ) {
         val online by Net.online.collectAsStateWithLifecycle()
         if (!online) OfflineBanner { nav.downloads() }
-        MiniPlayer(onOpen = { playerOpen = true })
+        MiniPlayer(playerOpen, onOpen = { playerOpen = true })
         NavIsland(controller, Modifier.onSizeChanged { islandPx = it.height + with(density) { 12.dp.roundToPx() } })
       }
 
+      // the player rises on the standard spatial spring (a full screen must not bounce past the edge)
       AnimatedVisibility(
         visible = playerOpen,
-        enter = slideInVertically(tween(320)) { it } + fadeIn(tween(200)),
-        exit = slideOutVertically(tween(260)) { it } + fadeOut(tween(200)),
+        enter = slideInVertically(Motion.standard.slowSpatialSpec()) { it } + fadeIn(Motion.standard.fastEffectsSpec()),
+        exit = slideOutVertically(Motion.standard.defaultSpatialSpec()) { it } + fadeOut(Motion.standard.slowEffectsSpec()),
       ) {
-        NowPlayingScreen(onClose = { playerOpen = false })
+        CompositionLocalProvider(LocalAnimScope provides this) {
+          Box(
+            Modifier.fillMaxSize().graphicsLayer {
+              val p = back
+              scaleX = 1f - 0.1f * p
+              scaleY = 1f - 0.1f * p
+              translationY = 40.dp.toPx() * p
+              shape = RoundedCornerShape(36.dp * p)
+              clip = p > 0f
+            },
+          ) {
+            NowPlayingScreen(onClose = { playerOpen = false })
+          }
+        }
       }
       SnackbarHost(snack, Modifier.align(Alignment.BottomCenter).padding(bottom = if (playerOpen) 104.dp else edges.bottom))
     }
-    BackHandler(enabled = playerOpen) { playerOpen = false }
+  }
   }
 }
+
+/** A destination that lets its content know the screen's own enter / exit animation (for shared covers). */
+private fun NavGraphBuilder.screen(route: String, content: @Composable (NavBackStackEntry) -> Unit) =
+  composable(route) { entry -> CompositionLocalProvider(LocalAnimScope provides this) { content(entry) } }
 
 private data class Tab(val route: String, val label: String, val icon: Int)
 
@@ -267,7 +310,7 @@ private fun NavIsland(c: NavController, modifier: Modifier = Modifier) {
 
 /** The mini player: wavy progress while playing (flat when paused), a morphing play button. */
 @Composable
-private fun MiniPlayer(onOpen: () -> Unit) {
+private fun MiniPlayer(playerOpen: Boolean, onOpen: () -> Unit) {
   val s by PlayerConn.state.collectAsStateWithLifecycle()
   val t = s.track ?: return
   // the position is read while drawing: the bar moves without recomposing the row
@@ -284,11 +327,30 @@ private fun MiniPlayer(onOpen: () -> Unit) {
       .clickable(interactionSource = interaction, indication = LocalIndication.current, onClick = onOpen),
   ) {
     Row(Modifier.padding(start = 8.dp, top = 8.dp, bottom = 6.dp, end = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-      Cover(t.coverUrl, Modifier.size(48.dp), RoundedCornerShape(16.dp))
+      val shared = LocalShared.current
+      Cover(
+        t.coverUrl,
+        Modifier.size(48.dp).then(
+          if (shared == null) Modifier
+          else with(shared) { Modifier.sharedElementWithCallerManagedVisibility(rememberSharedContentState("np:${t.id}"), !playerOpen, Motion.coverBounds) },
+        ),
+        RoundedCornerShape(16.dp),
+      )
       Spacer(Modifier.width(12.dp))
-      Column(Modifier.weight(1f)) {
-        Text(t.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, modifier = Modifier.basicMarquee())
-        Text(t.artists, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+      AnimatedContent(
+        targetState = t,
+        contentKey = { it.id },
+        transitionSpec = {
+          (slideInVertically(Motion.expressive.defaultSpatialSpec()) { it / 2 } + fadeIn(Motion.expressive.defaultEffectsSpec()))
+            .togetherWith(slideOutVertically(Motion.expressive.fastSpatialSpec()) { -it / 2 } + fadeOut(Motion.expressive.fastEffectsSpec()))
+        },
+        modifier = Modifier.weight(1f),
+        label = "mini-track",
+      ) { x ->
+        Column {
+          Text(x.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, modifier = Modifier.basicMarquee())
+          Text(x.artists, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
       }
       LikeButton("track", t.id)
       MorphPlayButton(s.playing, { PlayerConn.toggle() }, 44.dp)

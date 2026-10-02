@@ -61,9 +61,9 @@ fun JobsScreen() {
       if (list != null && list.isEmpty()) item { Text(tr("Сейчас ничего не качается"), color = MaterialTheme.colorScheme.onSurfaceVariant) }
       val active = list.orEmpty().filter { it.status == "running" || it.status == "queued" }.sortedWith(compareBy({ if (it.status == "running") 0 else 1 }, { it.position ?: 0 }))
       val finished = list.orEmpty().filter { it.status == "done" || it.status == "error" }.take(20)
-      items(active) { JobCard(it) }
+      items(active, key = { it.id }) { Box(Modifier.animateItem(Motion.expressive.defaultEffectsSpec(), Motion.expressive.defaultSpatialSpec(), Motion.expressive.fastEffectsSpec())) { JobCard(it) } }
       if (finished.isNotEmpty()) item { SectionTitle(tr("Готово")) }
-      items(finished) { JobCard(it) }
+      items(finished, key = { it.id }) { Box(Modifier.animateItem(Motion.expressive.defaultEffectsSpec(), Motion.expressive.defaultSpatialSpec(), Motion.expressive.fastEffectsSpec())) { JobCard(it) } }
     }
   }
 }

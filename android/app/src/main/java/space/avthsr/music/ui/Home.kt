@@ -282,19 +282,19 @@ private fun LazyListScope.section(s: HomeSection) {
       val nav = LocalNav.current
       val list = s.items.mapNotNull { it.decode(AlbumSummary.serializer()) }
       SectionTitle(tr(s.title), s.subtitle?.let { tr(it) })
-      CardRow(list) { a -> MediaCard(a.title, listOfNotNull(a.artist.name, a.year?.toString()).joinToString(" · "), a.coverUrl, { nav.album(a.id) }, menu = { e, c -> AlbumMenu(a.id, a.title, a.artist.id, a.artist.name, e, c) }) }
+      CardRow(list) { a -> MediaCard(a.title, listOfNotNull(a.artist.name, a.year?.toString()).joinToString(" · "), a.coverUrl, { nav.album(a.id) }, share = "album:${a.id}", menu = { e, c -> AlbumMenu(a.id, a.title, a.artist.id, a.artist.name, e, c) }) }
     }
     "artists" -> item {
       val nav = LocalNav.current
       val list = s.items.mapNotNull { it.decode(ArtistSummary.serializer()) }
       SectionTitle(tr(s.title), s.subtitle?.let { tr(it) })
-      CardRow(list) { a -> MediaCard(a.name, "", a.imageUrl, { nav.artist(a.id) }, circle = true, width = 124.dp) }
+      CardRow(list) { a -> MediaCard(a.name, "", a.imageUrl, { nav.artist(a.id) }, share = "artist:${a.id}", circle = true, width = 124.dp) }
     }
     "playlists" -> item {
       val nav = LocalNav.current
       val list = s.items.mapNotNull { it.decode(PlaylistSummary.serializer()) }
       SectionTitle(tr(s.title), s.subtitle?.let { tr(it) })
-      CardRow(list) { p -> MediaCard(p.title, p.owner?.displayName ?: "", p.coverUrl ?: p.mosaic.firstOrNull(), { nav.playlist(p.id) }, menu = { e, c -> PlaylistMenu(p, e, c) }) }
+      CardRow(list) { p -> MediaCard(p.title, p.owner?.displayName ?: "", p.coverUrl ?: p.mosaic.firstOrNull(), { nav.playlist(p.id) }, share = "playlist:${p.id}", menu = { e, c -> PlaylistMenu(p, e, c) }) }
     }
     "genres" -> item {
       val list = s.items.mapNotNull { it.decode(Genre.serializer()) }

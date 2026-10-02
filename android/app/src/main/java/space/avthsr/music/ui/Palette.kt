@@ -1,6 +1,8 @@
 // Colours, as on the site: light / dark / system scheme; colours from Android (12+), from the cover of
 // the playing track, or from a chosen seed colour; the Material palette variant and the contrast level.
 // Schemes come from Material's colour science (MaterialKolor port of material-color-utilities).
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
+
 package space.avthsr.music.ui
 
 import space.avthsr.music.tr
@@ -136,7 +138,7 @@ suspend fun coverSeed(context: Context, url: String): Int? = withContext(Dispatc
 
 /** The scheme with each colour sliding to its new value (the cover changes with every track). */
 @Composable
-private fun slide(c: Color): Color = animateColorAsState(c, tween(700), label = "scheme").value
+private fun slide(c: Color): Color = animateColorAsState(c, Motion.expressive.slowEffectsSpec(), label = "scheme").value
 
 @Composable
 fun animated(s: ColorScheme): ColorScheme {

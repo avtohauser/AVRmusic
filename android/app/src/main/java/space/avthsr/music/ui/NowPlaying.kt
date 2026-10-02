@@ -3,6 +3,12 @@
 package space.avthsr.music.ui
 
 import space.avthsr.music.tr
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.scaleOut
 import android.os.SystemClock
 import space.avthsr.music.api.LyricLine
 import androidx.compose.ui.graphics.TransformOrigin
@@ -123,6 +129,10 @@ fun NowPlayingScreen(onClose: () -> Unit) {
   val lyricsShown = lyricsMode && t?.hasLyrics == true
   var menu by remember { mutableStateOf(false) }
   var pull by remember { mutableFloatStateOf(0f) }
+  val scope = rememberCoroutineScope()
+  fun settle() {
+    scope.launch { animate(pull, 0f, animationSpec = Motion.expressive.fastSpatialSpec()) { v, _ -> pull = v } }
+  }
   val inWave = context == Queue.WAVE
   val coverScale by animateFloatAsState(if (s.playing) 1f else 0.86f, MaterialTheme.motionScheme.slowSpatialSpec(), label = "cover")
   val veil by animateFloatAsState(if (lyricsShown) 1f else 0f, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "veil")
@@ -133,8 +143,8 @@ fun NowPlayingScreen(onClose: () -> Unit) {
       .background(cs.background)
       .pointerInput(Unit) {
         detectVerticalDragGestures(
-          onDragEnd = { if (pull > 220f) onClose(); pull = 0f },
-          onDragCancel = { pull = 0f },
+          onDragEnd = { if (pull > 220f) onClose() else settle() },
+          onDragCancel = { settle() },
         ) { change, dy -> change.consume(); pull = max(0f, pull + dy) }
       },
   ) {
@@ -177,30 +187,52 @@ fun NowPlayingScreen(onClose: () -> Unit) {
           when {
             lyrics && t != null -> LyricsPane(t, Modifier.fillMaxSize())
             canvas -> Spacer(Modifier.fillMaxSize())
-            else -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-              Crossfade(targetState = t?.coverUrl, label = "cover") { url ->
-                Cover(
-                  url,
-                  Modifier.widthIn(max = 420.dp).fillMaxWidth().aspectRatio(1f)
-                    .graphicsLayer { scaleX = coverScale; scaleY = coverScale }
-                    .shadow(28.dp, RoundedCornerShape(32.dp)),
-                  RoundedCornerShape(32.dp),
-                )
-              }
+            // a new track's cover grows in as the old one swells and fades; the cover itself flows
+            // from the mini player when the player opens and back when it closes
+            else -> AnimatedContent(
+              targetState = t,
+              contentKey = { it?.id },
+              transitionSpec = {
+                (fadeIn(motion.defaultEffectsSpec()) + scaleIn(motion.defaultSpatialSpec(), initialScale = 0.82f))
+                  .togetherWith(fadeOut(motion.fastEffectsSpec()) + scaleOut(motion.fastSpatialSpec(), targetScale = 1.06f))
+              },
+              modifier = Modifier.fillMaxSize(),
+              contentAlignment = Alignment.Center,
+              label = "cover",
+            ) { x ->
+              Cover(
+                x?.coverUrl,
+                Modifier.widthIn(max = 420.dp).fillMaxWidth().aspectRatio(1f)
+                  .sharedCover(x?.let { "np:${it.id}" })
+                  .graphicsLayer { scaleX = coverScale; scaleY = coverScale }
+                  .shadow(28.dp, RoundedCornerShape(32.dp)),
+                RoundedCornerShape(32.dp),
+              )
             }
           }
         }
       }
 
       Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
-          Text(t?.title ?: tr("Ничего не играет"), style = MaterialTheme.typography.headlineSmall, maxLines = 1, modifier = Modifier.basicMarquee())
+        AnimatedContent(
+          targetState = t,
+          contentKey = { ix?.id },
+          transitionSpec = {
+            (slideInVertically(Motion.expressive.defaultSpatialSpec()) { it / 3 } + fadeIn(Motion.expressive.defaultEffectsSpec()))
+              .togetherWith(slideOutVertically(Motion.expressive.fastSpatialSpec()) { -it / 3 } + fadeOut(Motion.expressive.fastEffectsSpec()))
+          },
+          modifier = Modifier.weight(1f),
+          label = "title",
+        ) { x ->
+        Column {
+          Text(x?.title ?: tr("Ничего не играет"), style = MaterialTheme.typography.headlineSmall, maxLines = 1, modifier = Modifier.basicMarquee())
           Text(
-            t?.artists ?: "", style = MaterialTheme.typography.titleMedium, color = cs.primary, maxLines = 1, overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable(enabled = !t?.artist?.id.isNullOrEmpty()) {
-              t?.let { onClose(); nav.artist(it.artist.id) }
+            x?.artists ?: "", style = MaterialTheme.typography.titleMedium, color = cs.primary, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable(enabled = !x?.artist?.id.isNullOrEmpty()) {
+              x?.let { onClose(); nav.artist(it.artist.id) }
             },
           )
+        }
         }
       }
       val reason = t?.reason

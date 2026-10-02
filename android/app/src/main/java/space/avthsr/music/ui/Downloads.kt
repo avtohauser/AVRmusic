@@ -2,6 +2,7 @@
 
 package space.avthsr.music.ui
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Surface
 import space.avthsr.music.tr
@@ -154,10 +155,12 @@ fun DownloadsScreen() {
           Modifier.padding(20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
       }
-      itemsIndexed(tracks) { i, t ->
+      itemsIndexed(tracks, key = { _, t -> t.id }) { i, t ->
+        Box(Modifier.animateItem(Motion.expressive.defaultEffectsSpec(), Motion.expressive.defaultSpatialSpec(), Motion.expressive.fastEffectsSpec())) {
         TrackRow(t, onClick = { PlayerConn.play(tracks, i, "offline") }, subtitle = "${t.artists} · ${fmtBytes(list[i].size)}", menuExtra = { close ->
           DropdownMenuItem(text = { Text(tr("Удалить из офлайн")) }, leadingIcon = { Ico(R.drawable.ic_delete) }, onClick = { close(); Offline.remove(listOf(t.id)) })
         })
+        }
       }
     }
   }

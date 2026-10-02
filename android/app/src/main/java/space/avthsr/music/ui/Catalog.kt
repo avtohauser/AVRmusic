@@ -113,7 +113,12 @@ fun CatalogTrackRow(t: CatalogTrack, index: Int? = null, cover: String? = t.albu
 @Composable
 fun CatalogAlbumCard(a: CatalogAlbum, subtitle: String = listOfNotNull(a.artist.name, a.year?.toString()).joinToString(" · ")) {
   val nav = LocalNav.current
-  MediaCard(a.title, subtitle, a.coverUrl, { if (a.libraryAlbumId != null && a.inLibrary >= a.trackCount) nav.album(a.libraryAlbumId) else nav.catalogAlbum(a.id) })
+  val inLibrary = a.libraryAlbumId != null && a.inLibrary >= a.trackCount
+  MediaCard(
+    a.title, subtitle, a.coverUrl,
+    { if (inLibrary && a.libraryAlbumId != null) nav.album(a.libraryAlbumId) else nav.catalogAlbum(a.id) },
+    share = if (inLibrary) "album:${a.libraryAlbumId}" else "calbum:${a.id}",
+  )
 }
 
 @Composable
@@ -125,6 +130,7 @@ fun CatalogAlbumScreen(id: Long) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = screenPadding(bottom = 24.dp, hero = true)) {
       item {
         Header(
+          share = "calbum:$id",
           cover = a.coverUrl,
           title = a.title,
           subtitle = a.artist.name,
@@ -155,7 +161,7 @@ fun CatalogArtistScreen(id: Long) {
     val a = p.artist
     LazyColumn(Modifier.fillMaxSize(), contentPadding = screenPadding(bottom = 24.dp, hero = true)) {
       item {
-        Header(cover = a.imageUrl, title = a.name, meta = if (a.fans > 0) tr("{} поклонников в Deezer", a.fans) else "", circle = true) {
+        Header(share = "cartist:$id", cover = a.imageUrl, title = a.name, meta = if (a.fans > 0) tr("{} поклонников в Deezer", a.fans) else "", circle = true) {
           if (a.libraryArtistId != null) FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { nav.artist(a.libraryArtistId) }) { Text(tr("В медиатеке")) }
           Button(shapes = ButtonDefaults.shapes(), onClick = { confirm = true }) { Text(tr("Вся дискография")) }
         }
@@ -168,7 +174,7 @@ fun CatalogArtistScreen(id: Long) {
       if (p.singles.isNotEmpty()) item { SectionTitle(tr("Синглы и EP")); CardRow(p.singles) { CatalogAlbumCard(it, it.year?.toString() ?: "") } }
       if (p.related.isNotEmpty()) item {
         SectionTitle(tr("Похожие"))
-        CardRow(p.related) { r -> MediaCard(r.name, "", r.imageUrl, { nav.catalogArtist(r.id) }, circle = true, width = 124.dp) }
+        CardRow(p.related) { r -> MediaCard(r.name, "", r.imageUrl, { nav.catalogArtist(r.id) }, share = "cartist:${r.id}", circle = true, width = 124.dp) }
       }
     }
     if (confirm) AlertDialog(
@@ -224,13 +230,14 @@ fun Header(
   onSubtitle: (() -> Unit)? = null,
   meta: String = "",
   circle: Boolean = false,
+  share: String? = null,
   actions: @Composable () -> Unit = {},
 ) {
   val cs = MaterialTheme.colorScheme
   Box(Modifier.fillMaxWidth()) {
     Backdrop(cover)
     Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 56.dp + LocalEdges.current.top, bottom = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-      Cover(cover, Modifier.size(224.dp), if (circle) ArtistShape else RoundedCornerShape(28.dp), if (circle) R.drawable.ic_person else R.drawable.ic_album)
+      Cover(cover, Modifier.size(224.dp).sharedCover(share), if (circle) ArtistShape else RoundedCornerShape(28.dp), if (circle) R.drawable.ic_person else R.drawable.ic_album)
       Spacer(Modifier.height(18.dp))
       FlowText(title, MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center, maxLines = 3)
       if (subtitle != null) {

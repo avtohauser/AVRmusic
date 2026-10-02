@@ -2,6 +2,16 @@
 
 package space.avthsr.music.ui
 
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.Immutable
 import space.avthsr.music.tr
@@ -113,7 +123,13 @@ fun Cover(url: String?, modifier: Modifier = Modifier, shape: Shape = RoundedCor
   Box(modifier.clip(shape).background(MaterialTheme.colorScheme.surfaceContainerHighest), contentAlignment = Alignment.Center) {
     val u = Api.img(url)
     if (u == null) Ico(placeholder, null, Modifier.fillMaxSize(0.42f), MaterialTheme.colorScheme.onSurfaceVariant)
-    else AsyncImage(model = u, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+    else {
+      // whatever size of this cover is already in memory shows at once while the right size loads,
+      // so a cover flying from a card into a page never blinks empty
+      val context = androidx.compose.ui.platform.LocalContext.current
+      val request = remember(u) { coil.request.ImageRequest.Builder(context).data(u).placeholderMemoryCacheKey(u).crossfade(true).build() }
+      AsyncImage(model = request, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+    }
   }
 }
 
@@ -176,7 +192,18 @@ fun <T> rememberLoad(vararg keys: Any?, load: suspend () -> T): Loader<T> {
 
 @Composable
 fun <T> Loaded(loader: Loader<T>, content: @Composable (T) -> Unit) {
-  when (val s = loader.state) {
+  // loading, error and content fade through one another on the effects spring
+  AnimatedContent(
+    targetState = loader.state,
+    contentKey = { it::class },
+    transitionSpec = { fadeIn(Motion.expressive.defaultEffectsSpec()).togetherWith(fadeOut(Motion.expressive.fastEffectsSpec())) },
+    label = "load",
+  ) { state -> LoadState(state, loader, content) }
+}
+
+@Composable
+private fun <T> LoadState(state: Load<T>, loader: Loader<T>, content: @Composable (T) -> Unit) {
+  when (val s = state) {
     is Load.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { LoadingIndicator() }
     is Load.Err -> Column(
       Modifier.fillMaxSize().padding(32.dp),
@@ -213,16 +240,25 @@ fun MediaCard(
   circle: Boolean = false,
   width: Dp = 148.dp,
   menu: (@Composable (expanded: Boolean, close: () -> Unit) -> Unit)? = null,
+  share: String? = null,
 ) {
   var open by remember { mutableStateOf(false) }
+  // this card's identity, so only the tapped copy of a cover flies into the page (and back)
+  val token = rememberSaveable { java.util.UUID.randomUUID().toString() }
+  val interaction = remember { MutableInteractionSource() }
   Box {
   Column(
-    Modifier.width(width).clip(RoundedCornerShape(18.dp))
-      .combinedClickable(onClick = onClick, onLongClick = menu?.let { { open = true } })
+    Modifier.width(width).pressSquash(interaction, 0.96f).clip(RoundedCornerShape(18.dp))
+      .combinedClickable(
+        interactionSource = interaction,
+        indication = LocalIndication.current,
+        onClick = { if (share != null) SharedCover.tap(token, share); onClick() },
+        onLongClick = menu?.let { { open = true } },
+      )
       .padding(6.dp),
     horizontalAlignment = if (circle) Alignment.CenterHorizontally else Alignment.Start,
   ) {
-    Cover(cover, Modifier.size(width - 12.dp), if (circle) ArtistShape else RoundedCornerShape(16.dp), if (circle) R.drawable.ic_person else R.drawable.ic_album)
+    Cover(cover, Modifier.size(width - 12.dp).sharedCover(share, token), if (circle) ArtistShape else RoundedCornerShape(16.dp), if (circle) R.drawable.ic_person else R.drawable.ic_album)
     Spacer(Modifier.height(8.dp))
     Text(title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = if (circle) TextAlign.Center else TextAlign.Start)
     if (subtitle.isNotEmpty()) {
@@ -409,10 +445,22 @@ fun toggleLike(type: String, id: String) {
 fun LikeButton(type: String, id: String) {
   val liked by Likes.of(type).collectAsStateWithLifecycle()
   val on = id in liked
+  // the heart pops on the expressive spring when it changes, and its colour slides
+  val pop = remember { Animatable(1f) }
+  var was by remember { mutableStateOf(on) }
+  LaunchedEffect(on) {
+    if (was != on) {
+      was = on
+      pop.snapTo(if (on) 0.6f else 0.85f)
+      pop.animateTo(1f, Motion.expressive.fastSpatialSpec())
+    }
+  }
+  val tint by animateColorAsState(if (on) MaterialTheme.colorScheme.primary else LocalContentColor.current, Motion.expressive.defaultEffectsSpec(), label = "heart")
   IconButton(onClick = { toggleLike(type, id) }, shapes = IconButtonDefaults.shapes()) {
     Ico(
       if (on) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline, if (on) tr("Убрать из избранного") else tr("В избранное"),
-      tint = if (on) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+      Modifier.graphicsLayer { scaleX = pop.value; scaleY = pop.value },
+      tint = tint,
     )
   }
 }

@@ -157,20 +157,20 @@ fun SearchScreen() {
             if (r.artists.isNotEmpty()) {
               if (type == "all") item {
                 SectionTitle(tr("Исполнители"))
-                CardRow(r.artists) { a -> MediaCard(a.name, "", a.imageUrl, { keep(); nav.artist(a.id) }, circle = true, width = 124.dp) }
-              } else items(r.artists) { a -> ResultRow(a.imageUrl, a.name, tr("Исполнитель"), circle = true) { keep(); nav.artist(a.id) } }
+                CardRow(r.artists) { a -> MediaCard(a.name, "", a.imageUrl, { keep(); nav.artist(a.id) }, share = "artist:${a.id}", circle = true, width = 124.dp) }
+              } else items(r.artists) { a -> ResultRow(a.imageUrl, a.name, tr("Исполнитель"), circle = true, share = "artist:${a.id}") { keep(); nav.artist(a.id) } }
             }
             if (r.albums.isNotEmpty()) {
               if (type == "all") item {
                 SectionTitle(tr("Альбомы"))
-                CardRow(r.albums) { a -> MediaCard(a.title, a.artist.name, a.coverUrl, { keep(); nav.album(a.id) }, menu = { e, c -> AlbumMenu(a.id, a.title, a.artist.id, a.artist.name, e, c) }) }
-              } else items(r.albums) { a -> ResultRow(a.coverUrl, a.title, listOfNotNull(albumType(a.type), a.artist.name, a.year?.toString()).joinToString(" · "), menu = { e, c -> AlbumMenu(a.id, a.title, a.artist.id, a.artist.name, e, c) }) { keep(); nav.album(a.id) } }
+                CardRow(r.albums) { a -> MediaCard(a.title, a.artist.name, a.coverUrl, { keep(); nav.album(a.id) }, share = "album:${a.id}", menu = { e, c -> AlbumMenu(a.id, a.title, a.artist.id, a.artist.name, e, c) }) }
+              } else items(r.albums) { a -> ResultRow(a.coverUrl, a.title, listOfNotNull(albumType(a.type), a.artist.name, a.year?.toString()).joinToString(" · "), menu = { e, c -> AlbumMenu(a.id, a.title, a.artist.id, a.artist.name, e, c) }, share = "album:${a.id}") { keep(); nav.album(a.id) } }
             }
             if (r.playlists.isNotEmpty()) {
               if (type == "all") item {
                 SectionTitle(tr("Плейлисты"))
-                CardRow(r.playlists) { p -> MediaCard(p.title, p.owner?.displayName ?: "", p.coverUrl ?: p.mosaic.firstOrNull(), { keep(); nav.playlist(p.id) }, menu = { e, c -> PlaylistMenu(p, e, c) }) }
-              } else items(r.playlists) { p -> ResultRow(p.coverUrl ?: p.mosaic.firstOrNull(), p.title, listOfNotNull(p.owner?.displayName, tracksWord(p.trackCount)).joinToString(" · "), menu = { e, c -> PlaylistMenu(p, e, c) }) { keep(); nav.playlist(p.id) } }
+                CardRow(r.playlists) { p -> MediaCard(p.title, p.owner?.displayName ?: "", p.coverUrl ?: p.mosaic.firstOrNull(), { keep(); nav.playlist(p.id) }, share = "playlist:${p.id}", menu = { e, c -> PlaylistMenu(p, e, c) }) }
+              } else items(r.playlists) { p -> ResultRow(p.coverUrl ?: p.mosaic.firstOrNull(), p.title, listOfNotNull(p.owner?.displayName, tracksWord(p.trackCount)).joinToString(" · "), menu = { e, c -> PlaylistMenu(p, e, c) }, share = "playlist:${p.id}") { keep(); nav.playlist(p.id) } }
             }
           }
         }
@@ -184,7 +184,7 @@ fun SearchScreen() {
           items(c.tracks.take(8)) { CatalogTrackRow(it) }
           if (c.albums.isNotEmpty()) item { CardRow(c.albums) { CatalogAlbumCard(it) } }
           if (c.artists.isNotEmpty()) item {
-            CardRow(c.artists) { a -> MediaCard(a.name, "", a.imageUrl, { nav.catalogArtist(a.id) }, circle = true, width = 124.dp) }
+            CardRow(c.artists) { a -> MediaCard(a.name, "", a.imageUrl, { nav.catalogArtist(a.id) }, share = "cartist:${a.id}", circle = true, width = 124.dp) }
           }
         }
       }
@@ -199,15 +199,17 @@ private fun ResultRow(
   subtitle: String,
   circle: Boolean = false,
   menu: (@Composable (expanded: Boolean, close: () -> Unit) -> Unit)? = null,
+  share: String? = null,
   onClick: () -> Unit,
 ) {
   var open by remember { mutableStateOf(false) }
+  val token = rememberSaveable { java.util.UUID.randomUUID().toString() }
   Row(
-    Modifier.fillMaxWidth().combinedClickable(onClick = onClick, onLongClick = menu?.let { { open = true } })
+    Modifier.fillMaxWidth().combinedClickable(onClick = { if (share != null) SharedCover.tap(token, share); onClick() }, onLongClick = menu?.let { { open = true } })
       .padding(start = 16.dp, end = if (menu != null) 4.dp else 16.dp, top = 8.dp, bottom = 8.dp),
     verticalAlignment = Alignment.CenterVertically,
   ) {
-    Cover(cover, Modifier.size(56.dp), if (circle) ArtistShape else RoundedCornerShape(14.dp), if (circle) R.drawable.ic_person else R.drawable.ic_album)
+    Cover(cover, Modifier.size(56.dp).sharedCover(share, token), if (circle) ArtistShape else RoundedCornerShape(14.dp), if (circle) R.drawable.ic_person else R.drawable.ic_album)
     Spacer(Modifier.width(14.dp))
     Column(Modifier.weight(1f)) {
       Text(title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)

@@ -1,23 +1,12 @@
 package space.avthsr.music.ui
 
-import android.annotation.SuppressLint
-import android.app.DownloadManager
-import android.content.Context
-import android.net.Uri
-import android.os.Environment
-import android.webkit.CookieManager
-import android.webkit.URLUtil
-import android.webkit.ValueCallback
-import android.webkit.WebChromeClient
-import android.webkit.WebView
-import android.webkit.WebViewClient
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -26,72 +15,142 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
-import org.json.JSONObject
 import space.avthsr.music.App
 import space.avthsr.music.BuildConfig
 import space.avthsr.music.R
 import space.avthsr.music.api.Api
 import space.avthsr.music.api.Likes
+import space.avthsr.music.api.changePassword
+import space.avthsr.music.api.clearHistory
+import space.avthsr.music.api.history
+import space.avthsr.music.api.myStats
+import space.avthsr.music.api.removeAvatar
+import space.avthsr.music.api.updateProfile
+import space.avthsr.music.api.uploadAvatar
 import space.avthsr.music.player.PlayerConn
 
 @Composable
 fun ProfileScreen() {
   val nav = LocalNav.current
+  val context = LocalContext.current
   val session by Api.session.collectAsStateWithLifecycle()
   val u = session?.user ?: return
   val cs = MaterialTheme.colorScheme
+  var editName by remember { mutableStateOf(false) }
+  var editPassword by remember { mutableStateOf(false) }
+  var avatarMenu by remember { mutableStateOf(false) }
+  var logout by remember { mutableStateOf(false) }
+  val stats = rememberLoad(Unit) { Api.myStats() }
+  val pickAvatar = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+    if (uri != null) act("Аватар обновлён") { Api.uploadAvatar(context, uri) }
+  }
+
   Page {
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, top = 64.dp, bottom = 24.dp)) {
-      Row(verticalAlignment = Alignment.CenterVertically) {
-        Cover(u.avatarUrl, Modifier.size(80.dp), CircleShape, R.drawable.ic_person)
-        Spacer(Modifier.width(16.dp))
-        Column {
-          Text(u.displayName.ifBlank { u.username }, style = MaterialTheme.typography.headlineSmall)
-          Text("@${u.username}" + if (u.isAdmin) " · администратор" else "", color = cs.onSurfaceVariant)
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 56.dp, bottom = 24.dp)) {
+      item {
+        Row(Modifier.padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+          Box {
+            Cover(u.avatarUrl, Modifier.size(88.dp).clickable { avatarMenu = true }, CircleShape, R.drawable.ic_person)
+            DropdownMenu(expanded = avatarMenu, onDismissRequest = { avatarMenu = false }) {
+              DropdownMenuItem(text = { Text("Выбрать фото") }, onClick = { avatarMenu = false; pickAvatar.launch("image/*") })
+              if (u.avatarUrl != null) DropdownMenuItem(text = { Text("Убрать фото") }, onClick = { avatarMenu = false; act("Фото убрано") { Api.removeAvatar() } })
+            }
+          }
+          Spacer(Modifier.width(16.dp))
+          Column(Modifier.weight(1f)) {
+            Text(u.displayName.ifBlank { u.username }, style = MaterialTheme.typography.headlineSmall)
+            Text("@${u.username}" + if (u.isAdmin) " · администратор" else "", color = cs.onSurfaceVariant)
+            Text(u.email, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+          }
         }
       }
-      Spacer(Modifier.height(24.dp))
-      if (u.isAdmin) ProfileItem(R.drawable.ic_settings, "Админ-панель", "Пользователи, приглашения, статистика, загрузка файлов") { nav.web("/admin") }
-      ProfileItem(R.drawable.ic_sparkle, "Предложка", "Новая музыка для вас") { nav.discover() }
-      ProfileItem(R.drawable.ic_download, "Загрузки на сервер", "Что сейчас качается и кто в очереди") { nav.jobs() }
-      ProfileItem(R.drawable.ic_person, "Профиль на сайте", "Имя, аватар, пароль, история") { nav.web("/profile") }
-      ProfileItem(R.drawable.ic_web, "Веб-версия", "Сайт целиком внутри приложения") { nav.web("/") }
-      ProfileItem(R.drawable.ic_logout, "Выйти", "") {
-        App.scope.launch {
-          PlayerConn.stop()
-          Api.logout()
-          Likes.clear()
+      val s = stats.data
+      if (s != null) {
+        item { SectionTitle("Статистика") }
+        item { StatGrid(listOf(s.plays.toString() to "прослушиваний", fmtListened(s.msListened) to "музыки всего")) }
+        if (s.topArtists.isNotEmpty()) item {
+          SectionTitle("Чаще всего слушаете")
+          CardRow(s.topArtists) { a -> MediaCard(a.name, "", a.imageUrl, { nav.artist(a.id) }, circle = true, width = 116.dp) }
+        }
+        if (s.topTracks.isNotEmpty()) {
+          item { SectionTitle("Любимые треки по прослушиваниям") }
+          itemsIndexed(s.topTracks.take(5)) { i, t -> TrackRow(t, onClick = { PlayerConn.play(s.topTracks, i, "top") }) }
+        }
+        if (s.topGenres.isNotEmpty()) item {
+          Text(
+            "Жанры: " + s.topGenres.joinToString(", ") { it.name },
+            Modifier.padding(horizontal = 20.dp, vertical = 8.dp), style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant,
+          )
         }
       }
-      Spacer(Modifier.height(24.dp))
-      Text("AVRmusic для Android ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+      item { SectionTitle("Аккаунт") }
+      item {
+        Column(Modifier.padding(horizontal = 16.dp)) {
+          if (u.isAdmin) ProfileItem(R.drawable.ic_settings, "Админ-панель", "Пользователи, приглашения, загрузки, аккаунты YouTube, треки") { nav.route("admin") }
+          ProfileItem(R.drawable.ic_queue, "История прослушиваний", "Что и когда вы слушали") { nav.route("history") }
+          ProfileItem(R.drawable.ic_download, "Загрузки на сервер", "Что сейчас качается и кто в очереди") { nav.jobs() }
+          ProfileItem(R.drawable.ic_sparkle, "Предложка", "Новая музыка для вас") { nav.discover() }
+          ProfileItem(R.drawable.ic_person, "Имя и email", u.displayName.ifBlank { u.username }) { editName = true }
+          ProfileItem(R.drawable.ic_settings, "Сменить пароль", "") { editPassword = true }
+          ProfileItem(R.drawable.ic_logout, "Выйти", "") { logout = true }
+          Spacer(Modifier.height(16.dp))
+          Text("AVRmusic для Android ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+        }
+      }
+    }
+  }
+
+  if (editName) FormDialog(
+    "Имя и email",
+    listOf(Field("Как вас называть", u.displayName), Field("Email", u.email)),
+    onDismiss = { editName = false },
+  ) { v -> act("Сохранено") { Api.updateProfile(v[0], v[1]) } }
+
+  if (editPassword) FormDialog(
+    "Сменить пароль",
+    listOf(Field("Текущий пароль", password = true), Field("Новый пароль", password = true), Field("Новый пароль ещё раз", password = true)),
+    onDismiss = { editPassword = false },
+  ) { v ->
+    when {
+      v[1].length < 6 -> App.say("Новый пароль — не короче 6 символов")
+      v[1] != v[2] -> App.say("Пароли не совпадают")
+      else -> act("Пароль изменён") { Api.changePassword(v[0], v[1]) }
+    }
+  }
+
+  if (logout) ConfirmDialog("Выйти из аккаунта?", "Музыка остановится, вход понадобится снова.", "Выйти", { logout = false }) {
+    App.scope.launch {
+      PlayerConn.stop()
+      Api.logout()
+      Likes.clear()
     }
   }
 }
 
 @Composable
-private fun ProfileItem(icon: Int, title: String, subtitle: String, onClick: () -> Unit) {
+fun ProfileItem(icon: Int, title: String, subtitle: String, onClick: () -> Unit) {
   val cs = MaterialTheme.colorScheme
   Row(
     Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(20.dp)).background(cs.surfaceContainer).clickable(onClick = onClick).padding(16.dp),
@@ -108,87 +167,30 @@ private fun ProfileItem(icon: Int, title: String, subtitle: String, onClick: () 
   }
 }
 
-/**
- * A page of the site inside the app (the admin panel, uploads, profile). It gets its own session from
- * the server, put where the site keeps it, so it opens signed in.
- */
-@SuppressLint("SetJavaScriptEnabled")
+/** Everything the user played, newest first. */
 @Composable
-fun WebScreen(path: String) {
-  val nav = LocalNav.current
-  var view by remember { mutableStateOf<WebView?>(null) }
-  var auth by remember { mutableStateOf<String?>(null) }
-  var failed by remember { mutableStateOf(false) }
-  var fileCallback by remember { mutableStateOf<ValueCallback<Array<Uri>>?>(null) }
-  val picker = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
-    fileCallback?.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(r.resultCode, r.data))
-    fileCallback = null
-  }
-  LaunchedEffect(Unit) {
-    auth = try { Api.forkSession() } catch (e: Exception) { failed = true; "" }
-  }
-  BackHandler {
-    val v = view
-    if (v != null && v.canGoBack()) v.goBack() else nav.back()
-  }
-  DisposableEffect(Unit) { onDispose { view?.destroy() } }
-
-  val session = auth
-  if (session == null) {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-    return
-  }
-  Box(Modifier.fillMaxSize()) {
-    AndroidView(
-      modifier = Modifier.fillMaxSize(),
-      factory = { ctx ->
-        WebView(ctx).apply {
-          settings.javaScriptEnabled = true
-          settings.domStorageEnabled = true
-          settings.mediaPlaybackRequiresUserGesture = true
-          setBackgroundColor(android.graphics.Color.parseColor("#141218"))
-          var injected = session.isEmpty()
-          webViewClient = object : WebViewClient() {
-            override fun onPageFinished(v: WebView, url: String?) {
-              if (injected) return
-              injected = true
-              // the site keeps its session in localStorage['avr.auth']: hand it ours once and reload
-              val js = "(function(){if(localStorage.getItem('avr.auth'))return 0;localStorage.setItem('avr.auth'," +
-                JSONObject.quote(session) + ");return 1})()"
-              v.evaluateJavascript(js) { r -> if (r == "1") v.reload() }
-            }
+fun HistoryScreen() {
+  var version by remember { mutableIntStateOf(0) }
+  val loader = rememberLoad(version) { Api.history() }
+  var clear by remember { mutableStateOf(false) }
+  Page {
+    Loaded(loader) { list ->
+      LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 56.dp, bottom = 24.dp)) {
+        item {
+          Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("История", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
+            if (list.isNotEmpty()) IconButton(onClick = { clear = true }) { Ico(R.drawable.ic_close, "Очистить") }
           }
-          webChromeClient = object : WebChromeClient() {
-            override fun onShowFileChooser(w: WebView, cb: ValueCallback<Array<Uri>>, params: WebChromeClient.FileChooserParams): Boolean {
-              fileCallback?.onReceiveValue(null)
-              fileCallback = cb
-              return try {
-                picker.launch(params.createIntent())
-                true
-              } catch (e: Exception) {
-                fileCallback = null
-                false
-              }
-            }
-          }
-          setDownloadListener { url, userAgent, disposition, mime, _ ->
-            runCatching {
-              val name = URLUtil.guessFileName(url, disposition, mime)
-              val req = DownloadManager.Request(Uri.parse(url))
-                .setMimeType(mime)
-                .addRequestHeader("User-Agent", userAgent)
-                .addRequestHeader("Cookie", CookieManager.getInstance().getCookie(url) ?: "")
-                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, name)
-              (ctx.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager).enqueue(req)
-              App.say("Загрузка началась: $name")
-            }.onFailure { App.say("Не удалось скачать файл") }
-          }
-          loadUrl(Api.BASE + path)
-          view = this
         }
-      },
-    )
-    if (failed) Text("Не удалось открыть сессию — войдите на сайте", Modifier.align(Alignment.BottomCenter).padding(16.dp), color = MaterialTheme.colorScheme.error)
+        if (list.isEmpty()) item { Text("Пока пусто", Modifier.padding(20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        val tracks = list.map { it.track }
+        itemsIndexed(list) { i, e ->
+          TrackRow(e.track, onClick = { PlayerConn.play(tracks, i, "history") }, subtitle = "${e.track.artists} · ${fmtAgo(e.playedAt)}")
+        }
+      }
+    }
+  }
+  if (clear) ConfirmDialog("Очистить историю?", "Статистика и «Моя волна» начнут учиться заново.", "Очистить", { clear = false }) {
+    act("История очищена", then = { version++ }) { Api.clearHistory() }
   }
 }

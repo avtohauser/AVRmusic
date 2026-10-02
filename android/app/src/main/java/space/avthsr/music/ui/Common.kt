@@ -86,7 +86,6 @@ class Nav(private val c: NavController, val openPlayer: () -> Unit) {
   fun discover() = go("discover")
   fun profile() = go("profile")
   fun jobs() = go("jobs")
-  fun web(path: String) = go("web?path=${Uri.encode(path)}")
   fun route(route: String) = go(route)
   fun back() { c.popBackStack() }
 }
@@ -283,6 +282,9 @@ fun TrackMenu(t: Track, expanded: Boolean, close: () -> Unit, extra: (@Composabl
     t.album?.let { a -> DropdownMenuItem(text = { Text("К альбому") }, leadingIcon = { Ico(R.drawable.ic_album) }, onClick = { close(); nav.album(a.id) }) }
     if (t.artist.id.isNotEmpty()) {
       DropdownMenuItem(text = { Text("К исполнителю") }, leadingIcon = { Ico(R.drawable.ic_person) }, onClick = { close(); nav.artist(t.artist.id) })
+    }
+    if (Api.user?.isAdmin == true) {
+      DropdownMenuItem(text = { Text("Редактировать трек") }, leadingIcon = { Ico(R.drawable.ic_settings) }, onClick = { close(); nav.route("admin/track/${Uri.encode(t.id)}") })
     }
     extra?.invoke(this, close)
   }

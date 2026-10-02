@@ -59,12 +59,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
-import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import androidx.navigation.navArgument
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import space.avthsr.music.App
@@ -149,9 +147,10 @@ private fun Main() {
           composable("genre/{id}") { GenreScreen(it.arguments?.getString("id").orEmpty()) }
           composable("calbum/{id}") { CatalogAlbumScreen(it.arguments?.getString("id")?.toLongOrNull() ?: 0L) }
           composable("cartist/{id}") { CatalogArtistScreen(it.arguments?.getString("id")?.toLongOrNull() ?: 0L) }
-          composable("web?path={path}", arguments = listOf(navArgument("path") { type = NavType.StringType; defaultValue = "/" })) {
-            WebScreen(it.arguments?.getString("path") ?: "/")
-          }
+          composable("history") { HistoryScreen() }
+          composable("admin") { AdminScreen() }
+          composable("admin/user/{id}") { AdminUserScreen(it.arguments?.getString("id").orEmpty()) }
+          composable("admin/track/{id}") { AdminTrackScreen(it.arguments?.getString("id").orEmpty()) }
         }
       }
       AnimatedVisibility(

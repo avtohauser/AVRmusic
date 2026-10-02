@@ -38,6 +38,9 @@ data class Track(
   val featuring: List<ArtistSummary> = emptyList(),
   val album: AlbumRef? = null,
   val trackNo: Int? = null,
+  val discNo: Int? = null,
+  val genre: String? = null,
+  val hasCanvas: Boolean = false,
   val hasLyrics: Boolean = false,
   val hasSyncedLyrics: Boolean = false,
   /** why "My Wave" picked it */
@@ -109,6 +112,7 @@ data class Playlist(
   val title: String,
   val description: String? = null,
   val coverUrl: String? = null,
+  val isPublic: Boolean = false,
   val owner: Owner? = null,
   val trackCount: Int = 0,
   val durationMs: Long = 0,
@@ -232,3 +236,166 @@ data class AcquireJob(
 
 @Serializable
 data class AcquireResult(val jobId: String, val duplicate: Boolean = false)
+
+/* ---------- profile ---------- */
+
+@Serializable
+data class NamedCount(val id: String = "", val name: String = "", val n: Int = 0)
+
+@Serializable
+data class MeStats(
+  val plays: Int = 0,
+  val msListened: Long = 0,
+  val topTracks: List<Track> = emptyList(),
+  val topArtists: List<ArtistSummary> = emptyList(),
+  val topGenres: List<NamedCount> = emptyList(),
+)
+
+@Serializable
+data class HistoryEntry(val id: Long, val playedAt: String, val msPlayed: Long = 0, val context: String? = null, val track: Track)
+
+/* ---------- admin ---------- */
+
+@Serializable
+data class AdminStats(
+  val users: Int = 0, val artists: Int = 0, val albums: Int = 0, val tracks: Int = 0, val playlists: Int = 0,
+  val plays: Long = 0, val storageBytes: Long = 0, val withLyrics: Int = 0, val withCanvas: Int = 0,
+)
+
+@Serializable
+data class DayStat(val day: String, val plays: Int = 0, val ms: Long = 0, val users: Int = 0)
+
+@Serializable
+data class TopTrack(val id: String = "", val title: String = "", val artist: String = "", val plays: Int = 0)
+
+@Serializable
+data class TopArtist(val id: String = "", val name: String = "", val plays: Int = 0)
+
+@Serializable
+data class SourceStat(val source: String = "", val tracks: Int = 0, val bytes: Long = 0)
+
+@Serializable
+data class JobCounts(val done: Int = 0, val error: Int = 0, val queued: Int = 0, val running: Int = 0)
+
+@Serializable
+data class AdminActivity(
+  val daily: List<DayStat> = emptyList(),
+  val topTracks: List<TopTrack> = emptyList(),
+  val topArtists: List<TopArtist> = emptyList(),
+  val sources: List<SourceStat> = emptyList(),
+  val jobs24h: JobCounts = JobCounts(),
+  val activeUsers7d: Int = 0,
+)
+
+@Serializable
+data class AdminUser(
+  val id: String,
+  val email: String = "",
+  val username: String = "",
+  val displayName: String = "",
+  val role: String = "user",
+  val avatarUrl: String? = null,
+  val createdAt: String = "",
+  val canAcquire: Boolean? = null,
+  val disabled: Boolean = false,
+  val lastSeenAt: String? = null,
+  val plays: Int = 0,
+  val msListened: Long = 0,
+  val plays7d: Int = 0,
+  val likes: Int = 0,
+  val playlists: Int = 0,
+  val added: Int = 0,
+  val downloads: Int = 0,
+  val downloadBytes: Long = 0,
+)
+
+@Serializable
+data class RecentPlay(val trackId: String = "", val title: String = "", val artist: String = "", val playedAt: String = "", val msPlayed: Long = 0)
+
+@Serializable
+data class AddedTrack(val trackId: String = "", val title: String = "", val artist: String = "", val createdAt: String = "")
+
+@Serializable
+data class DownloadEntry(val kind: String = "", val refId: String? = null, val title: String? = null, val bytes: Long? = null, val createdAt: String = "")
+
+@Serializable
+data class AdminUserDetail(
+  val user: AdminUser,
+  val daily: List<DayStat> = emptyList(),
+  val topArtists: List<TopArtist> = emptyList(),
+  val topTracks: List<TopTrack> = emptyList(),
+  val recentPlays: List<RecentPlay> = emptyList(),
+  val added: List<AddedTrack> = emptyList(),
+  val downloads: List<DownloadEntry> = emptyList(),
+  val jobs: JobCounts = JobCounts(),
+)
+
+@Serializable
+data class InviteUser(val id: String = "", val username: String = "", val displayName: String = "")
+
+@Serializable
+data class Invite(
+  val code: String,
+  val note: String? = null,
+  val createdAt: String = "",
+  val expiresAt: String? = null,
+  val usedAt: String? = null,
+  val usedBy: InviteUser? = null,
+)
+
+@Serializable
+data class YtAccount(
+  val id: String,
+  val label: String = "",
+  val updatedAt: String = "",
+  val cookies: Int = 0,
+  val loggedIn: Boolean = false,
+  val busy: Boolean = false,
+  val coolingUntil: String? = null,
+  val ok: Int = 0,
+  val failed: Int = 0,
+  val lastError: String? = null,
+  val lastUsedAt: String? = null,
+)
+
+@Serializable
+data class ClientError(
+  val id: Long,
+  val app: String = "",
+  val version: String? = null,
+  val device: String? = null,
+  val message: String = "",
+  val stack: String? = null,
+  @kotlinx.serialization.SerialName("created_at") val createdAt: String = "",
+  val username: String? = null,
+)
+
+@Serializable
+data class ServerJob(
+  val id: String,
+  val kind: String = "",
+  val url: String? = null,
+  val title: String? = null,
+  val status: String = "queued",
+  val progress: Double = 0.0,
+  val log: List<String> = emptyList(),
+  val error: String? = null,
+  val createdAt: String = "",
+  val position: Int? = null,
+  val stats: Map<String, Int>? = null,
+)
+
+@Serializable
+data class Skipped(val file: String = "", val reason: String = "")
+
+@Serializable
+data class UploadResult(val imported: List<Track> = emptyList(), val skipped: List<Skipped> = emptyList())
+
+@Serializable
+data class TrackPage(val items: List<Track> = emptyList(), val total: Int = 0)
+
+@Serializable
+data class AdminLyrics(val lyricsSynced: String? = null, val lyricsPlain: String? = null, val source: String? = null)
+
+@Serializable
+data class NewPassword(val password: String)

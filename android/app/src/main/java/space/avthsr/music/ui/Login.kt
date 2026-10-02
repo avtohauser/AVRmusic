@@ -40,6 +40,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import space.avthsr.music.App
+import space.avthsr.music.MainActivity
+import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import space.avthsr.music.R
 import space.avthsr.music.api.Api
 import space.avthsr.music.api.Likes
@@ -56,6 +59,11 @@ fun LoginScreen() {
   var busy by rememberSaveable { mutableStateOf(false) }
   var error by rememberSaveable { mutableStateOf<String?>(null) }
   val scope = rememberCoroutineScope()
+  // opened from an invite link: registration with the code filled in
+  val linkInvite by MainActivity.invite.collectAsStateWithLifecycle()
+  LaunchedEffect(linkInvite) {
+    linkInvite?.let { invite = it; register = true; MainActivity.invite.value = null }
+  }
 
   fun submit() {
     if (busy) return

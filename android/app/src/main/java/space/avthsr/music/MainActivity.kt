@@ -27,6 +27,9 @@ class MainActivity : ComponentActivity() {
 
     /** a link to the site (or a launcher shortcut) asks for this screen */
     val deepLink = MutableStateFlow<String?>(null)
+
+    /** an invite link was opened: registration with this code */
+    val invite = MutableStateFlow<String?>(null)
   }
 
   override fun onCreate(savedInstanceState: Bundle?) {
@@ -79,7 +82,10 @@ class MainActivity : ComponentActivity() {
       s.size >= 3 && s[0] == "catalog" && s[1] == "album" -> "calbum/${s[2]}"
       s.size >= 3 && s[0] == "catalog" && s[1] == "artist" -> "cartist/${s[2]}"
       s[0] in setOf("search", "library", "liked", "discover", "profile") -> s[0]
-      s[0] == "admin" -> "web?path=${Uri.encode(path)}"
+      s[0] == "admin" -> "admin"
+      s[0] == "history" -> "history"
+      s[0] == "downloads" -> "jobs"
+      s[0] == "register" -> { intent.data?.getQueryParameter("invite")?.let { invite.value = it }; null }
       else -> null
     }
   }

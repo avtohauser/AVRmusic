@@ -204,6 +204,7 @@ fun AlbumScreen(id: String) {
           ) {
             PlayButtons(a.tracks, "album:${a.id}")
             LikeButton("album", a.id)
+            if (Api.user?.isAdmin == true) AlbumAdminMenu(a) { loader.reload() }
           }
         }
         itemsIndexed(a.tracks) { i, t ->
@@ -232,6 +233,7 @@ fun ArtistScreen(id: String) {
           ) {
             PlayButtons(a.topTracks, "artist:${a.id}")
             LikeButton("artist", a.id)
+            if (Api.user?.isAdmin == true) ArtistAdminMenu(a) { loader.reload() }
           }
         }
         if (a.topTracks.isNotEmpty()) {
@@ -272,7 +274,7 @@ fun PlaylistScreen(id: String) {
             meta = listOfNotNull(p.description?.takeIf { it.isNotBlank() }, tracksWord(p.tracks.size)).joinToString(" · "),
           ) {
             PlayButtons(p.tracks, "playlist:${p.id}")
-            if (!own) LikeButton("playlist", p.id)
+            if (!own) LikeButton("playlist", p.id) else PlaylistOwnerMenu(p) { loader.reload() }
           }
         }
         if (p.tracks.isEmpty()) item { Hint("Плейлист пуст. Добавляйте треки через меню ⋮ у любого трека.") }

@@ -1,0 +1,136 @@
+// Profile and admin calls (the same endpoints the site uses).
+package space.avthsr.music.api
+
+import android.content.Context
+import android.net.Uri
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+
+private fun Api.decodeUser(text: String): User = json.decodeFromString(User.serializer(), text)
+
+/* ---------- profile ---------- */
+
+suspend fun Api.updateProfile(displayName: String?, email: String?) {
+  val body = buildJsonObject {
+    if (!displayName.isNullOrBlank()) put("displayName", displayName.trim())
+    if (!email.isNullOrBlank()) put("email", email.trim())
+  }
+  setUser(decodeUser(call("PATCH", "/api/auth/me", body.toString())))
+}
+
+suspend fun Api.changePassword(old: String, new: String) {
+  call("POST", "/api/auth/me/password", buildJsonObject { put("oldPassword", old); put("newPassword", new) }.toString())
+}
+
+suspend fun Api.uploadAvatar(context: Context, uri: Uri) {
+  setUser(decodeUser(multipart("/api/me/avatar") { it.addFile(context, uri) }))
+}
+
+suspend fun Api.removeAvatar() {
+  call("DELETE", "/api/me/avatar")
+  refreshMe()
+}
+
+suspend fun Api.myStats(): MeStats = get("/api/me/stats")
+suspend fun Api.history(): List<HistoryEntry> = get("/api/me/history?limit=200")
+suspend fun Api.clearHistory() { call("DELETE", "/api/me/history") }
+
+/* ---------- playlists ---------- */
+
+suspend fun Api.editPlaylist(id: String, title: String, description: String?, isPublic: Boolean) {
+  call("PATCH", "/api/playlists/${enc(id)}", buildJsonObject {
+    put("title", title.trim())
+    put("description", description?.trim()?.takeIf { it.isNotEmpty() }?.let { JsonPrimitive(it) } ?: JsonNull)
+    put("isPublic", isPublic)
+  }.toString())
+}
+
+suspend fun Api.deletePlaylist(id: String) { call("DELETE", "/api/playlists/${enc(id)}") }
+
+suspend fun Api.playlistCover(context: Context, id: String, uri: Uri) {
+  multipart("/api/playlists/${enc(id)}/cover") { it.addFile(context, uri) }
+}
+
+/* ---------- admin: overview, users, invites ---------- */
+
+suspend fun Api.adminStats(): AdminStats = get("/api/admin/stats")
+suspend fun Api.adminActivity(): AdminActivity = get("/api/admin/activity")
+suspend fun Api.adminUsers(): List<AdminUser> = get("/api/admin/users")
+suspend fun Api.adminUser(id: String): AdminUserDetail = get("/api/admin/users/${enc(id)}")
+
+suspend fun Api.adminPatchUser(id: String, body: JsonObject): AdminUser =
+  json.decodeFromString(AdminUser.serializer(), call("PATCH", "/api/admin/users/${enc(id)}", body.toString()))
+
+suspend fun Api.adminResetPassword(id: String): String =
+  json.decodeFromString(NewPassword.serializer(), call("POST", "/api/admin/users/${enc(id)}/reset-password")).password
+
+suspend fun Api.adminDeleteUser(id: String) { call("DELETE", "/api/admin/users/${enc(id)}") }
+
+suspend fun Api.invites(): List<Invite> = get("/api/admin/invites")
+
+suspend fun Api.createInvite(note: String?, expiresDays: Int?): Invite =
+  json.decodeFromString(Invite.serializer(), call("POST", "/api/admin/invites", buildJsonObject {
+    if (!note.isNullOrBlank()) put("note", note.trim())
+    if (expiresDays != null) put("expiresDays", expiresDays)
+  }.toString()))
+
+suspend fun Api.deleteInvite(code: String) { call("DELETE", "/api/admin/invites/${enc(code)}") }
+
+/* ---------- admin: downloads, imports, YouTube accounts ---------- */
+
+suspend fun Api.serverJobs(): List<ServerJob> = get("/api/admin/import/jobs")
+suspend fun Api.cancelJob(id: String) { call("DELETE", "/api/admin/import/jobs/${enc(id)}") }
+
+suspend fun Api.importUrl(url: String, video: Boolean) {
+  call("POST", "/api/admin/import/url", buildJsonObject { put("url", url.trim()); put("mode", if (video) "video" else "audio") }.toString())
+}
+
+/** Uploads audio files; [fields] (artist, album, genre, year) apply to all of them. */
+suspend fun Api.uploadTracks(context: Context, files: List<Uri>, fields: Map<String, String>): UploadResult =
+  json.decodeFromString(UploadResult.serializer(), multipart("/api/admin/upload") { b ->
+    fields.filterValues { it.isNotBlank() }.forEach { (k, v) -> b.addFormDataPart(k, v.trim()) }
+    files.forEach { b.addFile(context, it) }
+  })
+
+suspend fun Api.fetchMissingLyrics() { call("POST", "/api/admin/lyrics/fetch-missing") }
+suspend fun Api.fetchMissingCanvases() { call("POST", "/api/admin/canvas/fetch-missing") }
+
+suspend fun Api.ytAccounts(): List<YtAccount> = get("/api/admin/youtube-accounts")
+
+suspend fun Api.addYtAccount(context: Context, uri: Uri, label: String): List<YtAccount> =
+  json.decodeFromString(kotlinx.serialization.builtins.ListSerializer(YtAccount.serializer()), multipart("/api/admin/youtube-accounts") { b ->
+    if (label.isNotBlank()) b.addFormDataPart("label", label.trim())
+    b.addFile(context, uri)
+  })
+
+suspend fun Api.wakeYtAccount(id: String) { call("POST", "/api/admin/youtube-accounts/${enc(id)}/wake") }
+suspend fun Api.deleteYtAccount(id: String) { call("DELETE", "/api/admin/youtube-accounts/${enc(id)}") }
+
+suspend fun Api.clientErrors(): List<ClientError> = get("/api/admin/client-errors")
+
+/* ---------- admin: library editing ---------- */
+
+suspend fun Api.adminTracks(q: String, offset: Int = 0): TrackPage = get("/api/admin/tracks?limit=60&offset=$offset&q=${enc(q)}")
+
+suspend fun Api.adminPatchTrack(id: String, body: JsonObject) { call("PATCH", "/api/admin/tracks/${enc(id)}", body.toString()) }
+suspend fun Api.adminDeleteTrack(id: String) { call("DELETE", "/api/admin/tracks/${enc(id)}") }
+suspend fun Api.adminLyrics(id: String): AdminLyrics = get("/api/admin/tracks/${enc(id)}/lyrics")
+suspend fun Api.adminFetchLyrics(id: String) { call("POST", "/api/admin/tracks/${enc(id)}/lyrics/fetch") }
+suspend fun Api.adminFetchCanvas(id: String) { call("POST", "/api/admin/tracks/${enc(id)}/canvas/fetch") }
+suspend fun Api.adminDeleteCanvas(id: String) { call("DELETE", "/api/admin/tracks/${enc(id)}/canvas") }
+suspend fun Api.adminTrackCover(context: Context, id: String, uri: Uri) { multipart("/api/admin/tracks/${enc(id)}/cover") { it.addFile(context, uri) } }
+suspend fun Api.adminTrackCanvas(context: Context, id: String, uri: Uri) { multipart("/api/admin/tracks/${enc(id)}/canvas") { it.addFile(context, uri) } }
+
+suspend fun Api.adminPatchAlbum(id: String, body: JsonObject) { call("PATCH", "/api/admin/albums/${enc(id)}", body.toString()) }
+suspend fun Api.adminDeleteAlbum(id: String) { call("DELETE", "/api/admin/albums/${enc(id)}") }
+suspend fun Api.adminAlbumCover(context: Context, id: String, uri: Uri) { multipart("/api/admin/albums/${enc(id)}/cover") { it.addFile(context, uri) } }
+
+suspend fun Api.adminPatchArtist(id: String, body: JsonObject) { call("PATCH", "/api/admin/artists/${enc(id)}", body.toString()) }
+suspend fun Api.adminArtistImage(context: Context, id: String, uri: Uri) { multipart("/api/admin/artists/${enc(id)}/image") { it.addFile(context, uri) } }
+
+/** JSON array of strings, for request bodies. */
+fun jsonStrings(list: List<String>) = JsonArray(list.map { JsonPrimitive(it) })

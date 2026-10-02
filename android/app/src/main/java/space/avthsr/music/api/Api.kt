@@ -21,8 +21,10 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
@@ -67,17 +69,26 @@ object Api {
 
   fun streamUrl(id: String) = "$BASE/api/stream/$id?t=${_session.value?.mediaToken.orEmpty()}"
 
-  private fun enc(s: String) = URLEncoder.encode(s, "UTF-8")
+  fun enc(s: String): String = URLEncoder.encode(s, "UTF-8")
 
   /* ---------- transport ---------- */
 
-  private suspend fun raw(method: String, path: String, body: String?, token: String?): Pair<Int, String> = withContext(Dispatchers.IO) {
+  private suspend fun raw(method: String, path: String, body: String?, token: String?): Pair<Int, String> {
     val needsBody = method == "POST" || method == "PUT" || method == "PATCH"
-    val rb = (body ?: if (needsBody) "{}" else null)?.toRequestBody(JSON_TYPE)
-    val req = Request.Builder().url(BASE + path).method(method, rb)
-    if (token != null) req.header("Authorization", "Bearer $token")
-    http.newCall(req.build()).execute().use { r -> r.code to (r.body?.string() ?: "") }
+    val text = body ?: if (needsBody) "{}" else null
+    return send(method, path, token) { text?.toRequestBody(JSON_TYPE) }
   }
+
+  /** One request; [body] is built anew for each attempt (a refreshed token means a second one). */
+  private suspend fun send(method: String, path: String, token: String?, body: () -> RequestBody?): Pair<Int, String> = withContext(Dispatchers.IO) {
+    val req = Request.Builder().url(BASE + path).method(method, body())
+    if (token != null) req.header("Authorization", "Bearer $token")
+    val client = if (method == "GET") http else uploads
+    client.newCall(req.build()).execute().use { r -> r.code to (r.body?.string() ?: "") }
+  }
+
+  /** Long uploads and server work (files, imports) get more time. */
+  private val uploads = http.newBuilder().writeTimeout(5, TimeUnit.MINUTES).readTimeout(5, TimeUnit.MINUTES).build()
 
   private val refreshLock = Mutex()
 
@@ -98,6 +109,19 @@ object Api {
     val token = _session.value?.accessToken
     var r = raw(method, path, body, token)
     if (r.first == 401 && token != null && refresh(token)) r = raw(method, path, body, _session.value?.accessToken)
+    return check(r)
+  }
+
+  /** A multipart/form-data POST (files from the phone, plus text fields). */
+  suspend fun multipart(path: String, build: (MultipartBody.Builder) -> Unit): String {
+    val make = { MultipartBody.Builder().setType(MultipartBody.FORM).also(build).build() }
+    val token = _session.value?.accessToken
+    var r = send("POST", path, token, make)
+    if (r.first == 401 && token != null && refresh(token)) r = send("POST", path, _session.value?.accessToken, make)
+    return check(r)
+  }
+
+  private fun check(r: Pair<Int, String>): String {
     if (r.first !in 200..299) {
       val msg = runCatching { json.parseToJsonElement(r.second).jsonObject["message"]?.jsonPrimitive?.content }.getOrNull()
       throw ApiException(r.first, msg ?: "Ошибка сервера (${r.first})")
@@ -132,7 +156,10 @@ object Api {
 
   /** Fresh profile (role, rights); also notices a blocked account. */
   suspend fun refreshMe() {
-    val u: User = get("/api/auth/me")
+    setUser(get("/api/auth/me"))
+  }
+
+  fun setUser(u: User) {
     _session.value?.let { save(it.copy(user = u)) }
   }
 

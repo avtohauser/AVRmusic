@@ -2,6 +2,7 @@
 
 package space.avthsr.music.ui
 
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.LocalContentColor
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavGraphBuilder
@@ -108,6 +109,9 @@ import space.avthsr.music.player.PlayerConn
 @Composable
 fun Root() {
   val session by Api.session.collectAsStateWithLifecycle()
+  // another account must not see what the previous one loaded
+  val signedOut = session == null
+  LaunchedEffect(signedOut) { if (signedOut) LoadCache.clear() }
   // the default colour of text and icons: the theme's "on background" (light text in the dark theme);
   // without a Scaffold or Surface above, Compose would fall back to black
   CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onBackground) {
@@ -286,6 +290,7 @@ private val tabs get() = listOf(
   Tab("home", tr("Главная"), R.drawable.ic_home),
   Tab("search", tr("Поиск"), R.drawable.ic_search),
   Tab("library", tr("Медиатека"), R.drawable.ic_library),
+  Tab("profile", tr("Профиль"), R.drawable.ic_person),
 )
 
 /** Navigation as a floating island (a full-rounded M3 Expressive container), not a bar across the screen. */
@@ -293,8 +298,10 @@ private val tabs get() = listOf(
 private fun NavIsland(c: NavController, modifier: Modifier = Modifier) {
   val entry by c.currentBackStackEntryAsState()
   val route = entry?.destination?.route
-  Surface(modifier, shape = CircleShape, color = MaterialTheme.colorScheme.surfaceContainer, shadowElevation = 6.dp) {
-    Row(Modifier.height(64.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+  val session by Api.session.collectAsStateWithLifecycle()
+  val avatar = session?.user?.avatarUrl
+  Surface(modifier.padding(horizontal = 16.dp).widthIn(max = 440.dp), shape = CircleShape, color = MaterialTheme.colorScheme.surfaceContainer, shadowElevation = 6.dp) {
+    Row(Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
       tabs.forEach { tab ->
         ShortNavigationBarItem(
           selected = route == tab.route,
@@ -305,9 +312,13 @@ private fun NavIsland(c: NavController, modifier: Modifier = Modifier) {
               restoreState = true
             }
           },
-          icon = { Ico(tab.icon, tab.label) },
+          // the profile tab wears the listener's photo when there is one
+          icon = {
+            if (tab.route == "profile" && avatar != null) Cover(avatar, Modifier.size(26.dp), CircleShape, R.drawable.ic_person)
+            else Ico(tab.icon, tab.label)
+          },
           label = { Text(tab.label, maxLines = 1) },
-          modifier = Modifier.width(92.dp),
+          modifier = Modifier.weight(1f),
         )
       }
     }

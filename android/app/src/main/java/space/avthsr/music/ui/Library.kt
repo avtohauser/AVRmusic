@@ -126,7 +126,6 @@ fun LibraryScreen() {
       Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         FlowText(tr("Медиатека"), MaterialTheme.typography.headlineMedium, Modifier.weight(1f), maxLines = 1)
         IconButton(onClick = { create = true }) { Ico(R.drawable.ic_add, tr("Новый плейлист")) }
-        IconButton(onClick = { nav.profile() }) { Ico(R.drawable.ic_person, tr("Профиль")) }
       }
     }
     item {

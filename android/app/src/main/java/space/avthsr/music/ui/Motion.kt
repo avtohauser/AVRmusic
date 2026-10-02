@@ -35,7 +35,7 @@ object Motion {
   val standard = MotionScheme.standard()
 
   /** The tabs of the navigation island: switching between them is a fade through, not a journey. */
-  val tabs = setOf("home", "search", "library")
+  val tabs = setOf("home", "search", "library", "profile")
 
   private fun isTabSwitch(s: AnimatedContentTransitionScope<NavBackStackEntry>) =
     s.initialState.destination.route in tabs && s.targetState.destination.route in tabs

@@ -68,8 +68,8 @@ fun ProfileScreen() {
     if (uri != null) act(tr("Аватар обновлён")) { Api.uploadAvatarSquare(context, uri) }
   }
 
-  Page {
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = screenPadding(top = 56.dp, bottom = 24.dp)) {
+  Page(back = false) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = screenPadding(top = 16.dp, bottom = 24.dp)) {
       item {
         Row(Modifier.padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
           Box {

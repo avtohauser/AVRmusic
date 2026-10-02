@@ -122,6 +122,13 @@ if [[ "$PROXY" == "nginx" ]]; then
   proxy_block() {
     cat <<NGINX
     client_max_body_size 4g;
+    # API answers (JSON) go compressed: lists of albums or a search are several times smaller on a phone
+    gzip on;
+    gzip_proxied any;
+    gzip_vary on;
+    gzip_comp_level 5;
+    gzip_min_length 1024;
+    gzip_types application/json text/plain text/css application/javascript image/svg+xml application/manifest+json;
     location / {
         proxy_pass http://127.0.0.1:$APP_PORT;
         proxy_http_version 1.1;

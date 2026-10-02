@@ -2,6 +2,7 @@
 
 package space.avthsr.music.ui
 
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -102,7 +103,11 @@ class Nav(private val c: NavController, val openPlayer: () -> Unit) {
   fun catalogArtist(id: Long) = go("cartist/$id")
   fun liked() = go("liked")
   fun discover() = go("discover")
-  fun profile() = go("profile")
+  fun profile() = c.navigate("profile") {
+    popUpTo(c.graph.findStartDestination().id) { saveState = true }
+    launchSingleTop = true
+    restoreState = true
+  }
   fun jobs() = go("jobs")
   fun downloads() = go("downloads")
   fun route(route: String) = go(route)
@@ -173,14 +178,34 @@ class Loader<T>(val state: Load<T>, val reload: () -> Unit) {
   val data: T? get() = (state as? Load.Ok<T>)?.data
 }
 
+/**
+ * What screens loaded last, by loader and keys: a screen opened again (back, another tab, the same album
+ * from elsewhere) shows it at once and refreshes it quietly, instead of a spinner every time.
+ */
+object LoadCache {
+  private val map = object : LinkedHashMap<Any, Any?>(64, 0.75f, true) {
+    override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Any, Any?>?) = size > 120
+  }
+
+  fun get(key: Any): Any? = map[key]
+  fun put(key: Any, value: Any?) { map[key] = value }
+  fun has(key: Any) = map.containsKey(key)
+  fun clear() = map.clear()
+}
+
 /** Runs [load] when the keys change; `reload()` runs it again (keeping the shown data meanwhile). */
 @Composable
 fun <T> rememberLoad(vararg keys: Any?, load: suspend () -> T): Loader<T> {
   var version by remember { mutableIntStateOf(0) }
-  var state by remember(*keys) { mutableStateOf<Load<T>>(Load.Loading) }
+  // each call site's lambda has its own class: with the keys it names the data
+  val cacheKey = remember(*keys) { listOf(load.javaClass) + keys.toList() }
+  @Suppress("UNCHECKED_CAST")
+  var state by remember(*keys) {
+    mutableStateOf<Load<T>>(if (LoadCache.has(cacheKey)) Load.Ok(LoadCache.get(cacheKey) as T) else Load.Loading)
+  }
   LaunchedEffect(*keys, version) {
     state = try {
-      Load.Ok(load())
+      Load.Ok(load().also { LoadCache.put(cacheKey, it) })
     } catch (e: CancellationException) {
       throw e
     } catch (e: Exception) {

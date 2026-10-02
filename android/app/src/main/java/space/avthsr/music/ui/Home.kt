@@ -96,7 +96,6 @@ private fun localGreeting(): String = when (Calendar.getInstance().get(Calendar.
 fun HomeScreen() {
   val nav = LocalNav.current
   val loader = rememberLoad(Unit) { Api.home() }
-  val user = Api.user
   val refresh = rememberPullToRefreshState()
   var refreshing by remember { mutableStateOf(false) }
   LaunchedEffect(loader.state) { if (loader.state !is Load.Loading) refreshing = false }
@@ -111,9 +110,6 @@ fun HomeScreen() {
       Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         val greeting = localGreeting()
         FlowText(greeting, MaterialTheme.typography.headlineMedium, Modifier.weight(1f))
-        IconButton(onClick = { nav.profile() }) {
-          Cover(user?.avatarUrl, Modifier.size(36.dp), AvatarShape, R.drawable.ic_person)
-        }
       }
     }
     item { WaveCard() }

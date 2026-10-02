@@ -198,7 +198,24 @@ async function ensureCatalogAlbum(db: DB, al: any, artistId: string): Promise<st
 export type AcquireOutcome = { status: 'imported' | 'exists' | 'notfound' | 'error'; trackId?: string; message?: string };
 
 /** Fetch one catalogue track into the library. */
+/** Catalogue tracks being fetched right now (the same song can be asked for alone and with its album). */
+const tracksInFlight = new Map<number, Promise<AcquireOutcome>>();
+
 export async function acquireTrack(db: DB, deezerTrackId: number, api: JobApi, cancelRef: { cancel?: () => void }, albumRaw?: any, addedBy: string | null = null): Promise<AcquireOutcome> {
+  const other = tracksInFlight.get(deezerTrackId);
+  if (other) {
+    api.log('   ⏳ этот трек уже качается в другой задаче — жду её');
+    const r = await other.catch(() => null);
+    const have = db.prepare('SELECT id FROM tracks WHERE deezer_id = ?').get(deezerTrackId) as any;
+    if (have) return { status: 'exists', trackId: have.id };
+    if (r) return r;
+  }
+  const p = acquireTrackNow(db, deezerTrackId, api, cancelRef, albumRaw, addedBy);
+  tracksInFlight.set(deezerTrackId, p);
+  try { return await p; } finally { if (tracksInFlight.get(deezerTrackId) === p) tracksInFlight.delete(deezerTrackId); }
+}
+
+async function acquireTrackNow(db: DB, deezerTrackId: number, api: JobApi, cancelRef: { cancel?: () => void }, albumRaw: any, addedBy: string | null): Promise<AcquireOutcome> {
   const exists = db.prepare('SELECT id FROM tracks WHERE deezer_id = ?').get(deezerTrackId) as any;
   if (exists) return { status: 'exists', trackId: exists.id };
   const t = await rawTrack(db, deezerTrackId);

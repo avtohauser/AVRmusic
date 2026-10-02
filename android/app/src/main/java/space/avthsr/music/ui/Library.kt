@@ -2,6 +2,7 @@
 
 package space.avthsr.music.ui
 
+import androidx.compose.foundation.combinedClickable
 import space.avthsr.music.tr
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ButtonDefaults
@@ -72,13 +73,29 @@ fun PlayButtons(tracks: List<Track>, context: String) {
 }
 
 @Composable
-private fun ListRow(cover: String?, title: String, subtitle: String, circle: Boolean = false, onClick: () -> Unit) {
-  Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+private fun ListRow(
+  cover: String?,
+  title: String,
+  subtitle: String,
+  circle: Boolean = false,
+  menu: (@Composable (expanded: Boolean, close: () -> Unit) -> Unit)? = null,
+  onClick: () -> Unit,
+) {
+  var open by remember { mutableStateOf(false) }
+  Row(
+    Modifier.fillMaxWidth().combinedClickable(onClick = onClick, onLongClick = menu?.let { { open = true } })
+      .padding(start = 16.dp, end = if (menu != null) 4.dp else 16.dp, top = 8.dp, bottom = 8.dp),
+    verticalAlignment = Alignment.CenterVertically,
+  ) {
     Cover(cover, Modifier.size(56.dp), if (circle) ArtistShape else RoundedCornerShape(14.dp), if (circle) R.drawable.ic_person else R.drawable.ic_album)
     Spacer(Modifier.width(14.dp))
     Column(Modifier.weight(1f)) {
       Text(title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
       if (subtitle.isNotEmpty()) Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+    if (menu != null) Box {
+      IconButton(onClick = { open = true }) { Ico(R.drawable.ic_more, tr("Ещё"), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+      menu(open) { open = false }
     }
   }
 }
@@ -164,12 +181,12 @@ fun LibraryScreen() {
       0 -> {
         val list = playlists.data.orEmpty()
         if (list.isEmpty()) item { Hint(if (playlists.state is Load.Loading) tr("Загрузка…") else tr("Плейлистов пока нет — создайте первый кнопкой +")) }
-        items(list) { p -> ListRow(p.coverUrl ?: p.mosaic.firstOrNull(), p.title, listOfNotNull(p.owner?.displayName, tracksWord(p.trackCount)).joinToString(" · ")) { nav.playlist(p.id) } }
+        items(list) { p -> ListRow(p.coverUrl ?: p.mosaic.firstOrNull(), p.title, listOfNotNull(p.owner?.displayName, tracksWord(p.trackCount)).joinToString(" · "), menu = { e, c -> PlaylistMenu(p, e, c) }) { nav.playlist(p.id) } }
       }
       1 -> {
         val list = (if (scope == 0) albums.data else allAlbums.data).orEmpty()
         if (list.isEmpty()) item { Hint(if (scope == 0) tr("Лайкните альбом — он появится здесь") else tr("Загрузка…")) }
-        items(list) { a -> ListRow(a.coverUrl, a.title, listOfNotNull(a.artist.name, a.year?.toString()).joinToString(" · ")) { nav.album(a.id) } }
+        items(list) { a -> ListRow(a.coverUrl, a.title, listOfNotNull(a.artist.name, a.year?.toString()).joinToString(" · "), menu = { e, c -> AlbumMenu(a.id, a.title, a.artist.id, a.artist.name, e, c) }) { nav.album(a.id) } }
       }
       2 -> {
         val list = (if (scope == 0) artists.data else allArtists.data).orEmpty()
@@ -179,7 +196,7 @@ fun LibraryScreen() {
       else -> {
         val list = community.data.orEmpty()
         if (list.isEmpty()) item { Hint(if (community.state is Load.Loading) tr("Загрузка…") else tr("Публичных плейлистов пока нет")) }
-        items(list) { p -> ListRow(p.coverUrl ?: p.mosaic.firstOrNull(), p.title, listOfNotNull(p.owner?.displayName, tracksWord(p.trackCount)).joinToString(" · ")) { nav.playlist(p.id) } }
+        items(list) { p -> ListRow(p.coverUrl ?: p.mosaic.firstOrNull(), p.title, listOfNotNull(p.owner?.displayName, tracksWord(p.trackCount)).joinToString(" · "), menu = { e, c -> PlaylistMenu(p, e, c) }) { nav.playlist(p.id) } }
       }
     }
   }
@@ -298,11 +315,11 @@ fun ArtistScreen(id: String) {
         }
         if (a.albums.isNotEmpty()) item {
           SectionTitle(tr("Альбомы и синглы"))
-          CardRow(a.albums) { al -> MediaCard(al.title, listOfNotNull(albumType(al.type), al.year?.toString()).joinToString(" · "), al.coverUrl, { nav.album(al.id) }) }
+          CardRow(a.albums) { al -> MediaCard(al.title, listOfNotNull(albumType(al.type), al.year?.toString()).joinToString(" · "), al.coverUrl, { nav.album(al.id) }, menu = { e, c -> AlbumMenu(al.id, al.title, al.artist.id, al.artist.name, e, c) }) }
         }
         if (a.appearsOn.isNotEmpty()) item {
           SectionTitle(tr("Участвует"))
-          CardRow(a.appearsOn) { al -> MediaCard(al.title, al.artist.name, al.coverUrl, { nav.album(al.id) }) }
+          CardRow(a.appearsOn) { al -> MediaCard(al.title, al.artist.name, al.coverUrl, { nav.album(al.id) }, menu = { e, c -> AlbumMenu(al.id, al.title, al.artist.id, al.artist.name, e, c) }) }
         }
         if (a.related.isNotEmpty()) item {
           SectionTitle(tr("Похожие исполнители"))
@@ -377,7 +394,7 @@ fun GenreScreen(slug: String) {
         }
         if (g.albums.isNotEmpty()) item {
           SectionTitle(tr("Альбомы"))
-          CardRow(g.albums) { a -> MediaCard(a.title, a.artist.name, a.coverUrl, { nav.album(a.id) }) }
+          CardRow(g.albums) { a -> MediaCard(a.title, a.artist.name, a.coverUrl, { nav.album(a.id) }, menu = { e, c -> AlbumMenu(a.id, a.title, a.artist.id, a.artist.name, e, c) }) }
         }
         if (g.tracks.isNotEmpty()) {
           item { SectionTitle(tr("Треки")) }

@@ -467,4 +467,13 @@ internal val EN: Map<String, String> = hashMapOf(
   "треков" to "tracks",
   "файл" to "file",
   "файлов" to "files",
+  // section titles of the home feed, which the server sends in Russian
+  "Жанры и настроения" to "Genres and moods",
+  "Недавно слушали" to "Recently played",
+  "Открой для себя" to "Discover",
+  "Плейлисты сообщества" to "Community playlists",
+  "Подобрано для вас" to "Picked for you",
+  "Популярно сейчас" to "Popular now",
+  "На основе ваших лайков и истории" to "Based on your likes and history",
+  "Случайная подборка из библиотеки" to "A random pick from the library",
 )

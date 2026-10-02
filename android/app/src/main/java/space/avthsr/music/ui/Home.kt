@@ -109,7 +109,7 @@ fun HomeScreen() {
   LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
     item {
       Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-        val greeting = loader.data?.greeting?.takeIf { it.isNotBlank() } ?: localGreeting()
+        val greeting = localGreeting()
         FlowText(greeting, MaterialTheme.typography.headlineMedium, Modifier.weight(1f))
         IconButton(onClick = { nav.profile() }) {
           Cover(user?.avatarUrl, Modifier.size(36.dp), AvatarShape, R.drawable.ic_person)
@@ -275,30 +275,30 @@ private fun LazyListScope.section(s: HomeSection) {
     "tracks" -> {
       val tracks = s.items.mapNotNull { it.decode(Track.serializer()) }
       if (tracks.isEmpty()) return
-      item { SectionTitle(s.title, s.subtitle) }
+      item { SectionTitle(tr(s.title), s.subtitle?.let { tr(it) }) }
       items(tracks.take(6)) { t -> TrackRow(t, onClick = { PlayerConn.play(tracks, tracks.indexOf(t), "home:${s.id}") }) }
     }
     "albums" -> item {
       val nav = LocalNav.current
       val list = s.items.mapNotNull { it.decode(AlbumSummary.serializer()) }
-      SectionTitle(s.title, s.subtitle)
-      CardRow(list) { a -> MediaCard(a.title, listOfNotNull(a.artist.name, a.year?.toString()).joinToString(" · "), a.coverUrl, { nav.album(a.id) }) }
+      SectionTitle(tr(s.title), s.subtitle?.let { tr(it) })
+      CardRow(list) { a -> MediaCard(a.title, listOfNotNull(a.artist.name, a.year?.toString()).joinToString(" · "), a.coverUrl, { nav.album(a.id) }, menu = { e, c -> AlbumMenu(a.id, a.title, a.artist.id, a.artist.name, e, c) }) }
     }
     "artists" -> item {
       val nav = LocalNav.current
       val list = s.items.mapNotNull { it.decode(ArtistSummary.serializer()) }
-      SectionTitle(s.title, s.subtitle)
+      SectionTitle(tr(s.title), s.subtitle?.let { tr(it) })
       CardRow(list) { a -> MediaCard(a.name, "", a.imageUrl, { nav.artist(a.id) }, circle = true, width = 124.dp) }
     }
     "playlists" -> item {
       val nav = LocalNav.current
       val list = s.items.mapNotNull { it.decode(PlaylistSummary.serializer()) }
-      SectionTitle(s.title, s.subtitle)
-      CardRow(list) { p -> MediaCard(p.title, p.owner?.displayName ?: "", p.coverUrl ?: p.mosaic.firstOrNull(), { nav.playlist(p.id) }) }
+      SectionTitle(tr(s.title), s.subtitle?.let { tr(it) })
+      CardRow(list) { p -> MediaCard(p.title, p.owner?.displayName ?: "", p.coverUrl ?: p.mosaic.firstOrNull(), { nav.playlist(p.id) }, menu = { e, c -> PlaylistMenu(p, e, c) }) }
     }
     "genres" -> item {
       val list = s.items.mapNotNull { it.decode(Genre.serializer()) }
-      SectionTitle(s.title, s.subtitle)
+      SectionTitle(tr(s.title), s.subtitle?.let { tr(it) })
       GenreRow(list)
     }
   }

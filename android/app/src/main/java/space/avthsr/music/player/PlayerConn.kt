@@ -208,17 +208,24 @@ object PlayerConn {
     }
   }
 
-  fun playNext(t: Track) {
-    if (queue.isEmpty()) return play(listOf(t))
-    Queue.remember(listOf(t))
-    withController { it.addMediaItem(it.currentMediaItemIndex + 1, mediaItemOf(t)) }
+  fun playNext(t: Track) = playNext(listOf(t))
+
+  fun enqueue(t: Track) = enqueue(listOf(t))
+
+  /** Puts tracks (one, or a whole album / playlist) right after the current one. */
+  fun playNext(list: List<Track>) {
+    if (list.isEmpty()) return
+    if (queue.isEmpty()) return play(list)
+    Queue.remember(list)
+    withController { it.addMediaItems(it.currentMediaItemIndex + 1, list.map { t -> mediaItemOf(t) }) }
     App.say(tr("Будет следующим"))
   }
 
-  fun enqueue(t: Track) {
-    if (queue.isEmpty()) return play(listOf(t))
-    Queue.remember(listOf(t))
-    withController { it.addMediaItem(mediaItemOf(t)) }
+  fun enqueue(list: List<Track>) {
+    if (list.isEmpty()) return
+    if (queue.isEmpty()) return play(list)
+    Queue.remember(list)
+    withController { it.addMediaItems(list.map { t -> mediaItemOf(t) }) }
     App.say(tr("Добавлено в очередь"))
   }
 

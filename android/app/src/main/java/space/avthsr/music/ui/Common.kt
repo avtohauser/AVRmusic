@@ -203,9 +203,21 @@ fun SectionTitle(text: String, subtitle: String? = null, action: (@Composable ()
 }
 
 @Composable
-fun MediaCard(title: String, subtitle: String, cover: String?, onClick: () -> Unit, circle: Boolean = false, width: Dp = 148.dp) {
+fun MediaCard(
+  title: String,
+  subtitle: String,
+  cover: String?,
+  onClick: () -> Unit,
+  circle: Boolean = false,
+  width: Dp = 148.dp,
+  menu: (@Composable (expanded: Boolean, close: () -> Unit) -> Unit)? = null,
+) {
+  var open by remember { mutableStateOf(false) }
+  Box {
   Column(
-    Modifier.width(width).clip(RoundedCornerShape(18.dp)).clickable(onClick = onClick).padding(6.dp),
+    Modifier.width(width).clip(RoundedCornerShape(18.dp))
+      .combinedClickable(onClick = onClick, onLongClick = menu?.let { { open = true } })
+      .padding(6.dp),
     horizontalAlignment = if (circle) Alignment.CenterHorizontally else Alignment.Start,
   ) {
     Cover(cover, Modifier.size(width - 12.dp), if (circle) ArtistShape else RoundedCornerShape(16.dp), if (circle) R.drawable.ic_person else R.drawable.ic_album)
@@ -214,6 +226,69 @@ fun MediaCard(title: String, subtitle: String, cover: String?, onClick: () -> Un
     if (subtitle.isNotEmpty()) {
       Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
+  }
+  menu?.invoke(open) { open = false }
+  }
+}
+
+/** Loads the tracks of an album or playlist for a menu action; says what went wrong. */
+private fun withTracks(load: suspend () -> List<Track>, then: (List<Track>) -> Unit) {
+  App.scope.launch {
+    runCatching { load() }.onSuccess(then).onFailure { App.say(it.message ?: tr("Не удалось загрузить")) }
+  }
+}
+
+/** Long-press menu of an album card, as on the site. */
+@Composable
+fun AlbumMenu(id: String, title: String, artistId: String, artistName: String, expanded: Boolean, close: () -> Unit) {
+  val nav = LocalNav.current
+  val context = androidx.compose.ui.platform.LocalContext.current
+  val liked by Likes.of("album").collectAsStateWithLifecycle()
+  var pick by remember { mutableStateOf<List<String>?>(null) }
+  val load = suspend { Api.album(id).tracks }
+  DropdownMenu(expanded = expanded, onDismissRequest = close) {
+    DropdownMenuItem(text = { Text(tr("Играть следующим")) }, leadingIcon = { Ico(R.drawable.ic_queue) }, onClick = { close(); withTracks(load) { PlayerConn.playNext(it) } })
+    DropdownMenuItem(text = { Text(tr("Добавить в очередь")) }, leadingIcon = { Ico(R.drawable.ic_add) }, onClick = { close(); withTracks(load) { PlayerConn.enqueue(it) } })
+    val on = id in liked
+    DropdownMenuItem(
+      text = { Text(if (on) tr("Убрать из избранного") else tr("В избранное")) },
+      leadingIcon = { Ico(if (on) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline) },
+      onClick = { close(); toggleLike("album", id) },
+    )
+    DropdownMenuItem(text = { Text(tr("Добавить в плейлист")) }, leadingIcon = { Ico(R.drawable.ic_playlist_add) }, onClick = { close(); withTracks(load) { pick = it.map { t -> t.id } } })
+    DropdownMenuItem(text = { Text(tr("Сохранить офлайн")) }, leadingIcon = { Ico(R.drawable.ic_download) }, onClick = { close(); withTracks(load) { Offline.save(it) } })
+    DropdownMenuItem(text = { Text(tr("Скачать на устройство (ZIP)")) }, leadingIcon = { Ico(R.drawable.ic_folder) }, onClick = {
+      close(); downloadToDevice(context, "/api/download/album/$id", "$artistName - $title.zip")
+    })
+    if (artistId.isNotEmpty()) DropdownMenuItem(text = { Text(tr("К исполнителю")) }, leadingIcon = { Ico(R.drawable.ic_person) }, onClick = { close(); nav.artist(artistId) })
+    DropdownMenuItem(text = { Text(tr("Поделиться")) }, leadingIcon = { Ico(R.drawable.ic_share) }, onClick = { close(); share(context, "/album/$id", "$artistName — $title") })
+  }
+  pick?.let { ids -> PlaylistPicker(ids) { pick = null } }
+}
+
+/** Long-press menu of a playlist card, as on the site. */
+@Composable
+fun PlaylistMenu(p: PlaylistSummary, expanded: Boolean, close: () -> Unit) {
+  val context = androidx.compose.ui.platform.LocalContext.current
+  val liked by Likes.of("playlist").collectAsStateWithLifecycle()
+  val load = suspend { Api.playlist(p.id).tracks }
+  val own = p.isOwner == true || (p.owner != null && p.owner.id == Api.user?.id)
+  DropdownMenu(expanded = expanded, onDismissRequest = close) {
+    DropdownMenuItem(text = { Text(tr("Играть следующим")) }, leadingIcon = { Ico(R.drawable.ic_queue) }, onClick = { close(); withTracks(load) { PlayerConn.playNext(it) } })
+    DropdownMenuItem(text = { Text(tr("Добавить в очередь")) }, leadingIcon = { Ico(R.drawable.ic_add) }, onClick = { close(); withTracks(load) { PlayerConn.enqueue(it) } })
+    if (!own) {
+      val on = p.id in liked
+      DropdownMenuItem(
+        text = { Text(if (on) tr("Убрать из избранного") else tr("В избранное")) },
+        leadingIcon = { Ico(if (on) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline) },
+        onClick = { close(); toggleLike("playlist", p.id) },
+      )
+    }
+    DropdownMenuItem(text = { Text(tr("Сохранить офлайн")) }, leadingIcon = { Ico(R.drawable.ic_download) }, onClick = { close(); withTracks(load) { Offline.save(it) } })
+    DropdownMenuItem(text = { Text(tr("Скачать на устройство (ZIP)")) }, leadingIcon = { Ico(R.drawable.ic_folder) }, onClick = {
+      close(); downloadToDevice(context, "/api/download/playlist/${p.id}", "${p.title}.zip")
+    })
+    DropdownMenuItem(text = { Text(tr("Поделиться")) }, leadingIcon = { Ico(R.drawable.ic_share) }, onClick = { close(); share(context, "/playlist/${p.id}", p.title) })
   }
 }
 
@@ -288,6 +363,12 @@ fun TrackMenu(t: Track, expanded: Boolean, close: () -> Unit, extra: (@Composabl
       onClick = { close(); toggleLike("track", t.id) },
     )
     DropdownMenuItem(text = { Text(tr("Добавить в плейлист")) }, leadingIcon = { Ico(R.drawable.ic_playlist_add) }, onClick = { close(); pick = true })
+    if (t.hasLyrics) DropdownMenuItem(text = { Text(tr("Текст песни")) }, leadingIcon = { Ico(R.drawable.ic_lyrics) }, onClick = {
+      close()
+      if (PlayerConn.state.value.track?.id != t.id) PlayerConn.play(listOf(t))
+      showLyrics.value = true
+      nav.openPlayer()
+    })
     t.album?.let { a -> DropdownMenuItem(text = { Text(tr("К альбому")) }, leadingIcon = { Ico(R.drawable.ic_album) }, onClick = { close(); nav.album(a.id) }) }
     if (t.artist.id.isNotEmpty()) {
       DropdownMenuItem(text = { Text(tr("К исполнителю")) }, leadingIcon = { Ico(R.drawable.ic_person) }, onClick = { close(); nav.artist(t.artist.id) })

@@ -87,6 +87,9 @@ import space.avthsr.music.player.PlayerUi
 import space.avthsr.music.player.Queue
 import kotlin.math.max
 
+/** Set from a track's menu: the player opens straight on the lyrics. */
+val showLyrics = kotlinx.coroutines.flow.MutableStateFlow(false)
+
 @Composable
 fun NowPlayingScreen(onClose: () -> Unit) {
   val s by PlayerConn.state.collectAsStateWithLifecycle()
@@ -99,6 +102,8 @@ fun NowPlayingScreen(onClose: () -> Unit) {
   val speed by PlayerConn.speed.collectAsStateWithLifecycle()
   val sleepAt by PlayerConn.sleepAt.collectAsStateWithLifecycle()
   var lyricsOpen by remember { mutableStateOf(false) }
+  val wantLyrics by showLyrics.collectAsStateWithLifecycle()
+  LaunchedEffect(wantLyrics) { if (wantLyrics) { lyricsOpen = true; showLyrics.value = false } }
   var menu by remember { mutableStateOf(false) }
   var pos by remember { mutableLongStateOf(0L) }
   var drag by remember { mutableStateOf<Float?>(null) }

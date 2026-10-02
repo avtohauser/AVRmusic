@@ -2,6 +2,7 @@
 
 package space.avthsr.music.ui
 
+import androidx.compose.foundation.combinedClickable
 import space.avthsr.music.tr
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -162,14 +163,14 @@ fun SearchScreen() {
             if (r.albums.isNotEmpty()) {
               if (type == "all") item {
                 SectionTitle(tr("Альбомы"))
-                CardRow(r.albums) { a -> MediaCard(a.title, a.artist.name, a.coverUrl, { keep(); nav.album(a.id) }) }
-              } else items(r.albums) { a -> ResultRow(a.coverUrl, a.title, listOfNotNull(albumType(a.type), a.artist.name, a.year?.toString()).joinToString(" · ")) { keep(); nav.album(a.id) } }
+                CardRow(r.albums) { a -> MediaCard(a.title, a.artist.name, a.coverUrl, { keep(); nav.album(a.id) }, menu = { e, c -> AlbumMenu(a.id, a.title, a.artist.id, a.artist.name, e, c) }) }
+              } else items(r.albums) { a -> ResultRow(a.coverUrl, a.title, listOfNotNull(albumType(a.type), a.artist.name, a.year?.toString()).joinToString(" · "), menu = { e, c -> AlbumMenu(a.id, a.title, a.artist.id, a.artist.name, e, c) }) { keep(); nav.album(a.id) } }
             }
             if (r.playlists.isNotEmpty()) {
               if (type == "all") item {
                 SectionTitle(tr("Плейлисты"))
-                CardRow(r.playlists) { p -> MediaCard(p.title, p.owner?.displayName ?: "", p.coverUrl ?: p.mosaic.firstOrNull(), { keep(); nav.playlist(p.id) }) }
-              } else items(r.playlists) { p -> ResultRow(p.coverUrl ?: p.mosaic.firstOrNull(), p.title, listOfNotNull(p.owner?.displayName, tracksWord(p.trackCount)).joinToString(" · ")) { keep(); nav.playlist(p.id) } }
+                CardRow(r.playlists) { p -> MediaCard(p.title, p.owner?.displayName ?: "", p.coverUrl ?: p.mosaic.firstOrNull(), { keep(); nav.playlist(p.id) }, menu = { e, c -> PlaylistMenu(p, e, c) }) }
+              } else items(r.playlists) { p -> ResultRow(p.coverUrl ?: p.mosaic.firstOrNull(), p.title, listOfNotNull(p.owner?.displayName, tracksWord(p.trackCount)).joinToString(" · "), menu = { e, c -> PlaylistMenu(p, e, c) }) { keep(); nav.playlist(p.id) } }
             }
           }
         }
@@ -192,13 +193,29 @@ fun SearchScreen() {
 }
 
 @Composable
-private fun ResultRow(cover: String?, title: String, subtitle: String, circle: Boolean = false, onClick: () -> Unit) {
-  Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+private fun ResultRow(
+  cover: String?,
+  title: String,
+  subtitle: String,
+  circle: Boolean = false,
+  menu: (@Composable (expanded: Boolean, close: () -> Unit) -> Unit)? = null,
+  onClick: () -> Unit,
+) {
+  var open by remember { mutableStateOf(false) }
+  Row(
+    Modifier.fillMaxWidth().combinedClickable(onClick = onClick, onLongClick = menu?.let { { open = true } })
+      .padding(start = 16.dp, end = if (menu != null) 4.dp else 16.dp, top = 8.dp, bottom = 8.dp),
+    verticalAlignment = Alignment.CenterVertically,
+  ) {
     Cover(cover, Modifier.size(56.dp), if (circle) ArtistShape else RoundedCornerShape(14.dp), if (circle) R.drawable.ic_person else R.drawable.ic_album)
     Spacer(Modifier.width(14.dp))
     Column(Modifier.weight(1f)) {
       Text(title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
       Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+    if (menu != null) Box {
+      IconButton(onClick = { open = true }) { Ico(R.drawable.ic_more, tr("Ещё"), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+      menu(open) { open = false }
     }
   }
 }

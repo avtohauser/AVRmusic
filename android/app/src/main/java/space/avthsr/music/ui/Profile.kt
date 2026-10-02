@@ -110,6 +110,10 @@ fun ProfileScreen() {
       item {
         Column(Modifier.padding(horizontal = 16.dp)) {
           if (u.isAdmin) ProfileItem(R.drawable.ic_settings, tr("Админ-панель"), tr("Пользователи, приглашения, загрузки, аккаунты YouTube, треки")) { nav.route("admin") }
+          val news by space.avthsr.music.api.News.items.collectAsStateWithLifecycle()
+          val newsSeen by space.avthsr.music.api.News.seen.collectAsStateWithLifecycle()
+          val unread = space.avthsr.music.api.News.unread(news, newsSeen).size
+          ProfileItem(R.drawable.ic_campaign, tr("Новости"), if (unread > 0) tr("Новых: {}", unread) else tr("Что пишет администратор")) { nav.route("news") }
           ProfileItem(R.drawable.ic_queue, tr("История прослушиваний"), tr("Что и когда вы слушали")) { nav.route("history") }
           ProfileItem(R.drawable.ic_download, tr("Загрузки на сервер"), tr("Что сейчас качается и кто в очереди")) { nav.jobs() }
           ProfileItem(R.drawable.ic_sparkle, tr("Предложка"), tr("Новая музыка для вас")) { nav.discover() }

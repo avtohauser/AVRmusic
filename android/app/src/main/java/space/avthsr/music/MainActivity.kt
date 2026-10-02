@@ -21,6 +21,7 @@ import space.avthsr.music.ui.Root
 class MainActivity : ComponentActivity() {
   companion object {
     const val ACTION_OPEN_PLAYER = "space.avthsr.music.OPEN_PLAYER"
+    const val ACTION_OPEN_NEWS = "space.avthsr.music.OPEN_NEWS"
 
     /** the shade player was tapped */
     val openPlayer = MutableStateFlow(false)
@@ -75,6 +76,7 @@ class MainActivity : ComponentActivity() {
   private fun handle(intent: Intent?) {
     if (intent == null) return
     if (intent.action == ACTION_OPEN_PLAYER) openPlayer.value = true
+    if (intent.action == ACTION_OPEN_NEWS) { deepLink.value = "news"; return }
     val path = intent.data?.path ?: return
     val s = path.trim('/').split('/')
     deepLink.value = when {
@@ -85,6 +87,7 @@ class MainActivity : ComponentActivity() {
       s[0] == "admin" -> "admin"
       s[0] == "history" -> "history"
       s[0] == "downloads" -> "downloads"
+      s[0] == "news" -> "news"
       s[0] == "register" -> { intent.data?.getQueryParameter("invite")?.let { invite.value = it }; null }
       else -> null
     }

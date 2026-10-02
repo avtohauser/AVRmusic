@@ -180,6 +180,15 @@ export interface UploadResult {
 }
 
 /** One-time registration code. */
+/** A note from the admin to everyone (shown in the apps, with a notification on Android). */
+export interface NewsItem {
+  id: string;
+  title: string;
+  body: string;
+  createdAt: string;
+  author: string | null;
+}
+
 export interface Invite {
   code: string;
   note: string | null;

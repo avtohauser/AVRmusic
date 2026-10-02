@@ -3,6 +3,8 @@
 package space.avthsr.music.ui
 
 import space.avthsr.music.tr
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideInHorizontally
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.animation.core.animate
@@ -172,7 +174,9 @@ fun NowPlayingScreen(onClose: () -> Unit) {
       }
 
       // the cover, or the lyrics in its place
-      Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
+      // swipe the cover (or the canvas) to the next / previous track; not the lyrics, they scroll
+      val swipe = rememberTrackSwipe()
+      Box(Modifier.weight(1f).fillMaxWidth().trackSwipe(swipe, scope, enabled = !lyricsShown).padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
         val motion = MaterialTheme.motionScheme
         AnimatedContent(
           targetState = lyricsShown,
@@ -190,16 +194,19 @@ fun NowPlayingScreen(onClose: () -> Unit) {
             // a new track's cover grows in as the old one swells and fades; the cover itself flows
             // from the mini player when the player opens and back when it closes
             else -> AnimatedContent(
-              targetState = t,
-              contentKey = { it?.id },
+              targetState = t?.let { it to s.index },
+              contentKey = { it?.first?.id },
               transitionSpec = {
-                (fadeIn(motion.defaultEffectsSpec()) + scaleIn(motion.defaultSpatialSpec(), initialScale = 0.82f))
-                  .togetherWith(fadeOut(motion.fastEffectsSpec()) + scaleOut(motion.fastSpatialSpec(), targetScale = 1.06f))
+                // the next track comes from the right, the previous one from the left
+                val ahead = (targetState?.second ?: 0) >= (initialState?.second ?: 0)
+                (slideInHorizontally(motion.defaultSpatialSpec()) { w -> if (ahead) w / 3 else -w / 3 } + fadeIn(motion.defaultEffectsSpec()) + scaleIn(motion.defaultSpatialSpec(), initialScale = 0.88f))
+                  .togetherWith(slideOutHorizontally(motion.fastSpatialSpec()) { w -> if (ahead) -w / 3 else w / 3 } + fadeOut(motion.fastEffectsSpec()) + scaleOut(motion.fastSpatialSpec(), targetScale = 0.92f))
               },
               modifier = Modifier.fillMaxSize(),
               contentAlignment = Alignment.Center,
               label = "cover",
-            ) { x ->
+            ) { pair ->
+              val x = pair?.first
               Cover(
                 x?.coverUrl,
                 Modifier.widthIn(max = 420.dp).fillMaxWidth().aspectRatio(1f)

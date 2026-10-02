@@ -27,6 +27,7 @@ class App : Application(), ImageLoaderFactory {
     installCrashCatcher()
     Api.init(this)
     Lang.init()
+    space.avthsr.music.api.News.init(this)
     Queue.init(this)
     Offline.init(this)
     space.avthsr.music.ui.Look.init()

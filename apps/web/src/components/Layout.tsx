@@ -17,6 +17,7 @@ import { Cover } from './Cover';
 import { TopBarQueueIndicator } from './Catalog';
 import { lastSearchUrl } from '@/lib/nav';
 import { FlowText } from '@/components/FlowText';
+import { NewsBanner } from './NewsBanner';
 
 export function Layout() {
   const user = useAuth((s) => s.user);
@@ -52,6 +53,7 @@ export function Layout() {
             <div className="sticky top-0 z-30 bg-tertiary-container text-on-tertiary-container md-label-lg px-4 py-2 flex items-center gap-2" style={{ paddingTop: 'calc(var(--safe-t) + 8px)' }}><m3e-icon variant="rounded" name="wifi_off" />{t('offlineMode')} <Link to="/downloads" className="underline ml-auto">{t('downloads')}</Link></div>
           )}
           <TopBar />
+          <NewsBanner />
           <Outlet />
         </main>
         {queueOpen && isDesktop && (

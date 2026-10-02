@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { AdminActivity, AdminStats, AdminUserDetail, AdminUserRow, Invite, Track, UploadResult } from '@avrmusic/shared';
+import type { AdminActivity, AdminStats, AdminUserDetail, AdminUserRow, Invite, NewsItem, Track, UploadResult } from '@avrmusic/shared';
 import { Modal } from '@/components/Modal';
 import { M3eButton, M3eFilterChip, M3eFilterChipSet, M3eFormField, M3eIconButton, M3eOption, M3eSelect } from '@/md';
 import { WavyProgress } from '@/components/WavyProgress';
@@ -28,7 +28,7 @@ export default function Admin() {
       <M3eFilterChipSet className="mb-6" onChange={(e: Event) => { const v = (e.target as any)?.value as Tab | undefined; if (v) setParams({ tab: v }); }}>
         {tabs.map(([k, label, icon]) => <M3eFilterChip key={k} value={k} selected={tab === k || undefined}><m3e-icon variant="rounded" slot="icon" name={icon} />{label}</M3eFilterChip>)}
       </M3eFilterChipSet>
-      {tab === 'overview' && <><Overview /><ActivitySection /></>}
+      {tab === 'overview' && <><NewsSection /><Overview /><ActivitySection /></>}
       {tab === 'upload' && <UploadTab />}
       {tab === 'import' && <ImportTab />}
       {tab === 'tracks' && <TracksTab />}
@@ -310,6 +310,49 @@ function YoutubeAccountsSection() {
         </label>
       </div>
     </div>
+  );
+}
+
+/** News to everyone: shown on top of the app and sent as a notification on Android. */
+function NewsSection() {
+  const t = useT();
+  const toast = useUI((s) => s.toast);
+  const qc = useQueryClient();
+  const { data } = useQuery({ queryKey: ['news'], queryFn: () => api.get<NewsItem[]>('/api/news') });
+  const [title, setTitle] = useState('');
+  const [body, setBody] = useState('');
+  const [busy, setBusy] = useState(false);
+  const publish = async () => {
+    setBusy(true);
+    try { await api.post('/api/admin/news', { title, body }); setTitle(''); setBody(''); qc.invalidateQueries({ queryKey: ['news'] }); toast(t('published'), 'success'); }
+    catch (e: any) { toast(e.message, 'error'); } finally { setBusy(false); }
+  };
+  const remove = async (id: string) => {
+    try { await api.del(`/api/admin/news/${id}`); qc.invalidateQueries({ queryKey: ['news'] }); } catch (e: any) { toast(e.message, 'error'); }
+  };
+  return (
+    <section className="surface-low rounded-[28px] p-4 md:p-5 mb-6">
+      <h2 className="md-title-lg emph">{t('news')}</h2>
+      <p className="md-body-sm muted mt-1">{t('newsHint')}</p>
+      <div className="mt-3 flex flex-col gap-2">
+        <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={140} placeholder={t('newsTitle')} className="h-11 px-4 rounded-full surface md-body-md outline-none" />
+        <textarea value={body} onChange={(e) => setBody(e.target.value)} maxLength={4000} rows={3} placeholder={t('newsBody')} className="px-4 py-3 rounded-[20px] surface md-body-md outline-none resize-y" />
+        <div><M3eButton variant="filled" disabled={busy || !title.trim() || undefined} onClick={publish}><m3e-icon variant="rounded" slot="icon" name="campaign" />{t('publish')}</M3eButton></div>
+      </div>
+      <div className="mt-4 space-y-2">
+        {(data ?? []).length === 0 && <p className="md-body-md muted px-1">{t('noNews')}</p>}
+        {(data ?? []).map((n) => (
+          <div key={n.id} className="surface rounded-[20px] px-4 py-3 flex gap-3 items-start">
+            <div className="min-w-0 flex-1">
+              <div className="md-title-sm">{n.title}</div>
+              {n.body && <div className="md-body-sm muted whitespace-pre-line mt-0.5">{n.body}</div>}
+              <div className="md-label-sm muted mt-1">{new Date(n.createdAt).toLocaleString()}{n.author ? ` · ${n.author}` : ''}</div>
+            </div>
+            <M3eIconButton aria-label="delete" onClick={() => remove(n.id)}><m3e-icon variant="rounded" name="delete" /></M3eIconButton>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 

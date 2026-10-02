@@ -2,6 +2,14 @@
 
 package space.avthsr.music.ui
 
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideInHorizontally
+import android.Manifest
+import android.os.Build
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.rememberLauncherForActivityResult
+import space.avthsr.music.api.News
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.LocalContentColor
 import androidx.navigation.NavBackStackEntry
@@ -147,6 +155,16 @@ private fun Main() {
       launch { snack.showSnackbar(text) }
     }
   }
+  // news: checked while the app is open (the background check notifies when it is not)
+  LaunchedEffect(Unit) { while (true) { News.refresh(); delay(5 * 60_000L) } }
+  // Android 13+: notifications need the listener's yes, asked once
+  val askNotify = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+  LaunchedEffect(Unit) {
+    if (Build.VERSION.SDK_INT >= 33 && !Api.prefs.getBoolean("notify.asked", false)) {
+      Api.prefs.edit().putBoolean("notify.asked", true).apply()
+      askNotify.launch(Manifest.permission.POST_NOTIFICATIONS)
+    }
+  }
   val open by MainActivity.openPlayer.collectAsStateWithLifecycle()
   LaunchedEffect(open) {
     if (open) { playerOpen = true; MainActivity.openPlayer.value = false }
@@ -216,6 +234,7 @@ private fun Main() {
           screen("cartist/{id}") { CatalogArtistScreen(it.arguments?.getString("id")?.toLongOrNull() ?: 0L) }
           screen("history") { HistoryScreen() }
           screen("downloads") { DownloadsScreen() }
+          screen("news") { NewsScreen() }
           screen("settings") { SettingsScreen() }
           screen("admin") { AdminScreen() }
           screen("admin/user/{id}") { AdminUserScreen(it.arguments?.getString("id").orEmpty()) }
@@ -344,6 +363,10 @@ private fun MiniPlayer(playerOpen: Boolean, onOpen: () -> Unit) {
       .clickable(interactionSource = interaction, indication = LocalIndication.current, onClick = onOpen),
   ) {
     Row(Modifier.padding(start = 8.dp, top = 8.dp, bottom = 6.dp, end = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+      // cover and title swipe to the next / previous track; the like and play buttons stay
+      val swipe = rememberTrackSwipe()
+      val scope = rememberCoroutineScope()
+      Row(Modifier.weight(1f).trackSwipe(swipe, scope), verticalAlignment = Alignment.CenterVertically) {
       val shared = LocalShared.current
       Cover(
         t.coverUrl,
@@ -354,24 +377,26 @@ private fun MiniPlayer(playerOpen: Boolean, onOpen: () -> Unit) {
         RoundedCornerShape(16.dp),
       )
       Spacer(Modifier.width(12.dp))
+      // a new track slides in from the side it comes from: ahead in the queue from the right, back from the left
       AnimatedContent(
-        targetState = t,
-        contentKey = { it.id },
+        targetState = t to s.index,
+        contentKey = { it.first.id },
         transitionSpec = {
-          (slideInVertically(Motion.expressive.defaultSpatialSpec()) { it / 2 } + fadeIn(Motion.expressive.defaultEffectsSpec()))
-            .togetherWith(slideOutVertically(Motion.expressive.fastSpatialSpec()) { -it / 2 } + fadeOut(Motion.expressive.fastEffectsSpec()))
+          val ahead = targetState.second >= initialState.second
+          (slideInHorizontally(Motion.expressive.defaultSpatialSpec()) { w -> if (ahead) w / 2 else -w / 2 } + fadeIn(Motion.expressive.defaultEffectsSpec()))
+            .togetherWith(slideOutHorizontally(Motion.expressive.fastSpatialSpec()) { w -> if (ahead) -w / 2 else w / 2 } + fadeOut(Motion.expressive.fastEffectsSpec()))
         },
         modifier = Modifier.weight(1f),
         label = "mini-track",
-      ) { x ->
+      ) { (x, _) ->
         Column {
           Text(x.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, modifier = Modifier.basicMarquee())
           Text(x.artists, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
       }
+      }
       LikeButton("track", t.id)
       MorphPlayButton(s.playing, { PlayerConn.toggle() }, 44.dp)
-      IconButton(onClick = { PlayerConn.next() }, shapes = IconButtonDefaults.shapes()) { Ico(R.drawable.ic_skip_next, tr("Следующий")) }
     }
     LinearWavyProgressIndicator(
       progress = { if (dur > 0) (pos.longValue.toFloat() / dur).coerceIn(0f, 1f) else 0f },

@@ -199,6 +199,8 @@ object PlayerConn {
 
   fun next() = withController { it.seekToNext() }
   fun prev() = withController { it.seekToPrevious() }
+  /** the previous track itself (a swipe), not a restart of the current one */
+  fun prevTrack() = withController { it.seekToPreviousMediaItem() }
   fun seek(ms: Long) = withController { it.seekTo(ms) }
   fun skipTo(index: Int) = withController { it.seekToDefaultPosition(index); it.play() }
   fun removeAt(index: Int) = withController { it.removeMediaItem(index) }

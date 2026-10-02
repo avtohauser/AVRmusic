@@ -20,6 +20,7 @@ import adminRoutes from './routes/admin.js';
 import importRoutes from './routes/import.js';
 import catalogRoutes from './routes/catalog.js';
 import waveRoutes from './routes/wave.js';
+import newsRoutes from './routes/news.js';
 import { registerRunners } from './services/runners.js';
 
 declare module 'fastify' {
@@ -37,6 +38,16 @@ export async function buildApp(opts: { db?: DB; logger?: boolean } = {}): Promis
   });
   app.decorate('db', opts.db ?? openDatabase());
   registerRunners(app.db);
+
+  // set before the routes: route plugins take the error handler that exists when they are registered
+  app.setErrorHandler((err: any, req, reply) => {
+    if (err instanceof HttpError) return reply.code(err.statusCode).send({ error: err.code, message: err.message, statusCode: err.statusCode });
+    if (err instanceof ZodError) return reply.code(400).send({ error: 'validation', message: err.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; '), statusCode: 400 });
+    if (err.code === 'FST_REQ_FILE_TOO_LARGE') return reply.code(413).send({ error: 'too_large', message: `Файл больше лимита ${config.maxUploadMb} МБ`, statusCode: 413 });
+    if (err.statusCode && err.statusCode < 500) return reply.code(err.statusCode).send({ error: err.code ?? 'error', message: err.message, statusCode: err.statusCode });
+    req.log.error(err);
+    return reply.code(500).send({ error: 'internal', message: 'Внутренняя ошибка сервера', statusCode: 500 });
+  });
 
   await app.register(cors, { origin: true, credentials: true, exposedHeaders: ['Content-Disposition', 'Content-Range', 'Accept-Ranges', 'Content-Length'] });
   await app.register(jwt, { secret: config.jwtSecret });
@@ -57,6 +68,7 @@ export async function buildApp(opts: { db?: DB; logger?: boolean } = {}): Promis
   await app.register(importRoutes);
   await app.register(catalogRoutes);
   await app.register(waveRoutes);
+  await app.register(newsRoutes);
 
   app.get('/api/health', async () => ({ ok: true, version: config.version }));
 
@@ -87,14 +99,6 @@ export async function buildApp(opts: { db?: DB; logger?: boolean } = {}): Promis
     app.get('/', async () => ({ name: 'AVRmusic API', version: config.version, hint: 'Соберите веб-клиент: pnpm build' }));
   }
 
-  app.setErrorHandler((err: any, req, reply) => {
-    if (err instanceof HttpError) return reply.code(err.statusCode).send({ error: err.code, message: err.message, statusCode: err.statusCode });
-    if (err instanceof ZodError) return reply.code(400).send({ error: 'validation', message: err.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; '), statusCode: 400 });
-    if (err.code === 'FST_REQ_FILE_TOO_LARGE') return reply.code(413).send({ error: 'too_large', message: `Файл больше лимита ${config.maxUploadMb} МБ`, statusCode: 413 });
-    if (err.statusCode && err.statusCode < 500) return reply.code(err.statusCode).send({ error: err.code ?? 'error', message: err.message, statusCode: err.statusCode });
-    req.log.error(err);
-    return reply.code(500).send({ error: 'internal', message: 'Внутренняя ошибка сервера', statusCode: 500 });
-  });
 
   return app;
 }

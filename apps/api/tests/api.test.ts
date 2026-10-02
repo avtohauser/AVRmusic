@@ -312,3 +312,23 @@ test('avatar: upload shows up on the user, delete removes it', async () => {
   assert.equal(del.json().avatarUrl, null);
   assert.equal((await app.inject({ method: 'GET', url })).statusCode, 404);
 });
+
+test('admin news reach everyone, newest first, and can be taken back', async () => {
+  const h = { authorization: `Bearer ${access}` };
+  const a = await app.inject({ method: 'POST', url: '/api/admin/news', headers: h, payload: { title: 'Первая', body: 'Привет всем' } });
+  assert.equal(a.statusCode, 200, a.body);
+  const first = a.json();
+  assert.equal(first.title, 'Первая');
+  await new Promise((r) => setTimeout(r, 5));
+  const b = await app.inject({ method: 'POST', url: '/api/admin/news', headers: h, payload: { title: 'Вторая' } });
+  const second = b.json();
+  const list = (await app.inject({ method: 'GET', url: '/api/news', headers: h })).json();
+  assert.deepEqual(list.slice(0, 2).map((n: any) => n.id), [second.id, first.id]);
+  const since = (await app.inject({ method: 'GET', url: `/api/news?after=${encodeURIComponent(first.createdAt)}`, headers: h })).json();
+  assert.deepEqual(since.map((n: any) => n.id), [second.id]);
+  assert.equal((await app.inject({ method: 'GET', url: '/api/news' })).statusCode, 401);
+  const empty = await app.inject({ method: 'POST', url: '/api/admin/news', headers: h, payload: { title: '' } });
+  assert.equal(empty.statusCode, 400, empty.body);
+  assert.equal((await app.inject({ method: 'DELETE', url: `/api/admin/news/${first.id}`, headers: h })).statusCode, 200);
+  assert.equal((await app.inject({ method: 'GET', url: '/api/news', headers: h })).json().some((n: any) => n.id === first.id), false);
+});

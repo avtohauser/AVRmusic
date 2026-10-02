@@ -251,6 +251,17 @@ const MIGRATIONS: string[] = [
   CREATE INDEX IF NOT EXISTS idx_albums_created ON albums(created_at);
   CREATE INDEX IF NOT EXISTS idx_tracks_plays ON tracks(play_count, created_at);
   `,
+  // 11: news from the admin to everyone
+  `
+  CREATE TABLE news (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    body TEXT NOT NULL DEFAULT '',
+    created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+  );
+  CREATE INDEX idx_news_created ON news(created_at);
+  `,
 ];
 
 export function openDatabase(dbPath = config.dbPath): DB {

@@ -429,3 +429,7 @@ data class Capabilities(
 
 @Serializable
 data class ScanResult(val dir: String = "", val imported: Int = 0, val skipped: List<Skipped> = emptyList())
+
+/** A note from the admin to everyone. */
+@Serializable
+data class NewsItem(val id: String, val title: String, val body: String = "", val createdAt: String, val author: String? = null)

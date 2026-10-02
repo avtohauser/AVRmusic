@@ -112,6 +112,7 @@ fun HomeScreen() {
         FlowText(greeting, MaterialTheme.typography.headlineMedium, Modifier.weight(1f))
       }
     }
+    item { NewsBanner { nav.route("news") } }
     item { WaveCard() }
     item { DiscoverEntry { nav.discover() } }
     when (val s = loader.state) {

@@ -73,6 +73,7 @@ import space.avthsr.music.api.Api
 import space.avthsr.music.api.Likes
 import space.avthsr.music.api.PlaylistSummary
 import space.avthsr.music.api.Track
+import space.avthsr.music.player.Offline
 import space.avthsr.music.player.PlayerConn
 
 /* ---------- navigation ---------- */
@@ -89,6 +90,7 @@ class Nav(private val c: NavController, val openPlayer: () -> Unit) {
   fun discover() = go("discover")
   fun profile() = go("profile")
   fun jobs() = go("jobs")
+  fun downloads() = go("downloads")
   fun route(route: String) = go(route)
   fun back() { c.popBackStack() }
 }
@@ -267,6 +269,7 @@ fun TrackRow(
 @Composable
 fun TrackMenu(t: Track, expanded: Boolean, close: () -> Unit, extra: (@Composable ColumnScope.(close: () -> Unit) -> Unit)? = null) {
   val nav = LocalNav.current
+  val context = androidx.compose.ui.platform.LocalContext.current
   val liked by Likes.tracks.collectAsStateWithLifecycle()
   var pick by remember { mutableStateOf(false) }
   DropdownMenu(expanded = expanded, onDismissRequest = close) {
@@ -285,6 +288,20 @@ fun TrackMenu(t: Track, expanded: Boolean, close: () -> Unit, extra: (@Composabl
     t.album?.let { a -> DropdownMenuItem(text = { Text("К альбому") }, leadingIcon = { Ico(R.drawable.ic_album) }, onClick = { close(); nav.album(a.id) }) }
     if (t.artist.id.isNotEmpty()) {
       DropdownMenuItem(text = { Text("К исполнителю") }, leadingIcon = { Ico(R.drawable.ic_person) }, onClick = { close(); nav.artist(t.artist.id) })
+    }
+    val savedOffline by Offline.entries.collectAsStateWithLifecycle()
+    if (t.id in savedOffline) {
+      DropdownMenuItem(text = { Text("Удалить из офлайн") }, leadingIcon = { Ico(R.drawable.ic_offline) }, onClick = { close(); Offline.remove(listOf(t.id)) })
+    } else {
+      DropdownMenuItem(text = { Text("Сохранить офлайн") }, leadingIcon = { Ico(R.drawable.ic_download) }, onClick = { close(); Offline.save(listOf(t)) })
+    }
+    DropdownMenuItem(text = { Text("Скачать на устройство") }, leadingIcon = { Ico(R.drawable.ic_folder) }, onClick = { close(); downloadTrack(context, t) })
+    DropdownMenuItem(text = { Text("Поделиться") }, leadingIcon = { Ico(R.drawable.ic_share) }, onClick = { close(); share(context, trackPath(t), "${t.artists} — ${t.title}") })
+    DropdownMenuItem(text = { Text("Скопировать ссылку") }, leadingIcon = { Ico(R.drawable.ic_link) }, onClick = { close(); copyLink(context, trackPath(t)) })
+    if (!t.hasCanvas && Api.user?.canAcquire != false) {
+      DropdownMenuItem(text = { Text("Найти канвас") }, leadingIcon = { Ico(R.drawable.ic_movie) }, onClick = {
+        close(); act("Ищу клип — канвас появится через минуту") { Api.requestCanvas(t.id) }
+      })
     }
     if (Api.user?.isAdmin == true) {
       DropdownMenuItem(text = { Text("Редактировать трек") }, leadingIcon = { Ico(R.drawable.ic_settings) }, onClick = { close(); nav.route("admin/track/${Uri.encode(t.id)}") })

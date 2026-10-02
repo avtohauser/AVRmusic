@@ -68,6 +68,9 @@ object Api {
   }
 
   fun streamUrl(id: String) = "$BASE/api/stream/$id?t=${_session.value?.mediaToken.orEmpty()}"
+  fun canvasUrl(id: String) = "$BASE/api/canvas/$id?t=${_session.value?.mediaToken.orEmpty()}"
+  /** File download links (the media token is accepted by /api/download/…). */
+  fun downloadUrl(path: String) = "$BASE$path?t=${_session.value?.mediaToken.orEmpty()}"
 
   fun enc(s: String): String = URLEncoder.encode(s, "UTF-8")
 
@@ -189,7 +192,11 @@ object Api {
   /* ---------- library ---------- */
 
   suspend fun home(): HomeFeed = get("/api/home")
-  suspend fun search(q: String): SearchResult = get("/api/search?q=${enc(q)}&limit=20")
+  suspend fun search(q: String, type: String = "all"): SearchResult =
+    get("/api/search?q=${enc(q)}&type=$type&limit=${if (type == "all") 20 else 60}")
+  suspend fun allAlbums(sort: String): List<AlbumSummary> = get<Paged<AlbumSummary>>("/api/albums?sort=$sort&limit=200").items
+  suspend fun allArtists(sort: String): List<ArtistSummary> = get<Paged<ArtistSummary>>("/api/artists?sort=$sort&limit=200").items
+  suspend fun publicPlaylists(): List<PlaylistSummary> = get("/api/playlists/public")
   suspend fun track(id: String): Track = get("/api/tracks/${enc(id)}")
   suspend fun album(id: String): Album = get("/api/albums/${enc(id)}")
   suspend fun artist(id: String): ArtistPage = get("/api/artists/${enc(id)}")
@@ -199,6 +206,8 @@ object Api {
   suspend fun genres(): List<Genre> = get("/api/genres")
   suspend fun lyrics(id: String): Lyrics = get("/api/tracks/${enc(id)}/lyrics")
   suspend fun radio(id: String): List<Track> = get("/api/tracks/${enc(id)}/radio")
+  /** Asks for a canvas (a slice of the official clip) for a library track. */
+  suspend fun requestCanvas(id: String) { call("POST", "/api/tracks/${enc(id)}/canvas/fetch") }
 
   suspend fun createPlaylist(title: String): PlaylistSummary =
     post("/api/playlists", buildJsonObject { put("title", title.trim()) }.toString())
@@ -248,6 +257,8 @@ object Api {
   suspend fun catalogAlbum(id: Long): CatalogAlbumPage = get("/api/catalog/albums/$id")
   suspend fun catalogArtist(id: Long): CatalogArtistPage = get("/api/catalog/artists/$id")
   suspend fun jobs(): List<AcquireJob> = get("/api/catalog/jobs")
+  /** Cancels one of the user's own fetch jobs. */
+  suspend fun cancelCatalogJob(id: String) { call("DELETE", "/api/catalog/jobs/${enc(id)}") }
 
   /** Asks the server to fetch a track / album / discography from the catalogue. */
   suspend fun acquire(kind: String, id: Long): AcquireResult =

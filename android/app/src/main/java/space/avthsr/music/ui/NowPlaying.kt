@@ -2,6 +2,17 @@
 
 package space.avthsr.music.ui
 
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.zIndex
+import space.avthsr.music.App
+import kotlin.math.roundToInt
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -47,7 +58,6 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -84,6 +94,9 @@ fun NowPlayingScreen(onClose: () -> Unit) {
   val cs = MaterialTheme.colorScheme
   val t = s.track
   var queueOpen by remember { mutableStateOf(false) }
+  var sleepMenu by remember { mutableStateOf(false) }
+  val speed by PlayerConn.speed.collectAsStateWithLifecycle()
+  val sleepAt by PlayerConn.sleepAt.collectAsStateWithLifecycle()
   var lyricsOpen by remember { mutableStateOf(false) }
   var menu by remember { mutableStateOf(false) }
   var pos by remember { mutableLongStateOf(0L) }
@@ -106,13 +119,16 @@ fun NowPlayingScreen(onClose: () -> Unit) {
         ) { change, dy -> change.consume(); pull = max(0f, pull + dy) }
       },
   ) {
-    if (t != null) {
+    val canvas = t?.hasCanvas == true
+    if (t != null && canvas) {
+      TrackCanvas(t, s.playing, Modifier.fillMaxSize())
+    } else if (t != null) {
       AsyncImage(
         model = Api.img(t.coverUrl), contentDescription = null, contentScale = ContentScale.Crop, alpha = 0.55f,
         modifier = Modifier.fillMaxSize().blur(90.dp),
       )
     }
-    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(cs.background.copy(alpha = 0.35f), cs.background.copy(alpha = 0.8f), cs.background))))
+    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(if (canvas) listOf(cs.background.copy(alpha = 0.5f), Color.Transparent, cs.background.copy(alpha = 0.6f), cs.background) else listOf(cs.background.copy(alpha = 0.35f), cs.background.copy(alpha = 0.8f), cs.background))))
 
     Column(Modifier.fillMaxSize().windowInsetsPadding(SafeBars).padding(horizontal = 24.dp, vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
       Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -128,7 +144,8 @@ fun NowPlayingScreen(onClose: () -> Unit) {
       }
 
       Spacer(Modifier.weight(1f))
-      Crossfade(targetState = t?.coverUrl, label = "cover") { url ->
+      if (canvas) Spacer(Modifier.widthIn(max = 420.dp).fillMaxWidth().aspectRatio(1f))
+      else Crossfade(targetState = t?.coverUrl, label = "cover") { url ->
         Cover(
           url,
           Modifier.widthIn(max = 420.dp).fillMaxWidth().aspectRatio(1f)
@@ -207,6 +224,21 @@ fun NowPlayingScreen(onClose: () -> Unit) {
         if (t != null) LikeButton("track", t.id)
         IconButton(onClick = { lyricsOpen = true }, enabled = t?.hasLyrics == true, shapes = IconButtonDefaults.shapes()) { Ico(R.drawable.ic_lyrics, "Текст") }
         IconButton(onClick = { queueOpen = true }, shapes = IconButtonDefaults.shapes()) { Ico(R.drawable.ic_queue, "Очередь") }
+        TextButton(onClick = { PlayerConn.cycleSpeed() }) { Text("${fmtSpeed(speed)}×", style = MaterialTheme.typography.labelLarge) }
+        Box {
+          IconButton(onClick = { sleepMenu = true }, shapes = IconButtonDefaults.shapes()) {
+            Ico(R.drawable.ic_bedtime, "Таймер сна", tint = if (sleepAt != null) cs.primary else LocalContentColor.current)
+          }
+          DropdownMenu(expanded = sleepMenu, onDismissRequest = { sleepMenu = false }) {
+            sleepAt?.let { at ->
+              Text("Остановится в ${java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(at))}", Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.labelLarge, color = cs.primary)
+            }
+            listOf(15, 30, 45, 60, 90).forEach { m ->
+              DropdownMenuItem(text = { Text("Через $m мин") }, onClick = { sleepMenu = false; PlayerConn.setSleep(m); App.say("Музыка остановится через $m мин") })
+            }
+            if (sleepAt != null) DropdownMenuItem(text = { Text("Выключить таймер") }, onClick = { sleepMenu = false; PlayerConn.setSleep(null) })
+          }
+        }
       }
     }
   }
@@ -218,23 +250,51 @@ fun NowPlayingScreen(onClose: () -> Unit) {
 @Composable
 private fun QueueSheet(s: PlayerUi, onDismiss: () -> Unit) {
   val cs = MaterialTheme.colorScheme
+  val rowPx = with(LocalDensity.current) { 62.dp.toPx() }
+  var dragging by remember { mutableStateOf<Int?>(null) }
+  var offset by remember { mutableFloatStateOf(0f) }
   ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-    Text("Очередь", Modifier.padding(horizontal = 20.dp, vertical = 8.dp), style = MaterialTheme.typography.titleLarge)
+    Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+      Text("Очередь · ${s.queue.size}", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+      TextButton(onClick = { PlayerConn.clearQueue() }, enabled = s.queue.size > 1) { Ico(R.drawable.ic_clear_all, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Очистить") }
+    }
+    Text(
+      "Перетаскивайте за ≡, чтобы поменять порядок", Modifier.padding(horizontal = 20.dp),
+      style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant,
+    )
     val list = rememberLazyListState(initialFirstVisibleItemIndex = max(0, s.index - 1))
     LazyColumn(state = list, modifier = Modifier.fillMaxHeight(0.85f)) {
       itemsIndexed(s.queue) { i, t ->
         val current = i == s.index
+        val lifted = dragging == i
         Row(
-          Modifier.fillMaxWidth().clickable { PlayerConn.skipTo(i) }
-            .background(if (current) cs.secondaryContainer.copy(alpha = 0.5f) else cs.surface.copy(alpha = 0f))
-            .padding(start = 20.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
+          Modifier.fillMaxWidth().height(62.dp)
+            .zIndex(if (lifted) 1f else 0f)
+            .graphicsLayer { if (lifted) { translationY = offset; shadowElevation = 12f } }
+            .background(if (current || lifted) cs.secondaryContainer else cs.surfaceContainerLow)
+            .clickable { PlayerConn.skipTo(i) }
+            .padding(start = 8.dp, end = 4.dp),
           verticalAlignment = Alignment.CenterVertically,
         ) {
+          Box(
+            Modifier.size(44.dp).pointerInput(i, s.queue.size) {
+              detectDragGestures(
+                onDragStart = { dragging = i; offset = 0f },
+                onDragEnd = {
+                  val to = (i + (offset / rowPx).roundToInt()).coerceIn(0, s.queue.size - 1)
+                  PlayerConn.move(i, to)
+                  dragging = null; offset = 0f
+                },
+                onDragCancel = { dragging = null; offset = 0f },
+              ) { change, amount -> change.consume(); offset += amount.y }
+            },
+            contentAlignment = Alignment.Center,
+          ) { Ico(R.drawable.ic_drag, "Перетащить", tint = cs.onSurfaceVariant) }
           Cover(t.coverUrl, Modifier.size(46.dp), RoundedCornerShape(12.dp))
-          Spacer(Modifier.width(14.dp))
+          Spacer(Modifier.width(12.dp))
           Column(Modifier.weight(1f)) {
-            Text(t.title, maxLines = 1, overflow = TextOverflow.Ellipsis, color = if (current) cs.primary else cs.onSurface, style = MaterialTheme.typography.bodyLarge)
-            Text(t.artists, maxLines = 1, overflow = TextOverflow.Ellipsis, color = cs.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+            Text(t.title, maxLines = 1, overflow = TextOverflow.Ellipsis, color = if (current) cs.primary else cs.onSurface, style = MaterialTheme.typography.titleSmall)
+            Text(t.artists, maxLines = 1, overflow = TextOverflow.Ellipsis, color = cs.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
           }
           if (!current) IconButton(onClick = { PlayerConn.removeAt(i) }) { Ico(R.drawable.ic_close, "Убрать", tint = cs.onSurfaceVariant) }
         }
@@ -242,6 +302,8 @@ private fun QueueSheet(s: PlayerUi, onDismiss: () -> Unit) {
     }
   }
 }
+
+private fun fmtSpeed(v: Float) = if (v % 1f == 0f) v.toInt().toString() else v.toString().trimEnd('0')
 
 @Composable
 private fun LyricsSheet(t: Track, position: () -> Long, onDismiss: () -> Unit) {

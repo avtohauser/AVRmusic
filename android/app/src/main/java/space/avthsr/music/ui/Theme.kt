@@ -17,6 +17,13 @@ import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import space.avthsr.music.api.Api
+import space.avthsr.music.player.PlayerConn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
@@ -71,6 +78,21 @@ private fun robotoFlex(face: Face) = FontFamily(
   ),
 )
 
+/** Faces along the flowing-type wave (heavier, wider, rounder and back), built once; null before Android 10. */
+private var flowFaces: List<FontFamily>? = null
+
+fun flowFamilies(context: Context): List<FontFamily>? {
+  if (Build.VERSION.SDK_INT < 29) return null
+  flowFaces?.let { return it }
+  val n = 16
+  return runCatching {
+    (0 until n).map { i ->
+      val k = i / (n - 1f)
+      FontFamily(androidx.compose.ui.text.font.Typeface(chained(context, Face((560 + 340 * k).toInt(), 100f + 24f * k, 30f + 70f * k, 28f))))
+    }
+  }.getOrNull()?.also { flowFaces = it }
+}
+
 private fun TextStyle.with(context: Context, face: Face) = copy(fontFamily = family(context, face), fontWeight = FontWeight(face.weight))
 
 private fun typography(context: Context): Typography {
@@ -123,7 +145,27 @@ private val AvrShapes = Shapes(
 @Composable
 fun AvrTheme(content: @Composable () -> Unit) {
   val context = LocalContext.current
-  val scheme = if (Build.VERSION.SDK_INT >= 31) dynamicDarkColorScheme(context) else Fallback
+  val mode by Look.mode.collectAsState()
+  val source by Look.source.collectAsState()
+  val seed by Look.seed.collectAsState()
+  val variant by Look.variant.collectAsState()
+  val contrast by Look.contrast.collectAsState()
+  val coverSeed by Look.coverSeed.collectAsState()
+  val player by PlayerConn.state.collectAsState()
+  val cover = player.track?.coverUrl
+  // the playing track's cover gives the colours when chosen so
+  LaunchedEffect(source, cover) {
+    if (source == "cover" && cover != null) Api.img(cover)?.let { url -> coverSeed(context, url)?.let { Look.coverSeed.value = it } }
+  }
+  val dark = when (mode) { "light" -> false; "dark" -> true; else -> isSystemInDarkTheme() }
+  val target = remember(dark, source, seed, variant, contrast, coverSeed) {
+    when {
+      source == "system" && Build.VERSION.SDK_INT >= 31 -> if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+      source == "cover" -> schemeFrom(coverSeed ?: seed, dark, variant, contrast)
+      else -> schemeFrom(seed, dark, variant, contrast)
+    }
+  }
+  val scheme = animated(target)
   val type = remember { typography(context.applicationContext) }
   MaterialExpressiveTheme(
     colorScheme = scheme,

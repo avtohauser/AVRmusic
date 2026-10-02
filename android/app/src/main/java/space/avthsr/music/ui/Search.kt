@@ -2,25 +2,35 @@
 
 package space.avthsr.music.ui
 
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.LoadingIndicator
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
@@ -33,47 +43,86 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import space.avthsr.music.R
+import space.avthsr.music.api.AlbumSummary
 import space.avthsr.music.api.Api
+import space.avthsr.music.api.ArtistSummary
+import space.avthsr.music.api.PlaylistSummary
+import space.avthsr.music.api.Track
 import space.avthsr.music.player.PlayerConn
+
+private val types = listOf("all" to "Всё", "track" to "Треки", "album" to "Альбомы", "artist" to "Исполнители", "playlist" to "Плейлисты")
+
+/** Recent searches, kept on the phone. */
+private object Recent {
+  private const val KEY = "search.recent"
+  fun list(): List<String> = runCatching { Api.prefs.getString(KEY, "")!!.split('\n').filter { it.isNotBlank() } }.getOrDefault(emptyList())
+  fun add(q: String) {
+    val v = q.trim()
+    if (v.length < 2) return
+    val next = (listOf(v) + list().filter { !it.equals(v, ignoreCase = true) }).take(10)
+    Api.prefs.edit().putString(KEY, next.joinToString("\n")).apply()
+  }
+  fun clear() { Api.prefs.edit().remove(KEY).apply() }
+}
 
 @Composable
 fun SearchScreen() {
   val nav = LocalNav.current
   val focus = LocalFocusManager.current
   var q by rememberSaveable { mutableStateOf("") }
+  var type by rememberSaveable { mutableStateOf("all") }
   var query by remember { mutableStateOf(q.trim()) }
+  var recent by remember { mutableStateOf(Recent.list()) }
   LaunchedEffect(q) { delay(350); query = q.trim() }
   val canAcquire by produceState(false) { value = Api.canAcquire() }
   val genres = rememberLoad(Unit) { Api.genres() }
-  val local = rememberLoad(query) { if (query.isEmpty()) null else Api.search(query) }
+  val local = rememberLoad(query, type) { if (query.isEmpty()) null else Api.search(query, type) }
   val remote = rememberLoad(query, canAcquire) { if (query.length < 2 || !canAcquire) null else Api.catalogSearch(query) }
+  fun keep(text: String = query) { Recent.add(text); recent = Recent.list() }
 
   Column(Modifier.fillMaxSize()) {
     TextField(
       value = q,
       onValueChange = { q = it },
-      modifier = Modifier.fillMaxWidth().padding(16.dp),
-      placeholder = { Text("Треки, альбомы, исполнители") },
+      modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp),
+      placeholder = { Text("Что хотите послушать?") },
       leadingIcon = { Ico(R.drawable.ic_search) },
       trailingIcon = { if (q.isNotEmpty()) IconButton(onClick = { q = "" }) { Ico(R.drawable.ic_close, "Очистить") } },
       singleLine = true,
       shape = RoundedCornerShape(28.dp),
       keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-      keyboardActions = KeyboardActions(onSearch = { query = q.trim(); focus.clearFocus() }),
+      keyboardActions = KeyboardActions(onSearch = { query = q.trim(); keep(q); focus.clearFocus() }),
       colors = TextFieldDefaults.colors(focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent),
     )
+    if (query.isNotEmpty()) {
+      Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        types.forEach { (id, label) -> FilterChip(selected = type == id, onClick = { type = id }, label = { Text(label) }) }
+      }
+    }
     LazyColumn(Modifier.weight(1f).imePadding(), contentPadding = PaddingValues(bottom = 24.dp)) {
       if (query.isEmpty()) {
+        if (recent.isNotEmpty()) {
+          item {
+            SectionTitle("Недавние запросы") { TextButton(onClick = { Recent.clear(); recent = emptyList() }) { Text("Очистить") } }
+            Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+              recent.forEach { r -> AssistChip(onClick = { q = r; query = r }, label = { Text(r) }, leadingIcon = { Ico(R.drawable.ic_history, null, Modifier.size(18.dp)) }) }
+            }
+          }
+        }
         val g = genres.data.orEmpty()
         if (g.isNotEmpty()) {
-          item { SectionTitle("Жанры и настроения") }
+          item { SectionTitle("Обзор: жанры и настроения") }
           items(g.chunked(2)) { row ->
             Row(Modifier.padding(horizontal = 16.dp, vertical = 5.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
               row.forEach { GenreTile(it, Modifier.weight(1f)) { nav.genre(it.slug) } }
@@ -87,36 +136,46 @@ fun SearchScreen() {
         is Load.Ok -> {
           val r = s.data
           if (r != null) {
-            if (r.tracks.isEmpty() && r.albums.isEmpty() && r.artists.isEmpty() && r.playlists.isEmpty()) {
+            val empty = r.tracks.isEmpty() && r.albums.isEmpty() && r.artists.isEmpty() && r.playlists.isEmpty()
+            if (empty) {
               item {
                 Text(
-                  if (canAcquire) "На сервере ничего не нашлось — посмотрите в каталоге ниже" else "Ничего не нашлось",
+                  if (canAcquire) "На сервере ничего не нашлось — посмотрите в каталоге ниже" else "Ничего не найдено. Попробуйте другой запрос",
                   Modifier.fillMaxWidth().padding(24.dp), textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
               }
             }
+            if (type == "all") r.top?.let { top -> item { TopResult(top) { keep() } } }
             if (r.tracks.isNotEmpty()) {
               item { SectionTitle("Треки") }
-              items(r.tracks) { t -> TrackRow(t, onClick = { PlayerConn.play(r.tracks, r.tracks.indexOf(t), "search") }) }
+              items(if (type == "all") r.tracks.take(8) else r.tracks) { t ->
+                TrackRow(t, onClick = { keep(); PlayerConn.play(r.tracks, r.tracks.indexOf(t), "search") })
+              }
             }
-            if (r.artists.isNotEmpty()) item {
-              SectionTitle("Исполнители")
-              CardRow(r.artists) { a -> MediaCard(a.name, "", a.imageUrl, { nav.artist(a.id) }, circle = true, width = 124.dp) }
+            if (r.artists.isNotEmpty()) {
+              if (type == "all") item {
+                SectionTitle("Исполнители")
+                CardRow(r.artists) { a -> MediaCard(a.name, "", a.imageUrl, { keep(); nav.artist(a.id) }, circle = true, width = 124.dp) }
+              } else items(r.artists) { a -> ResultRow(a.imageUrl, a.name, "Исполнитель", circle = true) { keep(); nav.artist(a.id) } }
             }
-            if (r.albums.isNotEmpty()) item {
-              SectionTitle("Альбомы")
-              CardRow(r.albums) { a -> MediaCard(a.title, a.artist.name, a.coverUrl, { nav.album(a.id) }) }
+            if (r.albums.isNotEmpty()) {
+              if (type == "all") item {
+                SectionTitle("Альбомы")
+                CardRow(r.albums) { a -> MediaCard(a.title, a.artist.name, a.coverUrl, { keep(); nav.album(a.id) }) }
+              } else items(r.albums) { a -> ResultRow(a.coverUrl, a.title, listOfNotNull(albumType(a.type), a.artist.name, a.year?.toString()).joinToString(" · ")) { keep(); nav.album(a.id) } }
             }
-            if (r.playlists.isNotEmpty()) item {
-              SectionTitle("Плейлисты")
-              CardRow(r.playlists) { p -> MediaCard(p.title, p.owner?.displayName ?: "", p.coverUrl ?: p.mosaic.firstOrNull(), { nav.playlist(p.id) }) }
+            if (r.playlists.isNotEmpty()) {
+              if (type == "all") item {
+                SectionTitle("Плейлисты")
+                CardRow(r.playlists) { p -> MediaCard(p.title, p.owner?.displayName ?: "", p.coverUrl ?: p.mosaic.firstOrNull(), { keep(); nav.playlist(p.id) }) }
+              } else items(r.playlists) { p -> ResultRow(p.coverUrl ?: p.mosaic.firstOrNull(), p.title, listOfNotNull(p.owner?.displayName, tracksWord(p.trackCount)).joinToString(" · ")) { keep(); nav.playlist(p.id) } }
             }
           }
         }
         is Load.Err -> item { Text(s.message, Modifier.padding(24.dp), color = MaterialTheme.colorScheme.error) }
         else -> item { Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { LoadingIndicator() } }
       }
-      if (canAcquire) {
+      if (canAcquire && type == "all") {
         val c = remote.data
         if (c != null && (c.tracks.isNotEmpty() || c.albums.isNotEmpty() || c.artists.isNotEmpty())) {
           item { SectionTitle("В каталоге", "Чего нет на сервере — добавьте в одно касание") }
@@ -127,6 +186,52 @@ fun SearchScreen() {
           }
         }
       }
+    }
+  }
+}
+
+@Composable
+private fun ResultRow(cover: String?, title: String, subtitle: String, circle: Boolean = false, onClick: () -> Unit) {
+  Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+    Cover(cover, Modifier.size(56.dp), if (circle) ArtistShape else RoundedCornerShape(14.dp), if (circle) R.drawable.ic_person else R.drawable.ic_album)
+    Spacer(Modifier.width(14.dp))
+    Column(Modifier.weight(1f)) {
+      Text(title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+      Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+  }
+}
+
+/** "Лучший результат": the best match as a big card. */
+@Composable
+private fun TopResult(top: JsonObject, onOpen: () -> Unit) {
+  val nav = LocalNav.current
+  val kind = top["kind"]?.jsonPrimitive?.content ?: return
+  val item = top["item"] as? JsonObject ?: return
+  fun <T> dec(s: kotlinx.serialization.KSerializer<T>): T? = runCatching { Api.json.decodeFromJsonElement(s, item) }.getOrNull()
+  var cover: String? = null
+  var title = ""
+  var subtitle = ""
+  var circle = false
+  var open: () -> Unit = {}
+  when (kind) {
+    "track" -> dec(Track.serializer())?.let { t -> cover = t.coverUrl; title = t.title; subtitle = "Трек · ${t.artists}"; open = { PlayerConn.play(listOf(t), 0, "search") } }
+    "album" -> dec(AlbumSummary.serializer())?.let { a -> cover = a.coverUrl; title = a.title; subtitle = "${albumType(a.type)} · ${a.artist.name}"; open = { nav.album(a.id) } }
+    "artist" -> dec(ArtistSummary.serializer())?.let { a -> cover = a.imageUrl; title = a.name; subtitle = "Исполнитель"; circle = true; open = { nav.artist(a.id) } }
+    "playlist" -> dec(PlaylistSummary.serializer())?.let { p -> cover = p.coverUrl ?: p.mosaic.firstOrNull(); title = p.title; subtitle = "Плейлист · ${p.owner?.displayName ?: ""}"; open = { nav.playlist(p.id) } }
+  }
+  if (title.isEmpty()) return
+  SectionTitle("Лучший результат")
+  Row(
+    Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh)
+      .clickable { onOpen(); open() }.padding(16.dp),
+    verticalAlignment = Alignment.CenterVertically,
+  ) {
+    Cover(cover, Modifier.size(96.dp), if (circle) ArtistShape else RoundedCornerShape(20.dp), if (circle) R.drawable.ic_person else R.drawable.ic_album)
+    Spacer(Modifier.width(16.dp))
+    Column(Modifier.weight(1f)) {
+      Text(title, style = MaterialTheme.typography.headlineSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+      Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
   }
 }

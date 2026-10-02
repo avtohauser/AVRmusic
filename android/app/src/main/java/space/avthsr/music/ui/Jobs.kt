@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -79,6 +80,10 @@ private fun JobCard(j: AcquireJob) {
   Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(cs.surfaceContainer).padding(16.dp)) {
     Text(j.title.ifBlank { j.kind }, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
     Text(status, style = MaterialTheme.typography.bodySmall, color = if (j.status == "error") cs.error else cs.onSurfaceVariant)
+    val mine = j.requestedBy == Api.user?.id || Api.user?.isAdmin == true
+    if (mine && (j.status == "queued" || j.status == "running")) {
+      TextButton(onClick = { act("Задача отменена") { Api.cancelCatalogJob(j.id) } }) { Text(if (j.status == "queued") "Убрать из очереди" else "Остановить") }
+    }
     if (j.status == "running") {
       Spacer(Modifier.height(8.dp))
       LinearWavyProgressIndicator(progress = { (j.progress / 100.0).toFloat().coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())

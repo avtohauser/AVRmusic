@@ -14,6 +14,8 @@ import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import space.avthsr.music.App
 import space.avthsr.music.api.Api
@@ -59,6 +61,8 @@ object PlayerConn {
       } else {
         controller = c
         c.addListener(listener)
+        speed.value = runCatching { Api.prefs.getFloat("speed", 1f) }.getOrDefault(1f)
+        if (c.playbackParameters.speed != speed.value) c.setPlaybackSpeed(speed.value)
         sync(true)
         val actions = pending.toList()
         pending.clear()
@@ -144,6 +148,48 @@ object PlayerConn {
   fun stop() {
     Queue.context.value = null
     controller?.let { it.stop(); it.clearMediaItems() }
+  }
+
+  /* ---------- speed, sleep timer, queue editing ---------- */
+
+  val speed = MutableStateFlow(1f)
+  /** when the sleep timer pauses the music (epoch ms), or null */
+  val sleepAt = MutableStateFlow<Long?>(null)
+  private var sleepJob: Job? = null
+  val speeds = listOf(0.75f, 1f, 1.25f, 1.5f, 2f)
+
+  fun setSpeed(v: Float) {
+    speed.value = v
+    runCatching { Api.prefs.edit().putFloat("speed", v).apply() }
+    withController { it.setPlaybackSpeed(v) }
+  }
+
+  fun cycleSpeed() {
+    val i = speeds.indexOfFirst { it >= speed.value - 0.01f }
+    setSpeed(speeds[(i + 1) % speeds.size])
+  }
+
+  /** Pauses the music in [minutes]; null switches the timer off. */
+  fun setSleep(minutes: Int?) {
+    sleepJob?.cancel()
+    sleepAt.value = null
+    if (minutes == null) return
+    sleepAt.value = System.currentTimeMillis() + minutes * 60_000L
+    sleepJob = App.scope.launch {
+      delay(minutes * 60_000L)
+      withController { it.pause() }
+      sleepAt.value = null
+      App.say("Таймер сна: музыка остановлена")
+    }
+  }
+
+  fun move(from: Int, to: Int) = withController { if (from != to) it.moveMediaItem(from, to) }
+
+  /** Leaves only the current track in the queue. */
+  fun clearQueue() = withController { c ->
+    val cur = c.currentMediaItemIndex
+    if (cur + 1 < c.mediaItemCount) c.removeMediaItems(cur + 1, c.mediaItemCount)
+    if (cur > 0) c.removeMediaItems(0, cur)
   }
 
   fun next() = withController { it.seekToNext() }

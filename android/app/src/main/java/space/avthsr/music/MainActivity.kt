@@ -84,7 +84,7 @@ class MainActivity : ComponentActivity() {
       s[0] in setOf("search", "library", "liked", "discover", "profile") -> s[0]
       s[0] == "admin" -> "admin"
       s[0] == "history" -> "history"
-      s[0] == "downloads" -> "jobs"
+      s[0] == "downloads" -> "downloads"
       s[0] == "register" -> { intent.data?.getQueryParameter("invite")?.let { invite.value = it }; null }
       else -> null
     }

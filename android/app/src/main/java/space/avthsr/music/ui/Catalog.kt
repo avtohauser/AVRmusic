@@ -53,6 +53,8 @@ import space.avthsr.music.api.Api
 import space.avthsr.music.api.CatalogAlbum
 import space.avthsr.music.api.CatalogTrack
 import space.avthsr.music.player.PlayerConn
+import space.avthsr.music.player.Preview
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 private const val ADDED_HINT = "появится в медиатеке через минуту-другую"
 
@@ -69,6 +71,8 @@ fun acquire(kind: String, id: Long, what: String, done: (Boolean) -> Unit = {}) 
 @Composable
 fun CatalogTrackRow(t: CatalogTrack, index: Int? = null, cover: String? = t.album?.coverUrl, reason: Boolean = false) {
   val have = t.libraryTrackId
+  val context = androidx.compose.ui.platform.LocalContext.current
+  val previewing by Preview.playing.collectAsStateWithLifecycle()
   var state by remember(t.id) { mutableIntStateOf(0) } // 0 idle, 1 sending, 2 sent
   Row(
     Modifier.fillMaxWidth()
@@ -87,6 +91,13 @@ fun CatalogTrackRow(t: CatalogTrack, index: Int? = null, cover: String? = t.albu
         if (reason && t.reason != null) "${t.artists} · ${t.reason}" else t.artists,
         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
       )
+    }
+    val preview = t.previewUrl
+    if (have == null && preview != null) {
+      val on = previewing == t.id
+      IconButton(onClick = { Preview.toggle(context, t.id, preview) }) {
+        Ico(if (on) R.drawable.ic_stop else R.drawable.ic_play, if (on) "Остановить превью" else "Превью 30 сек", tint = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+      }
     }
     when {
       have != null -> Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) { Ico(R.drawable.ic_play, "На сервере", tint = MaterialTheme.colorScheme.primary) }
@@ -178,7 +189,7 @@ fun DiscoverScreen() {
   val loader = rememberLoad(fresh) { Api.suggestions(fresh > 0) }
   Page { Column(Modifier.fillMaxSize()) {
     Row(Modifier.fillMaxWidth().padding(start = 56.dp, end = 8.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-      Text("Предложка", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
+      FlowText("Предложка", MaterialTheme.typography.headlineMedium, Modifier.weight(1f), maxLines = 1)
       IconButton(onClick = { fresh++ }) { Ico(R.drawable.ic_refresh, "Обновить") }
     }
     Box(Modifier.weight(1f)) {
@@ -221,7 +232,7 @@ fun Header(
     Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 56.dp, bottom = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
       Cover(cover, Modifier.size(224.dp), if (circle) ArtistShape else RoundedCornerShape(28.dp), if (circle) R.drawable.ic_person else R.drawable.ic_album)
       Spacer(Modifier.height(18.dp))
-      Text(title, style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
+      FlowText(title, MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center, maxLines = 3)
       if (subtitle != null) {
         Text(
           subtitle, style = MaterialTheme.typography.titleMedium, color = cs.primary, textAlign = TextAlign.Center,

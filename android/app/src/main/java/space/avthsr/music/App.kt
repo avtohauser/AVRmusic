@@ -5,6 +5,8 @@ import android.os.Build
 import android.util.Log
 import coil.ImageLoader
 import coil.ImageLoaderFactory
+import coil.decode.GifDecoder
+import coil.decode.ImageDecoderDecoder
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -14,6 +16,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import space.avthsr.music.api.Api
 import space.avthsr.music.api.Likes
+import space.avthsr.music.player.Net
+import space.avthsr.music.player.Offline
 import space.avthsr.music.player.Queue
 import java.io.File
 
@@ -23,6 +27,9 @@ class App : Application(), ImageLoaderFactory {
     installCrashCatcher()
     Api.init(this)
     Queue.init(this)
+    Offline.init(this)
+    space.avthsr.music.ui.Look.init()
+    Net.init(this)
     reportLastCrash()
     if (Api.session.value != null) scope.launch {
       Likes.load()
@@ -30,7 +37,11 @@ class App : Application(), ImageLoaderFactory {
     }
   }
 
-  override fun newImageLoader(): ImageLoader = ImageLoader.Builder(this).crossfade(180).build()
+  override fun newImageLoader(): ImageLoader = ImageLoader.Builder(this)
+    .crossfade(180)
+    // animated canvases (GIF / animated WebP)
+    .components { if (Build.VERSION.SDK_INT >= 28) add(ImageDecoderDecoder.Factory()) else add(GifDecoder.Factory()) }
+    .build()
 
   private val crashFile get() = File(filesDir, "crash.txt")
 

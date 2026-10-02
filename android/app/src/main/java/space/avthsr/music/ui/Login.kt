@@ -30,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -63,6 +64,11 @@ fun LoginScreen() {
   var busy by rememberSaveable { mutableStateOf(false) }
   var error by rememberSaveable { mutableStateOf<String?>(null) }
   val scope = rememberCoroutineScope()
+  // the server says whether this is the first account (the administrator) and whether a code is needed
+  val info by produceState<space.avthsr.music.api.ServerInfo?>(null) { value = runCatching { Api.info() }.getOrNull() }
+  val setup = info?.needsSetup == true
+  val needInvite = !setup && info?.inviteRequired != false
+  LaunchedEffect(setup) { if (setup) register = true }
   // opened from an invite link: registration with the code filled in
   val linkInvite by MainActivity.invite.collectAsStateWithLifecycle()
   LaunchedEffect(linkInvite) {
@@ -98,15 +104,19 @@ fun LoginScreen() {
         Modifier.size(96.dp).clip(LogoShape).background(MaterialTheme.colorScheme.primaryContainer),
         contentAlignment = Alignment.Center,
       ) { Ico(R.drawable.ic_library, null, Modifier.size(40.dp), MaterialTheme.colorScheme.onPrimaryContainer) }
-      Text("AVRmusic", style = MaterialTheme.typography.displaySmall)
+      FlowText("AVRmusic", MaterialTheme.typography.displaySmall, maxLines = 1)
       Text(
-        if (register) "Регистрация по коду приглашения" else "Войдите, чтобы слушать",
+        when {
+          setup -> "Первый запуск: создайте аккаунт администратора — он сможет приглашать друзей"
+          register -> if (needInvite) "Регистрация по коду приглашения" else "Регистрация"
+          else -> "Войдите, чтобы слушать, сохранять и скачивать"
+        },
         style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center,
       )
       Spacer(Modifier.height(4.dp))
       val field = Modifier.fillMaxWidth()
       if (register) {
-        OutlinedTextField(invite, { invite = it }, field, label = { Text("Код приглашения") }, singleLine = true)
+        if (needInvite) OutlinedTextField(invite, { invite = it }, field, label = { Text("Код приглашения") }, supportingText = { Text("Код выдаёт администратор, он одноразовый") }, singleLine = true)
         OutlinedTextField(
           email, { email = it }, field, label = { Text("Email") }, singleLine = true,
           keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
@@ -126,7 +136,7 @@ fun LoginScreen() {
         if (busy) LoadingIndicator(Modifier.size(32.dp))
         else Text(if (register) "Создать аккаунт" else "Войти", style = MaterialTheme.typography.titleMedium)
       }
-      Row {
+      if (!setup) Row {
         TextButton(onClick = { register = !register; error = null }) {
           Text(if (register) "Уже есть аккаунт? Войти" else "Есть код приглашения? Регистрация")
         }

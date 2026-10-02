@@ -109,7 +109,7 @@ fun HomeScreen() {
     item {
       Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         val greeting = loader.data?.greeting?.takeIf { it.isNotBlank() } ?: localGreeting()
-        Text(greeting, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
+        FlowText(greeting, MaterialTheme.typography.headlineMedium, Modifier.weight(1f))
         IconButton(onClick = { nav.profile() }) {
           Cover(user?.avatarUrl, Modifier.size(36.dp), AvatarShape, R.drawable.ic_person)
         }
@@ -171,7 +171,7 @@ fun WaveCard() {
     Column {
       Row(verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
-          Text("Моя волна", style = MaterialTheme.typography.displaySmall, color = cs.onPrimaryContainer)
+          FlowText("Моя волна", MaterialTheme.typography.displaySmall, color = cs.onPrimaryContainer, maxLines = 1)
           Spacer(Modifier.height(4.dp))
           val line = if (inWave) player.track?.reason ?: player.track?.let { "${it.title} · ${it.artists}" } ?: ""
           else Queue.modes.firstOrNull { it.id == mode }?.hint ?: ""

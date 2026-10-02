@@ -74,6 +74,7 @@ import space.avthsr.music.App
 import space.avthsr.music.MainActivity
 import space.avthsr.music.R
 import space.avthsr.music.api.Api
+import space.avthsr.music.player.Net
 import space.avthsr.music.player.PlayerConn
 
 @Composable
@@ -127,6 +128,8 @@ private fun Main() {
         snackbarHost = { SnackbarHost(snack) },
         bottomBar = {
           Column {
+            val online by Net.online.collectAsStateWithLifecycle()
+            if (!online) OfflineBanner { nav.downloads() }
             MiniPlayer(onOpen = { playerOpen = true })
             BottomBar(controller)
           }
@@ -153,6 +156,8 @@ private fun Main() {
           composable("calbum/{id}") { CatalogAlbumScreen(it.arguments?.getString("id")?.toLongOrNull() ?: 0L) }
           composable("cartist/{id}") { CatalogArtistScreen(it.arguments?.getString("id")?.toLongOrNull() ?: 0L) }
           composable("history") { HistoryScreen() }
+          composable("downloads") { DownloadsScreen() }
+          composable("settings") { SettingsScreen() }
           composable("admin") { AdminScreen() }
           composable("admin/user/{id}") { AdminUserScreen(it.arguments?.getString("id").orEmpty()) }
           composable("admin/track/{id}") { AdminTrackScreen(it.arguments?.getString("id").orEmpty()) }

@@ -3,6 +3,8 @@ package space.avthsr.music.api
 
 import android.content.Context
 import android.net.Uri
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -134,3 +136,20 @@ suspend fun Api.adminArtistImage(context: Context, id: String, uri: Uri) { multi
 
 /** JSON array of strings, for request bodies. */
 fun jsonStrings(list: List<String>) = JsonArray(list.map { JsonPrimitive(it) })
+
+suspend fun Api.capabilities(): Capabilities = get("/api/admin/import/capabilities")
+suspend fun Api.scanLibrary(): ScanResult = json.decodeFromString(ScanResult.serializer(), call("POST", "/api/admin/scan"))
+suspend fun Api.reindex() { call("POST", "/api/admin/reindex") }
+
+/** Lyrics from a .lrc (synced) or .txt (plain) file. */
+suspend fun Api.adminLyricsFile(context: Context, id: String, uri: Uri) {
+  multipart("/api/admin/tracks/${enc(id)}/lyrics") { it.addFile(context, uri) }
+}
+
+/** A square, downscaled photo (centre crop) as the avatar. */
+suspend fun Api.uploadAvatarSquare(context: Context, uri: Uri) {
+  val bytes = squareJpeg(context, uri, 512)
+  setUser(json.decodeFromString(User.serializer(), multipart("/api/me/avatar") {
+    it.addFormDataPart("file", "avatar.jpg", bytes.toRequestBody("image/jpeg".toMediaType()))
+  }))
+}

@@ -56,6 +56,7 @@ import space.avthsr.music.R
 import space.avthsr.music.api.Api
 import space.avthsr.music.api.Likes
 import space.avthsr.music.api.Track
+import space.avthsr.music.player.Offline
 import space.avthsr.music.player.PlayerConn
 
 /** Play / shuffle buttons for a list of tracks. */
@@ -92,11 +93,18 @@ fun LibraryScreen() {
   val albums = rememberLoad(albumIds.size) { Api.likedAlbums() }
   val artists = rememberLoad(artistIds.size) { Api.likedArtists() }
   val liked by Likes.tracks.collectAsStateWithLifecycle()
+  // the whole library (not only what was liked), sorted as chosen
+  var scope by rememberSaveable { mutableIntStateOf(0) } // 0 liked, 1 everything on the server
+  var albumSort by rememberSaveable { mutableStateOf("recent") }
+  var artistSort by rememberSaveable { mutableStateOf("popular") }
+  val allAlbums = rememberLoad(albumSort, tab == 1 && scope == 1) { if (tab == 1 && scope == 1) Api.allAlbums(albumSort) else emptyList() }
+  val allArtists = rememberLoad(artistSort, tab == 2 && scope == 1) { if (tab == 2 && scope == 1) Api.allArtists(artistSort) else emptyList() }
+  val community = rememberLoad(tab == 3) { if (tab == 3) Api.publicPlaylists() else emptyList() }
 
   LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
     item {
       Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text("Медиатека", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
+        FlowText("Медиатека", MaterialTheme.typography.headlineMedium, Modifier.weight(1f), maxLines = 1)
         IconButton(onClick = { create = true }) { Ico(R.drawable.ic_add, "Новый плейлист") }
         IconButton(onClick = { nav.profile() }) { Ico(R.drawable.ic_person, "Профиль") }
       }
@@ -117,9 +125,37 @@ fun LibraryScreen() {
       }
     }
     item {
+      val saved by Offline.entries.collectAsStateWithLifecycle()
+      Row(
+        Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp).fillMaxWidth().clip(RoundedCornerShape(24.dp))
+          .background(MaterialTheme.colorScheme.surfaceContainerHigh).clickable { nav.downloads() }.padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        Ico(R.drawable.ic_offline, null, Modifier.size(28.dp), MaterialTheme.colorScheme.primary)
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+          Text("Скачанные", style = MaterialTheme.typography.titleMedium)
+          Text("${tracksWord(saved.size)} · играют без интернета", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+      }
+    }
+    item {
       Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        listOf("Плейлисты", "Альбомы", "Исполнители").forEachIndexed { i, label ->
+        listOf("Плейлисты", "Альбомы", "Исполнители", "Сообщество").forEachIndexed { i, label ->
           FilterChip(selected = tab == i, onClick = { tab = i }, label = { Text(label) })
+        }
+      }
+    }
+    if (tab == 1 || tab == 2) item {
+      Row(Modifier.horizontalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        listOf("Любимые", "Все на сервере").forEachIndexed { i, l -> FilterChip(selected = scope == i, onClick = { scope = i }, label = { Text(l) }) }
+        if (scope == 1) {
+          val sorts = if (tab == 1) listOf("recent" to "Новые", "popular" to "Популярные", "title" to "По названию", "year" to "По году")
+          else listOf("popular" to "Популярные", "name" to "По имени", "new" to "Новые")
+          sorts.forEach { (id, l) ->
+            val on = if (tab == 1) albumSort == id else artistSort == id
+            FilterChip(selected = on, onClick = { if (tab == 1) albumSort = id else artistSort = id }, label = { Text(l) }, leadingIcon = { if (on) Ico(R.drawable.ic_sort, null, Modifier.size(16.dp)) })
+          }
         }
       }
     }
@@ -130,14 +166,19 @@ fun LibraryScreen() {
         items(list) { p -> ListRow(p.coverUrl ?: p.mosaic.firstOrNull(), p.title, listOfNotNull(p.owner?.displayName, tracksWord(p.trackCount)).joinToString(" · ")) { nav.playlist(p.id) } }
       }
       1 -> {
-        val list = albums.data.orEmpty()
-        if (list.isEmpty()) item { Hint("Лайкните альбом — он появится здесь") }
+        val list = (if (scope == 0) albums.data else allAlbums.data).orEmpty()
+        if (list.isEmpty()) item { Hint(if (scope == 0) "Лайкните альбом — он появится здесь" else "Загрузка…") }
         items(list) { a -> ListRow(a.coverUrl, a.title, listOfNotNull(a.artist.name, a.year?.toString()).joinToString(" · ")) { nav.album(a.id) } }
       }
-      else -> {
-        val list = artists.data.orEmpty()
-        if (list.isEmpty()) item { Hint("Лайкните исполнителя — он появится здесь") }
+      2 -> {
+        val list = (if (scope == 0) artists.data else allArtists.data).orEmpty()
+        if (list.isEmpty()) item { Hint(if (scope == 0) "Лайкните исполнителя — он появится здесь" else "Загрузка…") }
         items(list) { a -> ListRow(a.imageUrl, a.name, "", circle = true) { nav.artist(a.id) } }
+      }
+      else -> {
+        val list = community.data.orEmpty()
+        if (list.isEmpty()) item { Hint(if (community.state is Load.Loading) "Загрузка…" else "Публичных плейлистов пока нет") }
+        items(list) { p -> ListRow(p.coverUrl ?: p.mosaic.firstOrNull(), p.title, listOfNotNull(p.owner?.displayName, tracksWord(p.trackCount)).joinToString(" · ")) { nav.playlist(p.id) } }
       }
     }
   }
@@ -182,10 +223,10 @@ fun LikedScreen() {
               contentAlignment = Alignment.Center,
             ) { Ico(R.drawable.ic_heart_filled, null, Modifier.size(72.dp), MaterialTheme.colorScheme.onPrimary) }
             Spacer(Modifier.height(16.dp))
-            Text("Любимые треки", style = MaterialTheme.typography.headlineMedium)
+            FlowText("Любимые треки", MaterialTheme.typography.headlineMedium, maxLines = 1)
             Text(tracksWord(tracks.size), color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(14.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) { PlayButtons(tracks, "liked") }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) { PlayButtons(tracks, "liked"); OfflineButton(tracks) }
           }
         }
         itemsIndexed(tracks) { i, t -> TrackRow(t, onClick = { PlayerConn.play(tracks, i, "liked") }) }
@@ -196,6 +237,7 @@ fun LikedScreen() {
 
 @Composable
 fun AlbumScreen(id: String) {
+  val context = androidx.compose.ui.platform.LocalContext.current
   val nav = LocalNav.current
   val loader = rememberLoad(id) { Api.album(id) }
   Page {
@@ -207,7 +249,12 @@ fun AlbumScreen(id: String) {
             meta = listOfNotNull(albumType(a.type), a.year?.toString(), tracksWord(a.tracks.size), fmtTime(a.tracks.sumOf { it.durationMs })).joinToString(" · "),
           ) {
             PlayButtons(a.tracks, "album:${a.id}")
+          }
+          Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
             LikeButton("album", a.id)
+            OfflineButton(a.tracks)
+            IconButton(onClick = { downloadToDevice(context, "/api/download/album/${a.id}", "${a.artist.name} - ${a.title}.zip") }) { Ico(R.drawable.ic_folder, "Скачать на устройство (ZIP)") }
+            IconButton(onClick = { share(context, "/album/${a.id}", "${a.artist.name} — ${a.title}") }) { Ico(R.drawable.ic_share, "Поделиться") }
             if (Api.user?.isAdmin == true) AlbumAdminMenu(a) { loader.reload() }
           }
         }
@@ -225,6 +272,7 @@ fun AlbumScreen(id: String) {
 
 @Composable
 fun ArtistScreen(id: String) {
+  val context = androidx.compose.ui.platform.LocalContext.current
   val nav = LocalNav.current
   val loader = rememberLoad(id) { Api.artist(id) }
   Page {
@@ -236,7 +284,10 @@ fun ArtistScreen(id: String) {
             meta = if (a.monthlyListeners > 0) "${a.monthlyListeners} слушателей за месяц" else "",
           ) {
             PlayButtons(a.topTracks, "artist:${a.id}")
+          }
+          Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
             LikeButton("artist", a.id)
+            IconButton(onClick = { share(context, "/artist/${a.id}", a.name) }) { Ico(R.drawable.ic_share, "Поделиться") }
             if (Api.user?.isAdmin == true) ArtistAdminMenu(a) { loader.reload() }
           }
         }
@@ -267,6 +318,7 @@ fun ArtistScreen(id: String) {
 
 @Composable
 fun PlaylistScreen(id: String) {
+  val context = androidx.compose.ui.platform.LocalContext.current
   val loader = rememberLoad(id) { Api.playlist(id) }
   Page {
     Loaded(loader) { p ->
@@ -278,7 +330,12 @@ fun PlaylistScreen(id: String) {
             meta = listOfNotNull(p.description?.takeIf { it.isNotBlank() }, tracksWord(p.tracks.size)).joinToString(" · "),
           ) {
             PlayButtons(p.tracks, "playlist:${p.id}")
+          }
+          Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
             if (!own) LikeButton("playlist", p.id) else PlaylistOwnerMenu(p) { loader.reload() }
+            OfflineButton(p.tracks)
+            IconButton(onClick = { downloadToDevice(context, "/api/download/playlist/${p.id}", "${p.title}.zip") }) { Ico(R.drawable.ic_folder, "Скачать на устройство (ZIP)") }
+            IconButton(onClick = { share(context, "/playlist/${p.id}", p.title) }) { Ico(R.drawable.ic_share, "Поделиться") }
           }
         }
         if (p.tracks.isEmpty()) item { Hint("Плейлист пуст. Добавляйте треки через меню ⋮ у любого трека.") }

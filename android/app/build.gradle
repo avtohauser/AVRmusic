@@ -79,4 +79,7 @@ dependencies {
   implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.10.2'
   implementation 'com.squareup.okhttp3:okhttp:4.12.0'
   implementation 'io.coil-kt:coil-compose:2.7.0'
+  implementation 'io.coil-kt:coil-gif:2.7.0'
+  // Material colour science (seed / cover-art schemes, palette variants, contrast)
+  implementation 'com.materialkolor:material-color-utilities:4.0.2'
 }

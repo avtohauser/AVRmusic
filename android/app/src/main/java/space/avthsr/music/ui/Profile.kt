@@ -48,7 +48,7 @@ import space.avthsr.music.api.history
 import space.avthsr.music.api.myStats
 import space.avthsr.music.api.removeAvatar
 import space.avthsr.music.api.updateProfile
-import space.avthsr.music.api.uploadAvatar
+import space.avthsr.music.api.uploadAvatarSquare
 import space.avthsr.music.player.PlayerConn
 
 @Composable
@@ -64,7 +64,7 @@ fun ProfileScreen() {
   var logout by remember { mutableStateOf(false) }
   val stats = rememberLoad(Unit) { Api.myStats() }
   val pickAvatar = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-    if (uri != null) act("Аватар обновлён") { Api.uploadAvatar(context, uri) }
+    if (uri != null) act("Аватар обновлён") { Api.uploadAvatarSquare(context, uri) }
   }
 
   Page {
@@ -112,6 +112,8 @@ fun ProfileScreen() {
           ProfileItem(R.drawable.ic_queue, "История прослушиваний", "Что и когда вы слушали") { nav.route("history") }
           ProfileItem(R.drawable.ic_download, "Загрузки на сервер", "Что сейчас качается и кто в очереди") { nav.jobs() }
           ProfileItem(R.drawable.ic_sparkle, "Предложка", "Новая музыка для вас") { nav.discover() }
+          ProfileItem(R.drawable.ic_palette, "Оформление", "Тема, цвета, палитра, контраст, скорость") { nav.route("settings") }
+          ProfileItem(R.drawable.ic_offline, "Скачанные", "Треки, сохранённые в приложении") { nav.downloads() }
           ProfileItem(R.drawable.ic_person, "Имя и email", u.displayName.ifBlank { u.username }) { editName = true }
           ProfileItem(R.drawable.ic_settings, "Сменить пароль", "") { editPassword = true }
           ProfileItem(R.drawable.ic_logout, "Выйти", "") { logout = true }

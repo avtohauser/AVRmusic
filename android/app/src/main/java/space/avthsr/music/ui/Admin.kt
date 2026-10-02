@@ -78,6 +78,11 @@ import space.avthsr.music.api.adminDeleteTrack
 import space.avthsr.music.api.adminDeleteUser
 import space.avthsr.music.api.adminFetchCanvas
 import space.avthsr.music.api.adminFetchLyrics
+import space.avthsr.music.api.adminLyricsFile
+import space.avthsr.music.api.capabilities
+import space.avthsr.music.api.reindex
+import space.avthsr.music.api.scanLibrary
+import androidx.compose.runtime.produceState
 import space.avthsr.music.api.adminLyrics
 import space.avthsr.music.api.adminPatchTrack
 import space.avthsr.music.api.adminPatchUser
@@ -110,7 +115,7 @@ fun AdminScreen() {
   var tab by rememberSaveable { mutableIntStateOf(0) }
   Page {
     Column(Modifier.fillMaxSize()) {
-      Text("Админ-панель", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(start = 60.dp, top = 10.dp, bottom = 6.dp))
+      FlowText("Админ-панель", MaterialTheme.typography.headlineMedium, Modifier.padding(start = 60.dp, top = 10.dp, bottom = 6.dp), maxLines = 1)
       Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         adminTabs.forEachIndexed { i, label -> FilterChip(selected = tab == i, onClick = { tab = i }, label = { Text(label) }) }
       }
@@ -430,6 +435,7 @@ private fun AdminDownloads() {
     }
   }
   val pick = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { list -> if (list.isNotEmpty()) files = list }
+  val caps by produceState<space.avthsr.music.api.Capabilities?>(null) { value = runCatching { Api.capabilities() }.getOrNull() }
   LazyColumn(Modifier.fillMaxSize().imePadding(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
     item {
       Text("Загрузить файлы", style = MaterialTheme.typography.titleLarge)
@@ -452,8 +458,27 @@ private fun AdminDownloads() {
     item {
       Spacer(Modifier.height(8.dp))
       Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = {
+          act { val r = Api.scanLibrary(); App.say("Папка ${r.dir}: импортировано ${r.imported}, пропущено ${r.skipped.size}") }
+        }) { Text("Сканировать папку") }
+        FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { act("Поиск переиндексирован") { Api.reindex() } }) { Text("Переиндексировать поиск") }
         FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { act("Ищу недостающие тексты") { Api.fetchMissingLyrics() } }) { Text("Найти тексты") }
         FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { act("Канвасы в очереди") { Api.fetchMissingCanvases() } }) { Text("Нарезать канвасы") }
+      }
+      caps?.let { c ->
+        Spacer(Modifier.height(10.dp))
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.surfaceContainer).padding(14.dp)) {
+          Text("Инструменты сервера", style = MaterialTheme.typography.titleSmall)
+          Row(verticalAlignment = Alignment.CenterVertically) { Dot(c.ytdlp); Text("  yt-dlp ${c.ytdlpVersion ?: ""}", style = MaterialTheme.typography.bodySmall) }
+          Row(verticalAlignment = Alignment.CenterVertically) { Dot(c.ffmpeg); Text("  ffmpeg", style = MaterialTheme.typography.bodySmall) }
+          c.musicDir?.let { Text("Папка музыки: $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+          c.sources.forEach { src ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+              Dot(src.ok && src.enabled)
+              Text("  ${src.label}" + (if (!src.enabled) " · выключен" else "") + (src.reason?.let { " · $it" } ?: ""), style = MaterialTheme.typography.bodySmall)
+            }
+          }
+        }
       }
       SectionTitle("Задачи")
     }
@@ -610,6 +635,9 @@ fun AdminTrackScreen(id: String) {
   val pickCover = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
     if (uri != null) act("Обложка обновлена", then = { version++ }) { Api.adminTrackCover(context, id, uri) }
   }
+  val pickLyrics = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+    if (uri != null) act("Текст загружен", then = { version++ }) { Api.adminLyricsFile(context, id, uri) }
+  }
   val pickCanvas = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
     if (uri != null) act("Канвас загружен", then = { version++ }) { Api.adminTrackCanvas(context, id, uri) }
   }
@@ -664,7 +692,7 @@ fun AdminTrackScreen(id: String) {
         SectionTitleInline("Текст песни")
         OutlinedTextField(synced, { synced = it }, Modifier.fillMaxWidth(), label = { Text("Синхронный (LRC: [01:23.45] строка)") }, minLines = 4, maxLines = 10)
         OutlinedTextField(plain, { plain = it }, Modifier.fillMaxWidth(), label = { Text("Обычный текст") }, minLines = 4, maxLines = 10)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
           Button(shapes = ButtonDefaults.shapes(), onClick = {
             val body = buildJsonObject {
               put("lyricsSynced", synced.trim().takeIf { it.isNotEmpty() }?.let { JsonPrimitive(it) } ?: JsonNull)
@@ -673,6 +701,7 @@ fun AdminTrackScreen(id: String) {
             act("Текст сохранён", then = { version++ }) { Api.adminPatchTrack(id, body) }
           }) { Text("Сохранить текст") }
           FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { act("Ищу текст…", then = { version++ }) { Api.adminFetchLyrics(id) } }) { Text("Найти") }
+          FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { pickLyrics.launch(arrayOf("text/*", "application/octet-stream", "*/*")) }) { Text(".lrc / .txt") }
         }
 
         SectionTitleInline("Канвас")

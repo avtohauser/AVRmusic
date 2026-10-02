@@ -72,7 +72,7 @@ class PlaybackService : MediaSessionService() {
       .setCacheKeyFactory { spec -> spec.key ?: spec.uri.path ?: spec.uri.toString() }
       .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
     player = ExoPlayer.Builder(this)
-      .setMediaSourceFactory(DefaultMediaSourceFactory(data))
+      .setMediaSourceFactory(DefaultMediaSourceFactory(LocalFirstDataSourceFactory(DefaultDataSource.Factory(this), data)))
       .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(), true)
       .setHandleAudioBecomingNoisy(true)
       .setWakeMode(C.WAKE_MODE_NETWORK)

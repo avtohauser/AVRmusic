@@ -32,3 +32,12 @@ fun displayName(context: Context, uri: Uri): String =
 
 fun MultipartBody.Builder.addFile(context: Context, uri: Uri, field: String = "file"): MultipartBody.Builder =
   addFormDataPart(field, displayName(context, uri), UriBody(context, uri))
+
+/** Reads an image, crops the centre square and scales it to [size] px, as JPEG. */
+fun squareJpeg(context: Context, uri: Uri, size: Int): ByteArray {
+  val src = context.contentResolver.openInputStream(uri)?.use { android.graphics.BitmapFactory.decodeStream(it) } ?: error("Не удалось открыть фото")
+  val side = minOf(src.width, src.height)
+  val square = android.graphics.Bitmap.createBitmap(src, (src.width - side) / 2, (src.height - side) / 2, side, side)
+  val scaled = android.graphics.Bitmap.createScaledBitmap(square, minOf(size, side), minOf(size, side), true)
+  return java.io.ByteArrayOutputStream().use { out -> scaled.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, out); out.toByteArray() }
+}

@@ -34,6 +34,7 @@ data class Track(
   val durationMs: Long = 0,
   val explicit: Boolean = false,
   val coverUrl: String? = null,
+  val mimeType: String? = null,
   val artist: ArtistSummary,
   val featuring: List<ArtistSummary> = emptyList(),
   val album: AlbumRef? = null,
@@ -41,6 +42,7 @@ data class Track(
   val discNo: Int? = null,
   val genre: String? = null,
   val hasCanvas: Boolean = false,
+  val canvasKind: String? = null,
   val hasLyrics: Boolean = false,
   val hasSyncedLyrics: Boolean = false,
   /** why "My Wave" picked it */
@@ -128,7 +130,11 @@ data class Genre(val slug: String, val name: String, val color: String = "#6750A
 data class GenrePage(val genre: Genre, val tracks: List<Track> = emptyList(), val albums: List<AlbumSummary> = emptyList(), val artists: List<ArtistSummary> = emptyList())
 
 @Serializable
+data class Paged<T>(val items: List<T> = emptyList(), val total: Int = 0)
+
+@Serializable
 data class SearchResult(
+  val top: JsonObject? = null,
   val tracks: List<Track> = emptyList(),
   val albums: List<AlbumSummary> = emptyList(),
   val artists: List<ArtistSummary> = emptyList(),
@@ -151,7 +157,14 @@ data class Lyrics(val plain: String? = null, val synced: List<LyricLine>? = null
 data class LyricLine(val timeMs: Long, val text: String)
 
 @Serializable
-data class ServerInfo(val catalog: Boolean = false, val acquire: String = "off", val version: String = "")
+data class ServerInfo(
+  val catalog: Boolean = false,
+  val acquire: String = "off",
+  val version: String = "",
+  val needsSetup: Boolean = false,
+  val inviteRequired: Boolean = true,
+  val allowRegistration: Boolean = true,
+)
 
 /* ---------- global catalogue (Deezer) ---------- */
 
@@ -180,6 +193,7 @@ data class CatalogTrack(
   val id: Long,
   val title: String,
   val durationMs: Long = 0,
+  val previewUrl: String? = null,
   val explicit: Boolean = false,
   val trackNo: Int? = null,
   val artist: CatalogArtist,
@@ -399,3 +413,19 @@ data class AdminLyrics(val lyricsSynced: String? = null, val lyricsPlain: String
 
 @Serializable
 data class NewPassword(val password: String)
+
+@Serializable
+data class SourceState(val name: String = "", val label: String = "", val enabled: Boolean = false, val ok: Boolean = false, val reason: String? = null)
+
+@Serializable
+data class Capabilities(
+  val ytdlp: Boolean = false,
+  val ytdlpVersion: String? = null,
+  val ffmpeg: Boolean = false,
+  val musicDir: String? = null,
+  val mediaDir: String? = null,
+  val sources: List<SourceState> = emptyList(),
+)
+
+@Serializable
+data class ScanResult(val dir: String = "", val imported: Int = 0, val skipped: List<Skipped> = emptyList())

@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class, ExperimentalMaterial3ExpressiveApi::class)
 
 package space.avthsr.music.ui
 
@@ -33,7 +33,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.HorizontalFloatingToolbar
+import androidx.compose.material3.LinearWavyProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -90,8 +93,7 @@ fun NowPlayingScreen(onClose: () -> Unit) {
     while (true) { pos = PlayerConn.position(); delay(200) }
   }
   val inWave = context == Queue.WAVE
-  val coverScale by animateFloatAsState(if (s.playing) 1f else 0.86f, spring(dampingRatio = 0.6f, stiffness = 300f), label = "cover")
-  val playCorner by animateDpAsState(if (s.playing) 26.dp else 44.dp, spring(dampingRatio = 0.55f, stiffness = 400f), label = "play")
+  val coverScale by animateFloatAsState(if (s.playing) 1f else 0.86f, MaterialTheme.motionScheme.slowSpatialSpec(), label = "cover")
 
   Box(
     Modifier.fillMaxSize()
@@ -147,7 +149,6 @@ fun NowPlayingScreen(onClose: () -> Unit) {
             },
           )
         }
-        if (t != null) LikeButton("track", t.id)
       }
       val reason = t?.reason
       if (inWave && reason != null) {
@@ -156,35 +157,41 @@ fun NowPlayingScreen(onClose: () -> Unit) {
 
       Spacer(Modifier.height(10.dp))
       val duration = max(1L, s.durationMs).toFloat()
+      val value = (drag ?: pos.toFloat()).coerceIn(0f, duration)
+      // the expressive media seek bar: a wavy track while playing, flat when paused
       Slider(
-        value = (drag ?: pos.toFloat()).coerceIn(0f, duration),
+        value = value,
         onValueChange = { drag = it },
         onValueChangeFinished = { drag?.let { PlayerConn.seek(it.toLong()) }; drag = null },
         valueRange = 0f..duration,
         enabled = t != null,
+        track = { _ ->
+          LinearWavyProgressIndicator(
+            progress = { value / duration },
+            modifier = Modifier.fillMaxWidth(),
+            amplitude = { if (s.playing && drag == null) 1f else 0f },
+          )
+        },
       )
       Row(Modifier.fillMaxWidth()) {
-        Text(fmtTime((drag ?: pos.toFloat()).toLong()), style = MaterialTheme.typography.labelMedium, color = cs.onSurfaceVariant)
+        Text(fmtTime(value.toLong()), style = MaterialTheme.typography.labelMedium, color = cs.onSurfaceVariant)
         Spacer(Modifier.weight(1f))
         Text(fmtTime(s.durationMs), style = MaterialTheme.typography.labelMedium, color = cs.onSurfaceVariant)
       }
 
-      Spacer(Modifier.height(8.dp))
+      Spacer(Modifier.height(10.dp))
       Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = { PlayerConn.toggleShuffle() }) {
+        IconButton(onClick = { PlayerConn.toggleShuffle() }, shapes = IconButtonDefaults.shapes()) {
           Ico(R.drawable.ic_shuffle, "Вперемешку", tint = if (s.shuffle) cs.primary else cs.onSurfaceVariant)
         }
-        IconButton(onClick = { PlayerConn.prev() }, modifier = Modifier.size(56.dp)) { Ico(R.drawable.ic_skip_prev, "Предыдущий", Modifier.size(36.dp)) }
-        FilledIconButton(
-          onClick = { PlayerConn.toggle() },
-          modifier = Modifier.size(88.dp),
-          shape = RoundedCornerShape(playCorner),
-          colors = IconButtonDefaults.filledIconButtonColors(containerColor = cs.primary, contentColor = cs.onPrimary),
-        ) {
-          Ico(if (s.playing) R.drawable.ic_pause else R.drawable.ic_play, if (s.playing) "Пауза" else "Играть", Modifier.size(44.dp))
+        FilledTonalIconButton(onClick = { PlayerConn.prev() }, modifier = Modifier.size(64.dp), shapes = IconButtonDefaults.shapes()) {
+          Ico(R.drawable.ic_skip_prev, "Предыдущий", Modifier.size(32.dp))
         }
-        IconButton(onClick = { PlayerConn.next() }, modifier = Modifier.size(56.dp)) { Ico(R.drawable.ic_skip_next, "Следующий", Modifier.size(36.dp)) }
-        IconButton(onClick = { PlayerConn.cycleRepeat() }) {
+        MorphPlayButton(s.playing, { PlayerConn.toggle() }, 96.dp)
+        FilledTonalIconButton(onClick = { PlayerConn.next() }, modifier = Modifier.size(64.dp), shapes = IconButtonDefaults.shapes()) {
+          Ico(R.drawable.ic_skip_next, "Следующий", Modifier.size(32.dp))
+        }
+        IconButton(onClick = { PlayerConn.cycleRepeat() }, shapes = IconButtonDefaults.shapes()) {
           Ico(
             if (s.repeat == Player.REPEAT_MODE_ONE) R.drawable.ic_repeat_one else R.drawable.ic_repeat, "Повтор",
             tint = if (s.repeat == Player.REPEAT_MODE_OFF) cs.onSurfaceVariant else cs.primary,
@@ -192,13 +199,14 @@ fun NowPlayingScreen(onClose: () -> Unit) {
         }
       }
 
-      Spacer(Modifier.height(8.dp))
-      Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+      Spacer(Modifier.height(14.dp))
+      HorizontalFloatingToolbar(expanded = true, modifier = Modifier.align(Alignment.CenterHorizontally)) {
         if (inWave && t != null) {
-          IconButton(onClick = { PlayerConn.dislike(t) }) { Ico(R.drawable.ic_thumb_down, "Не нравится", tint = cs.onSurfaceVariant) }
-        } else Spacer(Modifier.size(48.dp))
-        IconButton(onClick = { lyricsOpen = true }, enabled = t?.hasLyrics == true) { Ico(R.drawable.ic_lyrics, "Текст") }
-        IconButton(onClick = { queueOpen = true }) { Ico(R.drawable.ic_queue, "Очередь") }
+          IconButton(onClick = { PlayerConn.dislike(t) }, shapes = IconButtonDefaults.shapes()) { Ico(R.drawable.ic_thumb_down, "Не нравится") }
+        }
+        if (t != null) LikeButton("track", t.id)
+        IconButton(onClick = { lyricsOpen = true }, enabled = t?.hasLyrics == true, shapes = IconButtonDefaults.shapes()) { Ico(R.drawable.ic_lyrics, "Текст") }
+        IconButton(onClick = { queueOpen = true }, shapes = IconButtonDefaults.shapes()) { Ico(R.drawable.ic_queue, "Очередь") }
       }
     }
   }

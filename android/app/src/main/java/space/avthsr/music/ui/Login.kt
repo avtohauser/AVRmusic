@@ -1,5 +1,9 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package space.avthsr.music.ui
 
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,7 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -91,7 +95,7 @@ fun LoginScreen() {
       verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
       Box(
-        Modifier.size(84.dp).clip(RoundedCornerShape(28.dp)).background(MaterialTheme.colorScheme.primaryContainer),
+        Modifier.size(96.dp).clip(LogoShape).background(MaterialTheme.colorScheme.primaryContainer),
         contentAlignment = Alignment.Center,
       ) { Ico(R.drawable.ic_library, null, Modifier.size(40.dp), MaterialTheme.colorScheme.onPrimaryContainer) }
       Text("AVRmusic", style = MaterialTheme.typography.displaySmall)
@@ -118,8 +122,8 @@ fun LoginScreen() {
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
       )
       error?.let { Text(it, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center) }
-      Button(onClick = { submit() }, enabled = !busy, modifier = Modifier.fillMaxWidth().height(56.dp)) {
-        if (busy) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
+      Button(shapes = ButtonDefaults.shapes(), onClick = { submit() }, enabled = !busy, modifier = Modifier.fillMaxWidth().height(56.dp)) {
+        if (busy) LoadingIndicator(Modifier.size(32.dp))
         else Text(if (register) "Создать аккаунт" else "Войти", style = MaterialTheme.typography.titleMedium)
       }
       Row {

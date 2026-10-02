@@ -1,5 +1,9 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package space.avthsr.music.ui
 
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -77,9 +81,7 @@ private fun JobCard(j: AcquireJob) {
     Text(status, style = MaterialTheme.typography.bodySmall, color = if (j.status == "error") cs.error else cs.onSurfaceVariant)
     if (j.status == "running") {
       Spacer(Modifier.height(8.dp))
-      Box(Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)).background(cs.onSurface.copy(alpha = 0.12f))) {
-        Box(Modifier.fillMaxWidth((j.progress / 100.0).toFloat().coerceIn(0f, 1f)).height(4.dp).background(cs.primary))
-      }
+      LinearWavyProgressIndicator(progress = { (j.progress / 100.0).toFloat().coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
     }
   }
 }

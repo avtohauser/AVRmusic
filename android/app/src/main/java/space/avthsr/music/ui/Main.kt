@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalFoundationApi::class)
+@file:OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3ExpressiveApi::class)
 
 package space.avthsr.music.ui
 
@@ -36,8 +36,13 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.ShortNavigationBar
+import androidx.compose.material3.ShortNavigationBarItem
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LinearWavyProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -177,12 +182,12 @@ private val tabs = listOf(
 private fun BottomBar(c: NavController) {
   val entry by c.currentBackStackEntryAsState()
   val route = entry?.destination?.route
-  NavigationBar(
+  ShortNavigationBar(
     containerColor = MaterialTheme.colorScheme.surfaceContainer,
     windowInsets = SafeBars.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal),
   ) {
     tabs.forEach { tab ->
-      NavigationBarItem(
+      ShortNavigationBarItem(
         selected = route == tab.route,
         onClick = {
           c.navigate(tab.route) {
@@ -198,33 +203,37 @@ private fun BottomBar(c: NavController) {
   }
 }
 
+/** The mini player: wavy progress while playing (flat when paused), a morphing play button. */
 @Composable
 private fun MiniPlayer(onOpen: () -> Unit) {
   val s by PlayerConn.state.collectAsStateWithLifecycle()
   val t = s.track ?: return
   var pos by remember { mutableLongStateOf(0L) }
   LaunchedEffect(t.id, s.playing) {
-    while (true) { pos = PlayerConn.position(); delay(500) }
+    while (true) { pos = PlayerConn.position(); delay(250) }
   }
   val progress = if (s.durationMs > 0) (pos.toFloat() / s.durationMs).coerceIn(0f, 1f) else 0f
+  val interaction = remember { MutableInteractionSource() }
   Column(
-    Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp).clip(RoundedCornerShape(22.dp))
-      .background(MaterialTheme.colorScheme.surfaceContainerHigh).clickable(onClick = onOpen),
+    Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp).pressSquash(interaction, 0.97f).clip(RoundedCornerShape(26.dp))
+      .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+      .clickable(interactionSource = interaction, indication = LocalIndication.current, onClick = onOpen),
   ) {
-    Row(Modifier.padding(start = 8.dp, top = 8.dp, bottom = 8.dp, end = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-      Cover(t.coverUrl, Modifier.size(46.dp), RoundedCornerShape(14.dp))
+    Row(Modifier.padding(start = 8.dp, top = 8.dp, bottom = 6.dp, end = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+      Cover(t.coverUrl, Modifier.size(48.dp), RoundedCornerShape(16.dp))
       Spacer(Modifier.width(12.dp))
       Column(Modifier.weight(1f)) {
         Text(t.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, modifier = Modifier.basicMarquee())
         Text(t.artists, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
       }
       LikeButton("track", t.id)
-      IconButton(onClick = { PlayerConn.toggle() }) { Ico(if (s.playing) R.drawable.ic_pause else R.drawable.ic_play, if (s.playing) "Пауза" else "Играть") }
-      IconButton(onClick = { PlayerConn.next() }) { Ico(R.drawable.ic_skip_next, "Следующий") }
+      MorphPlayButton(s.playing, { PlayerConn.toggle() }, 44.dp)
+      IconButton(onClick = { PlayerConn.next() }, shapes = IconButtonDefaults.shapes()) { Ico(R.drawable.ic_skip_next, "Следующий") }
     }
-    Box(Modifier.fillMaxWidth().padding(horizontal = 14.dp).height(2.dp).clip(RoundedCornerShape(1.dp)).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))) {
-      Box(Modifier.fillMaxWidth(progress).height(2.dp).background(MaterialTheme.colorScheme.primary))
-    }
-    Spacer(Modifier.height(4.dp))
+    LinearWavyProgressIndicator(
+      progress = { progress },
+      modifier = Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, bottom = 8.dp),
+      amplitude = { if (s.playing) 1f else 0f },
+    )
   }
 }

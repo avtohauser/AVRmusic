@@ -1,7 +1,10 @@
-@file:OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
+@file:OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 
 package space.avthsr.music.ui
 
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ButtonDefaults
 import android.net.Uri
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -27,7 +30,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -167,7 +170,7 @@ fun <T> rememberLoad(vararg keys: Any?, load: suspend () -> T): Loader<T> {
 @Composable
 fun <T> Loaded(loader: Loader<T>, content: @Composable (T) -> Unit) {
   when (val s = loader.state) {
-    is Load.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+    is Load.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { LoadingIndicator() }
     is Load.Err -> Column(
       Modifier.fillMaxSize().padding(32.dp),
       verticalArrangement = Arrangement.Center,
@@ -175,7 +178,7 @@ fun <T> Loaded(loader: Loader<T>, content: @Composable (T) -> Unit) {
     ) {
       Text(s.message, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
       Spacer(Modifier.height(16.dp))
-      Button(onClick = loader.reload) { Text("Повторить") }
+      Button(shapes = ButtonDefaults.shapes(), onClick = loader.reload) { Text("Повторить") }
     }
     is Load.Ok -> content(s.data)
   }
@@ -187,7 +190,7 @@ fun <T> Loaded(loader: Loader<T>, content: @Composable (T) -> Unit) {
 fun SectionTitle(text: String, subtitle: String? = null, action: (@Composable () -> Unit)? = null) {
   Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 22.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
     Column(Modifier.weight(1f)) {
-      Text(text, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+      Text(text, style = MaterialTheme.typography.titleLarge)
       if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
     action?.invoke()
@@ -200,7 +203,7 @@ fun MediaCard(title: String, subtitle: String, cover: String?, onClick: () -> Un
     Modifier.width(width).clip(RoundedCornerShape(18.dp)).clickable(onClick = onClick).padding(6.dp),
     horizontalAlignment = if (circle) Alignment.CenterHorizontally else Alignment.Start,
   ) {
-    Cover(cover, Modifier.size(width - 12.dp), if (circle) CircleShape else RoundedCornerShape(16.dp), if (circle) R.drawable.ic_person else R.drawable.ic_album)
+    Cover(cover, Modifier.size(width - 12.dp), if (circle) ArtistShape else RoundedCornerShape(16.dp), if (circle) R.drawable.ic_person else R.drawable.ic_album)
     Spacer(Modifier.height(8.dp))
     Text(title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = if (circle) TextAlign.Center else TextAlign.Start)
     if (subtitle.isNotEmpty()) {
@@ -245,7 +248,7 @@ fun TrackRow(
     }
     Column(Modifier.weight(1f)) {
       Text(
-        t.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium,
+        t.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium,
         color = if (current) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
       )
       Text(
@@ -303,7 +306,7 @@ fun toggleLike(type: String, id: String) {
 fun LikeButton(type: String, id: String) {
   val liked by Likes.of(type).collectAsStateWithLifecycle()
   val on = id in liked
-  IconButton(onClick = { toggleLike(type, id) }) {
+  IconButton(onClick = { toggleLike(type, id) }, shapes = IconButtonDefaults.shapes()) {
     Ico(
       if (on) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline, if (on) "Убрать из избранного" else "В избранное",
       tint = if (on) MaterialTheme.colorScheme.primary else LocalContentColor.current,
@@ -339,7 +342,7 @@ fun PlaylistPicker(trackIds: List<String>, onDone: () -> Unit) {
             }
           }
           is Load.Err -> Text(s.message)
-          else -> CircularProgressIndicator()
+          else -> LoadingIndicator()
         }
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
         OutlinedTextField(title, { title = it }, label = { Text("Новый плейлист") }, singleLine = true, modifier = Modifier.fillMaxWidth())

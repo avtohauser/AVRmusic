@@ -1,5 +1,9 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package space.avthsr.music.ui
 
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -57,10 +61,10 @@ import space.avthsr.music.player.PlayerConn
 /** Play / shuffle buttons for a list of tracks. */
 @Composable
 fun PlayButtons(tracks: List<Track>, context: String) {
-  Button(onClick = { PlayerConn.play(tracks, 0, context) }, enabled = tracks.isNotEmpty()) {
+  Button(shapes = ButtonDefaults.shapes(), onClick = { PlayerConn.play(tracks, 0, context) }, enabled = tracks.isNotEmpty()) {
     Ico(R.drawable.ic_play, null, Modifier.size(20.dp)); Spacer(Modifier.width(6.dp)); Text("Слушать")
   }
-  FilledTonalButton(onClick = { PlayerConn.play(tracks, 0, context, shuffle = true) }, enabled = tracks.isNotEmpty()) {
+  FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { PlayerConn.play(tracks, 0, context, shuffle = true) }, enabled = tracks.isNotEmpty()) {
     Ico(R.drawable.ic_shuffle, null, Modifier.size(20.dp)); Spacer(Modifier.width(6.dp)); Text("Вперемешку")
   }
 }
@@ -68,7 +72,7 @@ fun PlayButtons(tracks: List<Track>, context: String) {
 @Composable
 private fun ListRow(cover: String?, title: String, subtitle: String, circle: Boolean = false, onClick: () -> Unit) {
   Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-    Cover(cover, Modifier.size(56.dp), if (circle) CircleShape else RoundedCornerShape(14.dp), if (circle) R.drawable.ic_person else R.drawable.ic_album)
+    Cover(cover, Modifier.size(56.dp), if (circle) ArtistShape else RoundedCornerShape(14.dp), if (circle) R.drawable.ic_person else R.drawable.ic_album)
     Spacer(Modifier.width(14.dp))
     Column(Modifier.weight(1f)) {
       Text(title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)

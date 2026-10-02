@@ -1,7 +1,11 @@
 # AVRmusic для Android
 
-**Нативное приложение** на Kotlin + Jetpack Compose (Material 3, динамические цвета Android 12+, шрифт Roboto Flex с
-переменными осями — заголовки широкие и жирные, как на сайте). Работает с тем же сервером
+**Нативное приложение** на Kotlin + Jetpack Compose с **Material 3 Expressive** (material3 1.5 alpha: `MaterialExpressiveTheme`,
+`MotionScheme.expressive()`, `LoadingIndicator`, волнистые индикаторы и полоса перемотки, `MaterialShapes` и морфинг формы
+кнопки «играть», `ShortNavigationBar`, `HorizontalFloatingToolbar`, `ToggleButton`, кнопки с морфингом формы при нажатии,
+pull-to-refresh с expressive-индикатором) и шрифтом **Google Sans Flex** из гайдлайна — все оси (вес, ширина, округлость,
+оптический размер); кириллицу, которой в нём нет, подхватывает Roboto Flex с теми же осями (цепочка шрифтов Android 10+).
+Динамические цвета Android 12+. Работает с тем же сервером
 `https://music.avthsr.space` через REST API; системные панели скрыты (появляются свайпом от края).
 
 Экраны: вход/регистрация по коду приглашения, главная («Моя волна» с режимами, Предложка, подборки), поиск по серверу и

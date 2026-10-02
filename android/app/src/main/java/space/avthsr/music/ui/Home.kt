@@ -1,7 +1,8 @@
-@file:OptIn(ExperimentalMaterial3Api::class)
+@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 
 package space.avthsr.music.ui
 
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -29,11 +30,17 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.ContainedLoadingIndicator
+import androidx.compose.material3.MaterialShapes
+import androidx.compose.material3.ToggleButton
+import androidx.compose.material3.ToggleButtonDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -89,13 +96,22 @@ fun HomeScreen() {
   val nav = LocalNav.current
   val loader = rememberLoad(Unit) { Api.home() }
   val user = Api.user
+  val refresh = rememberPullToRefreshState()
+  var refreshing by remember { mutableStateOf(false) }
+  LaunchedEffect(loader.state) { if (loader.state !is Load.Loading) refreshing = false }
+  PullToRefreshBox(
+    isRefreshing = refreshing,
+    onRefresh = { refreshing = true; loader.reload() },
+    state = refresh,
+    indicator = { PullToRefreshDefaults.LoadingIndicator(state = refresh, isRefreshing = refreshing, modifier = Modifier.align(Alignment.TopCenter)) },
+  ) {
   LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
     item {
       Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         val greeting = loader.data?.greeting?.takeIf { it.isNotBlank() } ?: localGreeting()
         Text(greeting, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
         IconButton(onClick = { nav.profile() }) {
-          Cover(user?.avatarUrl, Modifier.size(36.dp), CircleShape, R.drawable.ic_person)
+          Cover(user?.avatarUrl, Modifier.size(36.dp), AvatarShape, R.drawable.ic_person)
         }
       }
     }
@@ -113,8 +129,9 @@ fun HomeScreen() {
           TextButton(onClick = loader.reload) { Text("Повторить") }
         }
       }
-      else -> item { Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
+      else -> item { Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { LoadingIndicator() } }
     }
+  }
   }
 }
 
@@ -161,33 +178,34 @@ fun WaveCard() {
           Text(line, style = MaterialTheme.typography.bodyMedium, color = cs.onPrimaryContainer.copy(alpha = 0.85f), maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
         Spacer(Modifier.width(12.dp))
-        FilledIconButton(
+        if (busy) ContainedLoadingIndicator(Modifier.size(72.dp), containerColor = cs.onPrimaryContainer, indicatorColor = cs.primaryContainer)
+        else MorphPlayButton(
+          playing = inWave && player.playing,
           onClick = { if (inWave) PlayerConn.toggle() else start(mode) },
-          modifier = Modifier.size(68.dp),
-          shape = RoundedCornerShape(if (inWave && player.playing) 22.dp else 34.dp),
-          colors = IconButtonDefaults.filledIconButtonColors(containerColor = cs.onPrimaryContainer, contentColor = cs.primaryContainer),
-        ) {
-          if (busy) CircularProgressIndicator(Modifier.size(26.dp), color = cs.primaryContainer, strokeWidth = 3.dp)
-          else Ico(if (inWave && player.playing) R.drawable.ic_pause else R.drawable.ic_play, "Играть", Modifier.size(34.dp))
-        }
+          size = 72.dp,
+          container = cs.onPrimaryContainer,
+          content = cs.primaryContainer,
+          paused = MaterialShapes.Sunny,
+        )
       }
       Spacer(Modifier.height(16.dp))
       Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Queue.modes.forEach { m ->
           val selected = m.id == mode
-          FilterChip(
-            selected = selected,
-            onClick = { start(m.id) },
-            label = { Text(m.label) },
-            leadingIcon = { Ico(m.icon, null, Modifier.size(18.dp), if (selected) cs.primaryContainer else cs.onPrimaryContainer) },
-            colors = FilterChipDefaults.filterChipColors(
+          ToggleButton(
+            checked = selected,
+            onCheckedChange = { start(m.id) },
+            colors = ToggleButtonDefaults.toggleButtonColors(
               containerColor = cs.surface.copy(alpha = 0.35f),
-              labelColor = cs.onPrimaryContainer,
-              selectedContainerColor = cs.onPrimaryContainer,
-              selectedLabelColor = cs.primaryContainer,
+              contentColor = cs.onPrimaryContainer,
+              checkedContainerColor = cs.onPrimaryContainer,
+              checkedContentColor = cs.primaryContainer,
             ),
-            border = null,
-          )
+          ) {
+            Ico(m.icon, null, Modifier.size(18.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(m.label)
+          }
         }
       }
     }

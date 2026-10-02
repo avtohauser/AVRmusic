@@ -1,7 +1,11 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 // The global catalogue (Deezer): find music that is not on the server yet and ask the server to fetch
 // it — a track, an album or a whole discography. Also "Предложка", new music picked for the listener.
 package space.avthsr.music.ui
 
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -23,7 +27,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -86,7 +90,7 @@ fun CatalogTrackRow(t: CatalogTrack, index: Int? = null, cover: String? = t.albu
     }
     when {
       have != null -> Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) { Ico(R.drawable.ic_play, "На сервере", tint = MaterialTheme.colorScheme.primary) }
-      state == 1 -> Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp) }
+      state == 1 -> Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) { LoadingIndicator(Modifier.size(30.dp)) }
       state == 2 -> Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) { Ico(R.drawable.ic_check, "Добавляется", tint = MaterialTheme.colorScheme.primary) }
       else -> IconButton(onClick = { state = 1; acquire("track", t.id, "Трек") { ok -> state = if (ok) 2 else 0 } }) {
         Ico(R.drawable.ic_download, "Добавить на сервер")
@@ -116,9 +120,9 @@ fun CatalogAlbumScreen(id: Long) {
           onSubtitle = { nav.catalogArtist(a.artist.id) },
           meta = listOfNotNull(albumType(a.type), a.year?.toString(), tracksWord(a.trackCount), a.label).joinToString(" · "),
         ) {
-          if (a.libraryAlbumId != null) FilledTonalButton(onClick = { nav.album(a.libraryAlbumId) }) { Text("В медиатеке") }
+          if (a.libraryAlbumId != null) FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { nav.album(a.libraryAlbumId) }) { Text("В медиатеке") }
           if (a.inLibrary < a.trackCount) {
-            Button(enabled = !sent, onClick = { sent = true; acquire("album", a.id, "Альбом") { ok -> sent = ok } }) {
+            Button(shapes = ButtonDefaults.shapes(), enabled = !sent, onClick = { sent = true; acquire("album", a.id, "Альбом") { ok -> sent = ok } }) {
               Ico(R.drawable.ic_download, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp))
               Text(if (sent) "Добавляется…" else if (a.inLibrary > 0) "Добавить остальное" else "Добавить на сервер")
             }
@@ -141,8 +145,8 @@ fun CatalogArtistScreen(id: Long) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
       item {
         Header(cover = a.imageUrl, title = a.name, meta = if (a.fans > 0) "${a.fans} поклонников в Deezer" else "", circle = true) {
-          if (a.libraryArtistId != null) FilledTonalButton(onClick = { nav.artist(a.libraryArtistId) }) { Text("В медиатеке") }
-          Button(onClick = { confirm = true }) { Text("Вся дискография") }
+          if (a.libraryArtistId != null) FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { nav.artist(a.libraryArtistId) }) { Text("В медиатеке") }
+          Button(shapes = ButtonDefaults.shapes(), onClick = { confirm = true }) { Text("Вся дискография") }
         }
       }
       if (p.topTracks.isNotEmpty()) {
@@ -215,7 +219,7 @@ fun Header(
   Box(Modifier.fillMaxWidth()) {
     Backdrop(cover)
     Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 56.dp, bottom = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-      Cover(cover, Modifier.size(224.dp), if (circle) CircleShape else RoundedCornerShape(28.dp), if (circle) R.drawable.ic_person else R.drawable.ic_album)
+      Cover(cover, Modifier.size(224.dp), if (circle) ArtistShape else RoundedCornerShape(28.dp), if (circle) R.drawable.ic_person else R.drawable.ic_album)
       Spacer(Modifier.height(18.dp))
       Text(title, style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
       if (subtitle != null) {

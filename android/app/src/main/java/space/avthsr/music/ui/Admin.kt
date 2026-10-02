@@ -1,7 +1,10 @@
-@file:OptIn(ExperimentalMaterial3Api::class)
+@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 
 package space.avthsr.music.ui
 
+import androidx.compose.material3.LinearWavyProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ButtonDefaults
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -30,7 +33,7 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
@@ -171,7 +174,7 @@ private fun AdminOverview() {
         items(a.sources) { s -> SimpleRow(s.source, tracksWord(s.tracks), fmtBytes(s.bytes)) }
       }
     }
-    if (stats.state is Load.Loading) item { Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
+    if (stats.state is Load.Loading) item { Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { LoadingIndicator() } }
   }
 }
 
@@ -213,7 +216,7 @@ private fun AdminUsers() {
       }
     }
     items(list) { u -> UserRow(u) { nav.route("admin/user/${u.id}") } }
-    if (loader.state is Load.Loading) item { Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
+    if (loader.state is Load.Loading) item { Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { LoadingIndicator() } }
   }
 }
 
@@ -221,7 +224,7 @@ private fun AdminUsers() {
 private fun UserRow(u: AdminUser, onClick: () -> Unit) {
   val cs = MaterialTheme.colorScheme
   Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-    Cover(u.avatarUrl, Modifier.size(48.dp), CircleShape, R.drawable.ic_person)
+    Cover(u.avatarUrl, Modifier.size(48.dp), AvatarShape, R.drawable.ic_person)
     Spacer(Modifier.width(14.dp))
     Column(Modifier.weight(1f)) {
       Row(verticalAlignment = Alignment.CenterVertically) {
@@ -262,7 +265,7 @@ fun AdminUserScreen(id: String) {
       LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 56.dp, bottom = 24.dp)) {
         item {
           Row(Modifier.padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
-            Cover(u.avatarUrl, Modifier.size(72.dp), CircleShape, R.drawable.ic_person)
+            Cover(u.avatarUrl, Modifier.size(72.dp), AvatarShape, R.drawable.ic_person)
             Spacer(Modifier.width(16.dp))
             Column {
               Text(u.displayName.ifBlank { u.username }, style = MaterialTheme.typography.headlineSmall)
@@ -298,8 +301,8 @@ fun AdminUserScreen(id: String) {
             }
           }
           Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilledTonalButton(onClick = { confirmReset = true }) { Text("Сбросить пароль") }
-            if (u.id != me) OutlinedButton(onClick = { confirmDelete = true }) { Text("Удалить", color = MaterialTheme.colorScheme.error) }
+            FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { confirmReset = true }) { Text("Сбросить пароль") }
+            if (u.id != me) OutlinedButton(shapes = ButtonDefaults.shapes(), onClick = { confirmDelete = true }) { Text("Удалить", color = MaterialTheme.colorScheme.error) }
           }
         }
         if (d.topArtists.isNotEmpty()) {
@@ -369,7 +372,7 @@ private fun AdminInvites() {
         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
       Spacer(Modifier.height(8.dp))
-      Button(onClick = { create = true }) { Ico(R.drawable.ic_add, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Создать код") }
+      Button(shapes = ButtonDefaults.shapes(), onClick = { create = true }) { Ico(R.drawable.ic_add, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Создать код") }
     }
     items(loader.data.orEmpty()) { inv ->
       val expired = inv.expiresAt != null && (parseTime(inv.expiresAt) ?: Long.MAX_VALUE) < System.currentTimeMillis()
@@ -433,8 +436,8 @@ private fun AdminDownloads() {
       Text("Аудиофайлы с телефона попадут в библиотеку с тегами из файлов.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
       Spacer(Modifier.height(6.dp))
       Row(verticalAlignment = Alignment.CenterVertically) {
-        Button(onClick = { pick.launch("audio/*") }, enabled = !uploading) { Ico(R.drawable.ic_add, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Выбрать файлы") }
-        if (uploading) { Spacer(Modifier.width(12.dp)); CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp); Text("  загружается…") }
+        Button(shapes = ButtonDefaults.shapes(), onClick = { pick.launch("audio/*") }, enabled = !uploading) { Ico(R.drawable.ic_add, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Выбрать файлы") }
+        if (uploading) { Spacer(Modifier.width(12.dp)); LoadingIndicator(Modifier.size(32.dp)); Text("  загружается…") }
       }
     }
     item {
@@ -444,13 +447,13 @@ private fun AdminDownloads() {
       Row(verticalAlignment = Alignment.CenterVertically) {
         CheckRow("Как видео (канвас)", video) { video = it }
       }
-      Button(enabled = url.isNotBlank(), onClick = { val u = url; act("Добавлено в очередь", then = { url = "" }) { Api.importUrl(u, video) } }) { Text("Импортировать") }
+      Button(shapes = ButtonDefaults.shapes(), enabled = url.isNotBlank(), onClick = { val u = url; act("Добавлено в очередь", then = { url = "" }) { Api.importUrl(u, video) } }) { Text("Импортировать") }
     }
     item {
       Spacer(Modifier.height(8.dp))
       Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        FilledTonalButton(onClick = { act("Ищу недостающие тексты") { Api.fetchMissingLyrics() } }) { Text("Найти тексты") }
-        FilledTonalButton(onClick = { act("Канвасы в очереди") { Api.fetchMissingCanvases() } }) { Text("Нарезать канвасы") }
+        FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { act("Ищу недостающие тексты") { Api.fetchMissingLyrics() } }) { Text("Найти тексты") }
+        FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { act("Канвасы в очереди") { Api.fetchMissingCanvases() } }) { Text("Нарезать канвасы") }
       }
       SectionTitle("Задачи")
     }
@@ -500,9 +503,7 @@ private fun ServerJobCard(j: ServerJob, expanded: Boolean, toggle: () -> Unit) {
     }
     if (j.status == "running") {
       Spacer(Modifier.height(6.dp))
-      Box(Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)).background(cs.onSurface.copy(alpha = 0.12f))) {
-        Box(Modifier.fillMaxWidth((j.progress / 100.0).toFloat().coerceIn(0f, 1f)).height(4.dp).background(cs.primary))
-      }
+      LinearWavyProgressIndicator(progress = { (j.progress / 100.0).toFloat().coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
     }
     if (expanded && j.log.isNotEmpty()) {
       Spacer(Modifier.height(8.dp))
@@ -543,7 +544,7 @@ private fun AdminYoutube() {
       Spacer(Modifier.height(8.dp))
       OutlinedTextField(label, { label = it }, Modifier.fillMaxWidth(), label = { Text("Название нового аккаунта (необязательно)") }, singleLine = true)
       Spacer(Modifier.height(6.dp))
-      Button(onClick = { pick.launch(arrayOf("text/plain", "text/*", "application/octet-stream", "*/*")) }) {
+      Button(shapes = ButtonDefaults.shapes(), onClick = { pick.launch(arrayOf("text/plain", "text/*", "application/octet-stream", "*/*")) }) {
         Ico(R.drawable.ic_add, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Добавить cookies.txt")
       }
     }
@@ -647,7 +648,7 @@ fun AdminTrackScreen(id: String) {
           OutlinedTextField(trackNo, { trackNo = it }, Modifier.weight(1f), label = { Text("№") }, singleLine = true)
         }
         CheckRow("Explicit", explicit) { explicit = it }
-        Button(onClick = {
+        Button(shapes = ButtonDefaults.shapes(), onClick = {
           val body = buildJsonObject {
             put("title", title.trim()); put("artist", artist.trim())
             put("album", album.trim().takeIf { it.isNotEmpty() }?.let { JsonPrimitive(it) } ?: JsonNull)
@@ -664,26 +665,26 @@ fun AdminTrackScreen(id: String) {
         OutlinedTextField(synced, { synced = it }, Modifier.fillMaxWidth(), label = { Text("Синхронный (LRC: [01:23.45] строка)") }, minLines = 4, maxLines = 10)
         OutlinedTextField(plain, { plain = it }, Modifier.fillMaxWidth(), label = { Text("Обычный текст") }, minLines = 4, maxLines = 10)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-          Button(onClick = {
+          Button(shapes = ButtonDefaults.shapes(), onClick = {
             val body = buildJsonObject {
               put("lyricsSynced", synced.trim().takeIf { it.isNotEmpty() }?.let { JsonPrimitive(it) } ?: JsonNull)
               put("lyricsPlain", plain.trim().takeIf { it.isNotEmpty() }?.let { JsonPrimitive(it) } ?: JsonNull)
             }
             act("Текст сохранён", then = { version++ }) { Api.adminPatchTrack(id, body) }
           }) { Text("Сохранить текст") }
-          FilledTonalButton(onClick = { act("Ищу текст…", then = { version++ }) { Api.adminFetchLyrics(id) } }) { Text("Найти") }
+          FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { act("Ищу текст…", then = { version++ }) { Api.adminFetchLyrics(id) } }) { Text("Найти") }
         }
 
         SectionTitleInline("Канвас")
         Text(if (t.hasCanvas) "Есть" else "Нет", color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-          FilledTonalButton(onClick = { act("Канвас в очереди — нарежется из клипа") { Api.adminFetchCanvas(id) } }) { Text("Из клипа") }
-          FilledTonalButton(onClick = { pickCanvas.launch("video/*") }) { Text("Свой файл") }
-          if (t.hasCanvas) OutlinedButton(onClick = { act("Канвас убран", then = { version++ }) { Api.adminDeleteCanvas(id) } }) { Text("Убрать") }
+          FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { act("Канвас в очереди — нарежется из клипа") { Api.adminFetchCanvas(id) } }) { Text("Из клипа") }
+          FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { pickCanvas.launch("video/*") }) { Text("Свой файл") }
+          if (t.hasCanvas) OutlinedButton(shapes = ButtonDefaults.shapes(), onClick = { act("Канвас убран", then = { version++ }) { Api.adminDeleteCanvas(id) } }) { Text("Убрать") }
         }
 
         Spacer(Modifier.height(12.dp))
-        OutlinedButton(onClick = { confirmDelete = true }) { Text("Удалить трек", color = MaterialTheme.colorScheme.error) }
+        OutlinedButton(shapes = ButtonDefaults.shapes(), onClick = { confirmDelete = true }) { Text("Удалить трек", color = MaterialTheme.colorScheme.error) }
       }
       if (confirmDelete) ConfirmDialog("Удалить «${t.title}»?", "Файл удалится с сервера, трек пропадёт из плейлистов и лайков.", "Удалить", { confirmDelete = false }) {
         act("Трек удалён", then = { nav.back() }) { Api.adminDeleteTrack(id) }

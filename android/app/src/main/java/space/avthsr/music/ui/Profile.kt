@@ -72,7 +72,7 @@ fun ProfileScreen() {
       item {
         Row(Modifier.padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
           Box {
-            Cover(u.avatarUrl, Modifier.size(88.dp).clickable { avatarMenu = true }, CircleShape, R.drawable.ic_person)
+            Cover(u.avatarUrl, Modifier.size(88.dp).clickable { avatarMenu = true }, AvatarShape, R.drawable.ic_person)
             DropdownMenu(expanded = avatarMenu, onDismissRequest = { avatarMenu = false }) {
               DropdownMenuItem(text = { Text("Выбрать фото") }, onClick = { avatarMenu = false; pickAvatar.launch("image/*") })
               if (u.avatarUrl != null) DropdownMenuItem(text = { Text("Убрать фото") }, onClick = { avatarMenu = false; act("Фото убрано") { Api.removeAvatar() } })

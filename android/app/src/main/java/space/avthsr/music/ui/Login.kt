@@ -41,8 +41,8 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import space.avthsr.music.App
 import space.avthsr.music.R
-import space.avthsr.music.data.Api
-import space.avthsr.music.data.Likes
+import space.avthsr.music.api.Api
+import space.avthsr.music.api.Likes
 
 @Composable
 fun LoginScreen() {

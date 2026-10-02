@@ -9,8 +9,8 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.database.StandaloneDatabaseProvider
 import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
 import androidx.media3.datasource.cache.SimpleCache
-import space.avthsr.music.data.Api
-import space.avthsr.music.data.Track
+import space.avthsr.music.api.Api
+import space.avthsr.music.api.Track
 import java.io.File
 
 /** A queue entry for a track: streamed from the server, with the metadata the shade player shows. */

@@ -45,9 +45,9 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import space.avthsr.music.App
 import space.avthsr.music.R
-import space.avthsr.music.data.Api
-import space.avthsr.music.data.CatalogAlbum
-import space.avthsr.music.data.CatalogTrack
+import space.avthsr.music.api.Api
+import space.avthsr.music.api.CatalogAlbum
+import space.avthsr.music.api.CatalogTrack
 import space.avthsr.music.player.PlayerConn
 
 private const val ADDED_HINT = "появится в медиатеке через минуту-другую"

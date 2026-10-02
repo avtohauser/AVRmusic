@@ -66,10 +66,10 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import space.avthsr.music.App
 import space.avthsr.music.R
-import space.avthsr.music.data.Api
-import space.avthsr.music.data.Likes
-import space.avthsr.music.data.PlaylistSummary
-import space.avthsr.music.data.Track
+import space.avthsr.music.api.Api
+import space.avthsr.music.api.Likes
+import space.avthsr.music.api.PlaylistSummary
+import space.avthsr.music.api.Track
 import space.avthsr.music.player.PlayerConn
 
 /* ---------- navigation ---------- */

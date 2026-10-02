@@ -8,8 +8,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
-import space.avthsr.music.data.Api
-import space.avthsr.music.data.Likes
+import space.avthsr.music.api.Api
+import space.avthsr.music.api.Likes
 import space.avthsr.music.player.Queue
 
 class App : Application(), ImageLoaderFactory {

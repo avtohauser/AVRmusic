@@ -64,7 +64,7 @@ import kotlinx.coroutines.launch
 import space.avthsr.music.App
 import space.avthsr.music.MainActivity
 import space.avthsr.music.R
-import space.avthsr.music.data.Api
+import space.avthsr.music.api.Api
 import space.avthsr.music.player.PlayerConn
 
 @Composable

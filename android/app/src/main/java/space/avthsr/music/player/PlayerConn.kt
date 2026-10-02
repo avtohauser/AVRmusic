@@ -16,9 +16,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import space.avthsr.music.App
-import space.avthsr.music.data.Api
-import space.avthsr.music.data.ArtistSummary
-import space.avthsr.music.data.Track
+import space.avthsr.music.api.Api
+import space.avthsr.music.api.ArtistSummary
+import space.avthsr.music.api.Track
 import kotlin.random.Random
 
 data class PlayerUi(

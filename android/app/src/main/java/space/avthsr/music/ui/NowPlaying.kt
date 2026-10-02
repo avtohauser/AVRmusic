@@ -66,8 +66,8 @@ import androidx.media3.common.Player
 import coil.compose.AsyncImage
 import kotlinx.coroutines.delay
 import space.avthsr.music.R
-import space.avthsr.music.data.Api
-import space.avthsr.music.data.Track
+import space.avthsr.music.api.Api
+import space.avthsr.music.api.Track
 import space.avthsr.music.player.PlayerConn
 import space.avthsr.music.player.PlayerUi
 import space.avthsr.music.player.Queue

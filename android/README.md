@@ -16,7 +16,7 @@
 - «Моя волна» сама подгружает следующие треки, каждое прослушивание отправляется в статистику;
 - прослушанное кэшируется на телефоне (до 1 ГБ), повторы не тратят трафик.
 
-Код (`app/src/main/java/space/avthsr/music/`): `data/` — API, модели, лайки; `player/` — `PlaybackService`
+Код (`app/src/main/java/space/avthsr/music/`): `api/` — API, модели, лайки; `player/` — `PlaybackService`
 (плеер, ♥, волна, отчёты о прослушиваниях), `PlayerConn` (MediaController для экранов), `Queue` (общее состояние);
 `ui/` — экраны Compose.
 

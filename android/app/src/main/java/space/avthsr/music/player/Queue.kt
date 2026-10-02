@@ -6,7 +6,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import space.avthsr.music.R
-import space.avthsr.music.data.Track
+import space.avthsr.music.api.Track
 import java.util.concurrent.ConcurrentHashMap
 
 data class WaveMode(val id: String, val label: String, val hint: String, val icon: Int)

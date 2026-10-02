@@ -49,9 +49,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 import space.avthsr.music.App
 import space.avthsr.music.R
-import space.avthsr.music.data.Api
-import space.avthsr.music.data.Likes
-import space.avthsr.music.data.Track
+import space.avthsr.music.api.Api
+import space.avthsr.music.api.Likes
+import space.avthsr.music.api.Track
 import space.avthsr.music.player.PlayerConn
 
 /** Play / shuffle buttons for a list of tracks. */

@@ -37,7 +37,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import space.avthsr.music.R
-import space.avthsr.music.data.Api
+import space.avthsr.music.api.Api
 import space.avthsr.music.player.PlayerConn
 
 @Composable

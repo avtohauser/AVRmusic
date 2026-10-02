@@ -218,7 +218,17 @@ data class CatalogArtistPage(
 data class Suggestions(val releases: List<CatalogAlbum> = emptyList(), val tracks: List<CatalogTrack> = emptyList())
 
 @Serializable
-data class AcquireJob(val id: String, val status: String = "queued", val progress: Double = 0.0, val title: String = "", val error: String? = null)
+data class AcquireJob(
+  val id: String,
+  val kind: String = "acquire",
+  val status: String = "queued",
+  val progress: Double = 0.0,
+  val title: String = "",
+  val error: String? = null,
+  val position: Int? = null,
+  val stats: Map<String, Int>? = null,
+  val requestedBy: String? = null,
+)
 
 @Serializable
 data class AcquireResult(val jobId: String, val duplicate: Boolean = false)

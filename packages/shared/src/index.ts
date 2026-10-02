@@ -271,6 +271,8 @@ export interface CatalogAlbumPage extends CatalogAlbum {
 export type AcquireKind = 'track' | 'album' | 'artist';
 export interface AcquireJob {
   id: string;
+  /** place in the download queue while queued (1 = next) */
+  position?: number;
   kind: 'acquire' | 'canvas';
   status: 'queued' | 'running' | 'done' | 'error';
   progress: number;

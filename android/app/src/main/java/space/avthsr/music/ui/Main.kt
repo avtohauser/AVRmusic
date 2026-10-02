@@ -142,6 +142,7 @@ private fun Main() {
           composable("liked") { LikedScreen() }
           composable("discover") { DiscoverScreen() }
           composable("profile") { ProfileScreen() }
+          composable("jobs") { JobsScreen() }
           composable("album/{id}") { AlbumScreen(it.arguments?.getString("id").orEmpty()) }
           composable("artist/{id}") { ArtistScreen(it.arguments?.getString("id").orEmpty()) }
           composable("playlist/{id}") { PlaylistScreen(it.arguments?.getString("id").orEmpty()) }

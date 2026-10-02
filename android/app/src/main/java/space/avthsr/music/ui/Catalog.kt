@@ -56,7 +56,7 @@ private const val ADDED_HINT = "появится в медиатеке чере�
 fun acquire(kind: String, id: Long, what: String, done: (Boolean) -> Unit = {}) {
   App.scope.launch {
     runCatching { Api.acquire(kind, id) }
-      .onSuccess { App.say("$what добавляется на сервер — $ADDED_HINT"); done(true) }
+      .onSuccess { r -> App.say("$what добавляется на сервер — $ADDED_HINT" + if (r.duplicate) " (уже в очереди)" else ""); done(true) }
       .onFailure { App.say(it.message ?: "Не получилось"); done(false) }
   }
 }

@@ -1,9 +1,9 @@
 // Several YouTube accounts for yt-dlp (a cookies.txt each, uploaded in the admin panel and kept only on
-// the server). Every download takes a free account — one download per account at a time — so N accounts
-// fetch N tracks at once. An account YouTube refuses ("not a bot", 429) rests for a while and the
+// the server). Every download takes the least busy account — up to two downloads per account at a time —
+// so N accounts fetch 2·N tracks at once. An account YouTube refuses ("not a bot", 429) rests for a while and the
 // download moves on to the next one; with every account resting it is tried without cookies.
-// Searches and lookups use a private copy of some account's cookies (yt-dlp writes the jar back on
-// exit, so only one process may own the real file).
+// Every yt-dlp run gets a private copy of the cookies (it writes the jar back on exit); after a good
+// download the refreshed jar replaces the account's file in one step.
 import fs from 'node:fs';
 import path from 'node:path';
 import { config } from '../config.js';
@@ -26,12 +26,13 @@ export interface YtAccountInfo {
 }
 
 interface Meta { id: string; label: string; createdAt: string }
-interface Live { busy: boolean; coolUntil: number; ok: number; failed: number; lastError: string | null; lastUsedAt: string | null }
+interface Live { running: number; coolUntil: number; ok: number; failed: number; lastError: string | null; lastUsedAt: string | null }
 
 /** How long an account rests after YouTube refused it. */
 const COOL_MS = 20 * 60_000;
-/** Downloads at once without any account. */
+/** Downloads at once without any account, and per account. */
 const ANON_SLOTS = 2;
+const PER_ACCOUNT = 2;
 const MAX_ACCOUNTS = 10;
 
 const dir = () => path.join(config.dataDir, 'youtube-accounts');
@@ -44,7 +45,7 @@ const legacyConfig = () => path.join(process.env.XDG_CONFIG_HOME || path.join(co
 const live = new Map<string, Live>();
 function state(id: string): Live {
   let s = live.get(id);
-  if (!s) live.set(id, (s = { busy: false, coolUntil: 0, ok: 0, failed: 0, lastError: null, lastUsedAt: null }));
+  if (!s) live.set(id, (s = { running: 0, coolUntil: 0, ok: 0, failed: 0, lastError: null, lastUsedAt: null }));
   return s;
 }
 
@@ -90,7 +91,7 @@ export function listAccounts(): YtAccountInfo[] {
     try { text = fs.readFileSync(cookiesOf(m.id), 'utf8'); updatedAt = fs.statSync(cookiesOf(m.id)).mtime.toISOString(); } catch { /* missing file */ }
     const s = state(m.id);
     return {
-      ...m, updatedAt, ...inspect(text), busy: s.busy,
+      ...m, updatedAt, ...inspect(text), busy: s.running > 0,
       coolingUntil: s.coolUntil > Date.now() ? new Date(s.coolUntil).toISOString() : null,
       ok: s.ok, failed: s.failed, lastError: s.lastError, lastUsedAt: s.lastUsedAt,
     };
@@ -128,10 +129,32 @@ export function wakeAccount(id: string): YtAccountInfo[] {
   return listAccounts();
 }
 
-/** How many downloads may run at once: one per account (two without accounts). */
+/** How many downloads may run at once: two per account (two without accounts). */
 export function downloadSlots(): number {
   const n = load().length;
-  return n ? Math.min(n, MAX_ACCOUNTS) : ANON_SLOTS;
+  return n ? n * PER_ACCOUNT : ANON_SLOTS;
+}
+
+/** A private copy of an account's cookies for one yt-dlp run. */
+function privateCopy(id: string): string | null {
+  const tmp = path.join(config.tmpDir, `ck-${newId()}.txt`);
+  try {
+    fs.mkdirSync(config.tmpDir, { recursive: true });
+    fs.copyFileSync(cookiesOf(id), tmp);
+    fs.chmodSync(tmp, 0o600);
+    return tmp;
+  } catch { return null; }
+}
+
+/** The jar yt-dlp wrote back (YouTube rotates some cookies) replaces the account's file atomically. */
+function keepRefreshed(id: string, copy: string) {
+  try {
+    if (!fs.statSync(copy).size) return;
+    const next = `${cookiesOf(id)}.${newId()}`;
+    fs.copyFileSync(copy, next);
+    fs.chmodSync(next, 0o600);
+    fs.renameSync(next, cookiesOf(id));
+  } catch { /* keep the old file */ }
 }
 
 const REFUSAL = /\b429\b|too many requests|rate.?limit|not a bot|sign in to confirm|confirm your age|use --cookies|\b403\b|forbidden/i;
@@ -176,16 +199,20 @@ export async function withAccount<T>(fn: (a: AccountUse) => Promise<T>, opts: Us
       if (tried.size) opts.log?.('   … все аккаунты YouTube отдыхают — пробую без них');
       return anonymous(fn, opts);
     }
-    const free = usable.find((m) => !state(m.id).busy);
+    // the least busy account with a free slot
+    const free = usable.filter((m) => state(m.id).running < PER_ACCOUNT).sort((a, b) => state(a.id).running - state(b.id).running)[0];
     if (!free) { await sleep(300); continue; }
     const s = state(free.id);
-    s.busy = true;
+    const copy = privateCopy(free.id);
+    if (!copy) { tried.add(free.id); continue; }
+    s.running++;
     s.lastUsedAt = new Date().toISOString();
     tried.add(free.id);
     try {
-      const r = await fn({ cookies: cookiesOf(free.id), label: free.label });
+      const r = await fn({ cookies: copy, label: free.label });
       s.ok++;
       s.lastError = null;
+      keepRefreshed(free.id, copy);
       return r;
     } catch (e: any) {
       const msg = String(e?.message ?? e);
@@ -195,7 +222,8 @@ export async function withAccount<T>(fn: (a: AccountUse) => Promise<T>, opts: Us
       s.coolUntil = Date.now() + COOL_MS;
       opts.log?.(`   … YouTube отказал аккаунту «${free.label}» — отдыхает ${COOL_MS / 60_000} мин, беру следующий`);
     } finally {
-      s.busy = false;
+      s.running--;
+      try { fs.unlinkSync(copy); } catch { /* gone */ }
     }
   }
 }
@@ -207,12 +235,7 @@ export async function withLookupCookies<T>(fn: (args: string[]) => Promise<T>): 
   const list = load().filter((m) => state(m.id).coolUntil <= now);
   if (!list.length) return fn([]);
   const m = list[turn++ % list.length];
-  const tmp = path.join(config.tmpDir, `ck-${newId()}.txt`);
-  try {
-    fs.mkdirSync(config.tmpDir, { recursive: true });
-    fs.copyFileSync(cookiesOf(m.id), tmp);
-  } catch {
-    return fn([]);
-  }
+  const tmp = privateCopy(m.id);
+  if (!tmp) return fn([]);
   try { return await fn(['--cookies', tmp]); } finally { try { fs.unlinkSync(tmp); } catch { /* gone */ } }
 }

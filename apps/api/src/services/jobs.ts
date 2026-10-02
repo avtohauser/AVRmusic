@@ -8,6 +8,8 @@ export type JobKind = 'url' | 'lyrics' | 'acquire' | 'canvas' | 'heal';
 
 export interface Job {
   id: string;
+  /** place in the queue (queued users' jobs) */
+  position?: number;
   kind: JobKind;
   url?: string;
   mode?: 'audio' | 'video';
@@ -42,6 +44,27 @@ let db: DB | null = null;
 let running = 0;
 let userRunning = 0;
 const MAX_USER = 2;
+/** plus one slot for a single track or album, so it never waits hours behind whole discographies */
+let expressRunning = 0;
+
+/** Background upkeep (self-healing, canvases) that always lets the users' own downloads go first. */
+const BACKGROUND: JobKind[] = ['heal', 'canvas'];
+const isSmall = (j: Job) => j.kind === 'acquire' && ['track', 'album'].includes((j.payload as any)?.kind);
+const isUser = (j: Job) => !BACKGROUND.includes(j.kind);
+
+/** Queued users' jobs in the order they will start: tracks and albums first, then by request time. */
+function userOrder(): Job[] {
+  return queue.filter(isUser).map((j, i) => ({ j, i })).sort((a, b) => (isSmall(a.j) ? 0 : 1) - (isSmall(b.j) ? 0 : 1) || a.i - b.i).map((x) => x.j);
+}
+
+/** The next user job: small requests first; among the rest, someone who has nothing running yet. */
+function nextUserJob(): Job | undefined {
+  const order = userOrder();
+  if (!order.length) return undefined;
+  const busy = new Set([...jobs.values()].filter((j) => j.status === 'running' && isUser(j)).map((j) => j.requestedBy));
+  if (isSmall(order[0])) return order[0];
+  return order.find((j) => !busy.has(j.requestedBy)) ?? order[0];
+}
 
 export function setRunner(kind: JobKind, run: Runner) {
   runners.set(kind, run);
@@ -87,7 +110,9 @@ function save(job: Job) {
 const publicJob = ({ cancel: _c, payload: _p, ...j }: Job): Job => j as Job;
 
 export function listJobs(): Job[] {
-  return [...jobs.values()].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)).map(publicJob);
+  const order = userOrder();
+  return [...jobs.values()].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+    .map((j) => ({ ...publicJob(j), position: j.status === 'queued' && isUser(j) ? order.indexOf(j) + 1 : undefined }));
 }
 export function getJob(id: string): Job | undefined {
   return jobs.get(id);
@@ -115,26 +140,29 @@ export function enqueue(init: Pick<Job, 'kind' | 'url' | 'mode' | 'title' | 'req
   return publicJob(job) as Job & { id: string };
 }
 
-/** Background upkeep (self-healing, canvases) that always lets the users' own downloads go first. */
-const BACKGROUND: JobKind[] = ['heal', 'canvas'];
 /** A user's job is waiting: a background job should wrap up and continue later. */
 export function userJobWaiting(): boolean { return userRunning > 0 || queue.some((j) => !BACKGROUND.includes(j.kind)); }
 
 async function pump() {
-  const first = queue.findIndex((j) => !BACKGROUND.includes(j.kind));
+  const next = nextUserJob();
   let job: Job | undefined;
-  if (first >= 0) {
-    if (userRunning >= MAX_USER) return;
-    job = queue.splice(first, 1)[0];
+  let express = false;
+  if (next) {
+    if (userRunning >= MAX_USER) {
+      if (!isSmall(next) || expressRunning >= 1) return;
+      express = true;
+    }
+    job = queue.splice(queue.indexOf(next), 1)[0];
   } else {
     // background work waits until nothing else runs
     if (running > 0 || !queue.length) return;
     job = queue.shift();
   }
   if (!job) return;
-  const user = !BACKGROUND.includes(job.kind);
+  const user = isUser(job);
   running++;
-  if (user) userRunning++;
+  if (express) expressRunning++;
+  else if (user) userRunning++;
   void pump(); // another slot may be free
   job.status = 'running';
   save(job);
@@ -161,7 +189,8 @@ async function pump() {
     job.cancel = undefined;
     save(job);
     running--;
-    if (user) userRunning--;
+    if (express) expressRunning--;
+    else if (user) userRunning--;
     void pump();
   }
 }

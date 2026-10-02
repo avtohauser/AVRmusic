@@ -145,7 +145,7 @@ export function AcquireQueue({ compact = false }: { compact?: boolean }) {
             <div className="min-w-0 flex-1">
               <div className="md-title-sm line-1">{j.title}</div>
               <div className="md-body-sm muted">
-                {j.stats ? `${j.stats.imported ?? 0} ${t('acquiredN')}${j.stats.exists ? `, ${j.stats.exists} ${t('alreadyN')}` : ''}${j.stats.failed ? `, ${j.stats.failed} ${t('failedN')}` : ''} / ${j.stats.total}` : j.status === 'queued' ? t('queued') : t('acquiring')}
+                {j.stats ? `${j.stats.imported ?? 0} ${t('acquiredN')}${j.stats.exists ? `, ${j.stats.exists} ${t('alreadyN')}` : ''}${j.stats.failed ? `, ${j.stats.failed} ${t('failedN')}` : ''} / ${j.stats.total}` : j.status === 'queued' ? `${t('queued')}${j.position && j.position > 1 ? ` · ${t('aheadN')} ${j.position - 1}` : j.position === 1 ? ` · ${t('nextUp')}` : ''}` : t('acquiring')}
                 {j.error ? ` · ${j.error}` : ''}
               </div>
             </div>

@@ -43,7 +43,7 @@ test('YouTube accounts: validated, the old single cookies file migrated, a refus
     assert.throws(() => acc.addAccount('not a cookies file'), /cookies\.txt/);
     list = acc.addAccount(cookies('second'), 'Второй');
     assert.equal(list.length, 2);
-    assert.equal(acc.downloadSlots(), 2);
+    assert.equal(acc.downloadSlots(), 4);
 
     // the first account is refused: it rests and the second one does the download
     const used: string[] = [];
@@ -61,7 +61,7 @@ test('YouTube accounts: validated, the old single cookies file migrated, a refus
     await assert.rejects(acc.withAccount(async () => { throw new Error('yt-dlp: Video unavailable'); }), /unavailable/);
     assert.equal(acc.listAccounts()[1].coolingUntil, null);
 
-    // two downloads at once take different accounts
+    // two downloads at once go to different accounts (the least busy one first)
     acc.wakeAccount(list[0].id);
     const seen = new Set<string>();
     await Promise.all([1, 2].map(() => acc.withAccount(async (a) => { seen.add(a.label); await new Promise((res) => setTimeout(res, 30)); })));

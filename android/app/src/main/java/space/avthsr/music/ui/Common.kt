@@ -85,6 +85,7 @@ class Nav(private val c: NavController, val openPlayer: () -> Unit) {
   fun liked() = go("liked")
   fun discover() = go("discover")
   fun profile() = go("profile")
+  fun jobs() = go("jobs")
   fun web(path: String) = go("web?path=${Uri.encode(path)}")
   fun route(route: String) = go(route)
   fun back() { c.popBackStack() }

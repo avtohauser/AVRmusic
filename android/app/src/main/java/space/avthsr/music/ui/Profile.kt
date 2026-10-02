@@ -74,6 +74,7 @@ fun ProfileScreen() {
       Spacer(Modifier.height(24.dp))
       if (u.isAdmin) ProfileItem(R.drawable.ic_settings, "Админ-панель", "Пользователи, приглашения, статистика, загрузка файлов") { nav.web("/admin") }
       ProfileItem(R.drawable.ic_sparkle, "Предложка", "Новая музыка для вас") { nav.discover() }
+      ProfileItem(R.drawable.ic_download, "Загрузки на сервер", "Что сейчас качается и кто в очереди") { nav.jobs() }
       ProfileItem(R.drawable.ic_person, "Профиль на сайте", "Имя, аватар, пароль, история") { nav.web("/profile") }
       ProfileItem(R.drawable.ic_web, "Веб-версия", "Сайт целиком внутри приложения") { nav.web("/") }
       ProfileItem(R.drawable.ic_logout, "Выйти", "") {

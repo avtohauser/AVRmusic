@@ -42,7 +42,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -251,13 +250,7 @@ fun Header(
 fun Backdrop(cover: String?) {
   val bg = MaterialTheme.colorScheme.background
   Box(Modifier.fillMaxWidth().height(300.dp)) {
-    if (Api.img(cover) != null) {
-      coil.compose.AsyncImage(
-        model = Api.img(cover), contentDescription = null,
-        modifier = Modifier.fillMaxSize().blur(60.dp),
-        contentScale = androidx.compose.ui.layout.ContentScale.Crop, alpha = 0.45f,
-      )
-    }
+    BlurredCover(cover, Modifier.fillMaxSize(), alpha = 0.5f)
     Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(bg.copy(alpha = 0.2f), bg))))
   }
 }

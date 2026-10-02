@@ -22,6 +22,8 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import space.avthsr.music.api.Api
 import space.avthsr.music.player.PlayerConn
 import androidx.compose.runtime.Composable
@@ -151,8 +153,8 @@ fun AvrTheme(content: @Composable () -> Unit) {
   val variant by Look.variant.collectAsState()
   val contrast by Look.contrast.collectAsState()
   val coverSeed by Look.coverSeed.collectAsState()
-  val player by PlayerConn.state.collectAsState()
-  val cover = player.track?.coverUrl
+  // only the cover matters here: a play / pause must not recompose the whole app through the theme
+  val cover by remember { PlayerConn.state.map { it.track?.coverUrl }.distinctUntilChanged() }.collectAsState(PlayerConn.state.value.track?.coverUrl)
   // the playing track's cover gives the colours when chosen so
   LaunchedEffect(source, cover) {
     if (source == "cover" && cover != null) Api.img(cover)?.let { url -> coverSeed(context, url)?.let { Look.coverSeed.value = it } }
@@ -169,7 +171,7 @@ fun AvrTheme(content: @Composable () -> Unit) {
   val type = remember { typography(context.applicationContext) }
   MaterialExpressiveTheme(
     colorScheme = scheme,
-    motionScheme = MotionScheme.expressive(),
+    motionScheme = remember { MotionScheme.expressive() },
     shapes = AvrShapes,
     typography = type,
     content = content,

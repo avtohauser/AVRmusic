@@ -3,6 +3,22 @@
 package space.avthsr.music.ui
 
 import space.avthsr.music.tr
+import android.os.SystemClock
+import space.avthsr.music.api.LyricLine
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.interaction.DragInteraction
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -65,7 +81,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
@@ -101,18 +116,16 @@ fun NowPlayingScreen(onClose: () -> Unit) {
   var sleepMenu by remember { mutableStateOf(false) }
   val speed by PlayerConn.speed.collectAsStateWithLifecycle()
   val sleepAt by PlayerConn.sleepAt.collectAsStateWithLifecycle()
-  var lyricsOpen by remember { mutableStateOf(false) }
+  // lyrics take the cover's place; the choice holds for the next tracks too
+  var lyricsMode by rememberSaveable { mutableStateOf(false) }
   val wantLyrics by showLyrics.collectAsStateWithLifecycle()
-  LaunchedEffect(wantLyrics) { if (wantLyrics) { lyricsOpen = true; showLyrics.value = false } }
+  LaunchedEffect(wantLyrics) { if (wantLyrics) { lyricsMode = true; showLyrics.value = false } }
+  val lyricsShown = lyricsMode && t?.hasLyrics == true
   var menu by remember { mutableStateOf(false) }
-  var pos by remember { mutableLongStateOf(0L) }
-  var drag by remember { mutableStateOf<Float?>(null) }
   var pull by remember { mutableFloatStateOf(0f) }
-  LaunchedEffect(Unit) {
-    while (true) { pos = PlayerConn.position(); delay(200) }
-  }
   val inWave = context == Queue.WAVE
   val coverScale by animateFloatAsState(if (s.playing) 1f else 0.86f, MaterialTheme.motionScheme.slowSpatialSpec(), label = "cover")
+  val veil by animateFloatAsState(if (lyricsShown) 1f else 0f, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "veil")
 
   Box(
     Modifier.fillMaxSize()
@@ -129,12 +142,11 @@ fun NowPlayingScreen(onClose: () -> Unit) {
     if (t != null && canvas) {
       TrackCanvas(t, s.playing, Modifier.fillMaxSize())
     } else if (t != null) {
-      AsyncImage(
-        model = Api.img(t.coverUrl), contentDescription = null, contentScale = ContentScale.Crop, alpha = 0.55f,
-        modifier = Modifier.fillMaxSize().blur(90.dp),
-      )
+      BlurredCover(t.coverUrl, Modifier.fillMaxSize(), alpha = 0.6f)
     }
     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(if (canvas) listOf(cs.background.copy(alpha = 0.5f), Color.Transparent, cs.background.copy(alpha = 0.6f), cs.background) else listOf(cs.background.copy(alpha = 0.35f), cs.background.copy(alpha = 0.8f), cs.background))))
+    // with lyrics up, a veil over the canvas or cover so every line reads
+    Box(Modifier.fillMaxSize().graphicsLayer { alpha = veil }.background(cs.background.copy(alpha = if (canvas) 0.5f else 0.25f)))
 
     Column(Modifier.fillMaxSize().windowInsetsPadding(SafeBars).padding(horizontal = 24.dp, vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
       Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -149,18 +161,36 @@ fun NowPlayingScreen(onClose: () -> Unit) {
         }
       }
 
-      Spacer(Modifier.weight(1f))
-      if (canvas) Spacer(Modifier.widthIn(max = 420.dp).fillMaxWidth().aspectRatio(1f))
-      else Crossfade(targetState = t?.coverUrl, label = "cover") { url ->
-        Cover(
-          url,
-          Modifier.widthIn(max = 420.dp).fillMaxWidth().aspectRatio(1f)
-            .graphicsLayer { scaleX = coverScale; scaleY = coverScale }
-            .shadow(28.dp, RoundedCornerShape(32.dp)),
-          RoundedCornerShape(32.dp),
-        )
+      // the cover, or the lyrics in its place
+      Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
+        val motion = MaterialTheme.motionScheme
+        AnimatedContent(
+          targetState = lyricsShown,
+          transitionSpec = {
+            (fadeIn(motion.defaultEffectsSpec()) + scaleIn(motion.defaultSpatialSpec(), initialScale = 0.92f))
+              .togetherWith(fadeOut(motion.fastEffectsSpec()))
+          },
+          modifier = Modifier.fillMaxSize(),
+          contentAlignment = Alignment.Center,
+          label = "art",
+        ) { lyrics ->
+          when {
+            lyrics && t != null -> LyricsPane(t, Modifier.fillMaxSize())
+            canvas -> Spacer(Modifier.fillMaxSize())
+            else -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+              Crossfade(targetState = t?.coverUrl, label = "cover") { url ->
+                Cover(
+                  url,
+                  Modifier.widthIn(max = 420.dp).fillMaxWidth().aspectRatio(1f)
+                    .graphicsLayer { scaleX = coverScale; scaleY = coverScale }
+                    .shadow(28.dp, RoundedCornerShape(32.dp)),
+                  RoundedCornerShape(32.dp),
+                )
+              }
+            }
+          }
+        }
       }
-      Spacer(Modifier.weight(1f))
 
       Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
@@ -174,33 +204,12 @@ fun NowPlayingScreen(onClose: () -> Unit) {
         }
       }
       val reason = t?.reason
-      if (inWave && reason != null) {
+      if (inWave && reason != null && !lyricsShown) {
         Text("✦ $reason", Modifier.fillMaxWidth().padding(top = 6.dp), style = MaterialTheme.typography.labelLarge, color = cs.tertiary, maxLines = 2)
       }
 
       Spacer(Modifier.height(10.dp))
-      val duration = max(1L, s.durationMs).toFloat()
-      val value = (drag ?: pos.toFloat()).coerceIn(0f, duration)
-      // the expressive media seek bar: a wavy track while playing, flat when paused
-      Slider(
-        value = value,
-        onValueChange = { drag = it },
-        onValueChangeFinished = { drag?.let { PlayerConn.seek(it.toLong()) }; drag = null },
-        valueRange = 0f..duration,
-        enabled = t != null,
-        track = { _ ->
-          LinearWavyProgressIndicator(
-            progress = { value / duration },
-            modifier = Modifier.fillMaxWidth(),
-            amplitude = { if (s.playing && drag == null) 1f else 0f },
-          )
-        },
-      )
-      Row(Modifier.fillMaxWidth()) {
-        Text(fmtTime(value.toLong()), style = MaterialTheme.typography.labelMedium, color = cs.onSurfaceVariant)
-        Spacer(Modifier.weight(1f))
-        Text(fmtTime(s.durationMs), style = MaterialTheme.typography.labelMedium, color = cs.onSurfaceVariant)
-      }
+      SeekBar(s)
 
       Spacer(Modifier.height(10.dp))
       Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -228,7 +237,9 @@ fun NowPlayingScreen(onClose: () -> Unit) {
           IconButton(onClick = { PlayerConn.dislike(t) }, shapes = IconButtonDefaults.shapes()) { Ico(R.drawable.ic_thumb_down, tr("Не нравится")) }
         }
         if (t != null) LikeButton("track", t.id)
-        IconButton(onClick = { lyricsOpen = true }, enabled = t?.hasLyrics == true, shapes = IconButtonDefaults.shapes()) { Ico(R.drawable.ic_lyrics, tr("Текст")) }
+        IconButton(onClick = { lyricsMode = !lyricsShown }, enabled = t?.hasLyrics == true, shapes = IconButtonDefaults.shapes()) {
+          Ico(R.drawable.ic_lyrics, tr("Текст"), tint = if (lyricsShown) cs.primary else LocalContentColor.current)
+        }
         IconButton(onClick = { queueOpen = true }, shapes = IconButtonDefaults.shapes()) { Ico(R.drawable.ic_queue, tr("Очередь")) }
         TextButton(onClick = { PlayerConn.cycleSpeed() }) { Text("${fmtSpeed(speed)}×", style = MaterialTheme.typography.labelLarge) }
         Box {
@@ -250,7 +261,39 @@ fun NowPlayingScreen(onClose: () -> Unit) {
   }
 
   if (queueOpen) QueueSheet(s) { queueOpen = false }
-  if (lyricsOpen && t != null) LyricsSheet(t, { pos }) { lyricsOpen = false }
+}
+
+/** The seek bar with its times; the only part of the player that follows the position. */
+@Composable
+private fun SeekBar(s: PlayerUi) {
+  val cs = MaterialTheme.colorScheme
+  var pos by remember { mutableLongStateOf(PlayerConn.position()) }
+  var drag by remember { mutableStateOf<Float?>(null) }
+  LaunchedEffect(s.track?.id, s.playing) {
+    while (true) { pos = PlayerConn.position(); delay(if (s.playing) 200 else 1000) }
+  }
+  val duration = max(1L, s.durationMs).toFloat()
+  val value = (drag ?: pos.toFloat()).coerceIn(0f, duration)
+  // the expressive media seek bar: a wavy track while playing, flat when paused
+  Slider(
+    value = value,
+    onValueChange = { drag = it },
+    onValueChangeFinished = { drag?.let { PlayerConn.seek(it.toLong()) }; drag = null },
+    valueRange = 0f..duration,
+    enabled = s.track != null,
+    track = { _ ->
+      LinearWavyProgressIndicator(
+        progress = { value / duration },
+        modifier = Modifier.fillMaxWidth(),
+        amplitude = { if (s.playing && drag == null) 1f else 0f },
+      )
+    },
+  )
+  Row(Modifier.fillMaxWidth()) {
+    Text(fmtTime(value.toLong()), style = MaterialTheme.typography.labelMedium, color = cs.onSurfaceVariant)
+    Spacer(Modifier.weight(1f))
+    Text(fmtTime(s.durationMs), style = MaterialTheme.typography.labelMedium, color = cs.onSurfaceVariant)
+  }
 }
 
 @Composable
@@ -311,43 +354,77 @@ private fun QueueSheet(s: PlayerUi, onDismiss: () -> Unit) {
 
 private fun fmtSpeed(v: Float) = if (v % 1f == 0f) v.toInt().toString() else v.toString().trimEnd('0')
 
+/** Lyrics in the cover's place: synced lines follow the music, a tap on a line jumps to it. */
 @Composable
-private fun LyricsSheet(t: Track, position: () -> Long, onDismiss: () -> Unit) {
-  val cs = MaterialTheme.colorScheme
+private fun LyricsPane(t: Track, modifier: Modifier) {
   val loader = rememberLoad(t.id) { Api.lyrics(t.id) }
-  ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-    Text(t.title, Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.titleLarge)
-    Text(t.artists, Modifier.padding(horizontal = 24.dp), color = cs.onSurfaceVariant)
-    Box(Modifier.fillMaxWidth().fillMaxHeight(0.85f)) {
-      Loaded(loader) { l ->
-        val synced = l.synced
-        if (!synced.isNullOrEmpty()) {
-          val p = position()
-          val cur = synced.indexOfLast { it.timeMs <= p }
-          val list = rememberLazyListState()
-          LaunchedEffect(cur) { if (cur >= 0) list.animateScrollToItem(max(0, cur - 2)) }
-          LazyColumn(state = list, modifier = Modifier.fillMaxSize()) {
-            itemsIndexed(synced) { i, line ->
-              Text(
-                line.text.ifBlank { "♪" },
-                Modifier.fillMaxWidth().clickable { PlayerConn.seek(line.timeMs) }.padding(horizontal = 24.dp, vertical = 8.dp),
-                style = MaterialTheme.typography.headlineSmall,
-                color = when {
-                  i == cur -> cs.onSurface
-                  i < cur -> cs.onSurfaceVariant.copy(alpha = 0.5f)
-                  else -> cs.onSurfaceVariant
-                },
-              )
+  Box(modifier, contentAlignment = Alignment.Center) {
+    Loaded(loader) { l ->
+      val synced = l.synced
+      if (!synced.isNullOrEmpty()) SyncedLyrics(synced)
+      else Text(
+        l.plain?.takeIf { it.isNotBlank() } ?: tr("Текста пока нет"),
+        Modifier.fillMaxSize().fadingEdges().verticalScroll(rememberScrollState()).padding(vertical = 32.dp),
+        style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface,
+      )
+    }
+  }
+}
+
+@Composable
+private fun SyncedLyrics(lines: List<LyricLine>) {
+  val cs = MaterialTheme.colorScheme
+  var cur by remember(lines) { mutableIntStateOf(-1) }
+  LaunchedEffect(lines) {
+    while (true) {
+      // a hair early: the eye reads ahead of the voice
+      val p = PlayerConn.position() + 150
+      val i = lines.indexOfLast { it.timeMs <= p }
+      if (i != cur) cur = i
+      delay(100)
+    }
+  }
+  val list = rememberLazyListState()
+  // the listener's own scrolling pauses the follow for a few seconds
+  var touchedAt by remember { mutableLongStateOf(0L) }
+  LaunchedEffect(list) {
+    list.interactionSource.interactions.collect { if (it is DragInteraction.Start || it is DragInteraction.Stop) touchedAt = SystemClock.uptimeMillis() }
+  }
+  LaunchedEffect(cur) {
+    if (cur >= 0 && SystemClock.uptimeMillis() - touchedAt > 3500) list.animateScrollToItem(cur)
+  }
+  BoxWithConstraints(Modifier.fillMaxSize()) {
+    // the current line rides a third of the way down, with room to scroll the last one up to it
+    LazyColumn(
+      state = list,
+      modifier = Modifier.fillMaxSize().fadingEdges(),
+      contentPadding = PaddingValues(top = maxHeight * 0.3f, bottom = maxHeight * 0.6f),
+    ) {
+      itemsIndexed(lines) { i, line ->
+        val k by animateFloatAsState(if (i == cur) 1f else 0f, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "line")
+        Text(
+          line.text.ifBlank { "♪" },
+          Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).clickable { PlayerConn.seek(line.timeMs) }
+            .graphicsLayer {
+              val base = if (i < cur) 0.32f else 0.5f
+              alpha = base + (1f - base) * k
+              val sc = 0.94f + 0.06f * k
+              scaleX = sc; scaleY = sc
+              transformOrigin = TransformOrigin(0f, 0.5f)
             }
-          }
-        } else {
-          Text(
-            l.plain?.takeIf { it.isNotBlank() } ?: tr("Текста пока нет"),
-            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
-            style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Start,
-          )
-        }
+            .padding(horizontal = 6.dp, vertical = 10.dp),
+          style = MaterialTheme.typography.headlineSmall,
+          color = cs.onSurface,
+        )
       }
     }
   }
 }
+
+/** Fades the top and bottom edges of scrolling content out. */
+private fun Modifier.fadingEdges() = graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+  .drawWithContent {
+    drawContent()
+    val f = (40.dp.toPx() / size.height).coerceIn(0f, 0.3f)
+    drawRect(Brush.verticalGradient(0f to Color.Transparent, f to Color.Black, 1f - f to Color.Black, 1f to Color.Transparent), blendMode = BlendMode.DstIn)
+  }

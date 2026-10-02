@@ -15,6 +15,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import coil.imageLoader
 import coil.request.ImageRequest
@@ -138,11 +139,23 @@ suspend fun coverSeed(context: Context, url: String): Int? = withContext(Dispatc
 private fun slide(c: Color): Color = animateColorAsState(c, tween(700), label = "scheme").value
 
 @Composable
-fun animated(s: ColorScheme): ColorScheme = s.copy(
-  primary = slide(s.primary), onPrimary = slide(s.onPrimary), primaryContainer = slide(s.primaryContainer), onPrimaryContainer = slide(s.onPrimaryContainer),
-  secondary = slide(s.secondary), onSecondary = slide(s.onSecondary), secondaryContainer = slide(s.secondaryContainer), onSecondaryContainer = slide(s.onSecondaryContainer),
-  tertiary = slide(s.tertiary), onTertiary = slide(s.onTertiary), tertiaryContainer = slide(s.tertiaryContainer), onTertiaryContainer = slide(s.onTertiaryContainer),
-  background = slide(s.background), surface = slide(s.surface), onSurface = slide(s.onSurface), onSurfaceVariant = slide(s.onSurfaceVariant),
-  surfaceContainerLowest = slide(s.surfaceContainerLowest), surfaceContainerLow = slide(s.surfaceContainerLow), surfaceContainer = slide(s.surfaceContainer),
-  surfaceContainerHigh = slide(s.surfaceContainerHigh), surfaceContainerHighest = slide(s.surfaceContainerHighest),
-)
+fun animated(s: ColorScheme): ColorScheme {
+  val c = listOf(
+    s.primary, s.onPrimary, s.primaryContainer, s.onPrimaryContainer,
+    s.secondary, s.onSecondary, s.secondaryContainer, s.onSecondaryContainer,
+    s.tertiary, s.onTertiary, s.tertiaryContainer, s.onTertiaryContainer,
+    s.background, s.surface, s.onSurface, s.onSurfaceVariant,
+    s.surfaceContainerLowest, s.surfaceContainerLow, s.surfaceContainer, s.surfaceContainerHigh, s.surfaceContainerHighest,
+  ).map { slide(it) }
+  // the theme hands the scheme down as a static local: a new instance recomposes every screen,
+  // so the same instance is kept for as long as the colours stand still
+  return remember(s, c) {
+    s.copy(
+      primary = c[0], onPrimary = c[1], primaryContainer = c[2], onPrimaryContainer = c[3],
+      secondary = c[4], onSecondary = c[5], secondaryContainer = c[6], onSecondaryContainer = c[7],
+      tertiary = c[8], onTertiary = c[9], tertiaryContainer = c[10], onTertiaryContainer = c[11],
+      background = c[12], surface = c[13], onSurface = c[14], onSurfaceVariant = c[15],
+      surfaceContainerLowest = c[16], surfaceContainerLow = c[17], surfaceContainer = c[18], surfaceContainerHigh = c[19], surfaceContainerHighest = c[20],
+    )
+  }
+}

@@ -214,11 +214,12 @@ private fun BottomBar(c: NavController) {
 private fun MiniPlayer(onOpen: () -> Unit) {
   val s by PlayerConn.state.collectAsStateWithLifecycle()
   val t = s.track ?: return
-  var pos by remember { mutableLongStateOf(0L) }
+  // the position is read while drawing: the bar moves without recomposing the row
+  val pos = remember { mutableLongStateOf(0L) }
   LaunchedEffect(t.id, s.playing) {
-    while (true) { pos = PlayerConn.position(); delay(250) }
+    while (true) { pos.longValue = PlayerConn.position(); delay(if (s.playing) 250 else 1000) }
   }
-  val progress = if (s.durationMs > 0) (pos.toFloat() / s.durationMs).coerceIn(0f, 1f) else 0f
+  val dur = s.durationMs
   val interaction = remember { MutableInteractionSource() }
   Column(
     Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp).pressSquash(interaction, 0.97f).clip(RoundedCornerShape(26.dp))
@@ -237,7 +238,7 @@ private fun MiniPlayer(onOpen: () -> Unit) {
       IconButton(onClick = { PlayerConn.next() }, shapes = IconButtonDefaults.shapes()) { Ico(R.drawable.ic_skip_next, tr("Следующий")) }
     }
     LinearWavyProgressIndicator(
-      progress = { progress },
+      progress = { if (dur > 0) (pos.longValue.toFloat() / dur).coerceIn(0f, 1f) else 0f },
       modifier = Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, bottom = 8.dp),
       amplitude = { if (s.playing) 1f else 0f },
     )

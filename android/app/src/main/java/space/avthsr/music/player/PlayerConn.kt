@@ -43,6 +43,9 @@ object PlayerConn {
 
   private val _state = MutableStateFlow(PlayerUi())
   val state: StateFlow<PlayerUi> = _state.asStateFlow()
+  private val _currentId = MutableStateFlow<String?>(null)
+  /** Only the playing track's id: track lists follow it without redrawing on every pause or buffering. */
+  val currentId: StateFlow<String?> = _currentId.asStateFlow()
 
   fun connect(context: Context) {
     if (future != null) return
@@ -103,6 +106,7 @@ object PlayerConn {
     }
     val idx = c.currentMediaItemIndex
     val track = queue.getOrNull(idx)
+    _currentId.value = track?.id
     _state.value = PlayerUi(
       track = track,
       playing = c.isPlaying,

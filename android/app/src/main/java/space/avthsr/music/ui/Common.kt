@@ -308,9 +308,9 @@ fun TrackRow(
   subtitle: String? = null,
   menuExtra: (@Composable ColumnScope.(close: () -> Unit) -> Unit)? = null,
 ) {
-  val player by PlayerConn.state.collectAsStateWithLifecycle()
+  val currentId by PlayerConn.currentId.collectAsStateWithLifecycle()
   val liked by Likes.tracks.collectAsStateWithLifecycle()
-  val current = player.track?.id == t.id
+  val current = currentId == t.id
   var menu by remember { mutableStateOf(false) }
   Row(
     Modifier.fillMaxWidth().combinedClickable(onClick = onClick, onLongClick = { menu = true }).padding(start = 16.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),

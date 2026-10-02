@@ -1,4 +1,4 @@
-# Builds the Android app (full-screen WebView over https://$DOMAIN + a Media3 player service) and publishes
+# Builds the native Android app (Jetpack Compose UI for https://$DOMAIN + a Media3 player service) and publishes
 # the APK to GitHub Releases. The signing key is created once and kept on the server
 # (/srv/avrmusic/android-keystore); its SHA-256 fingerprint is written to the server's .env so the site serves
 # /.well-known/assetlinks.json and links to the site open in the app. Uses the same SERVER_* secrets as deploy.yml.
@@ -130,9 +130,9 @@ jobs:
           name: AVRmusic для Android ${{ env.APP_VERSION }}
           make_latest: true
           body: |
-            APK для Android 5.0+: сайт https://${{ env.TARGET_DOMAIN }} на весь экран (без системных панелей — они выезжают свайпом от края) и собственный плеер приложения: музыка играет в фоне и с выключенным экраном, а в плеере в шторке и на экране блокировки есть кнопки ⏮ ⏯ ⏭ и ♥ «В избранное».
+            Нативное приложение AVRmusic для Android 5.0+ (Jetpack Compose, Material 3): главная с «Моей волной» и Предложкой, поиск по серверу и каталогу (добавление треков в одно касание), медиатека, альбомы, исполнители, плейлисты, текст песен. Свой плеер: очередь, вперемешку/повтор, музыка играет в фоне и с выключенным экраном, в шторке и на экране блокировки — ⏮ ⏯ ⏭ и ♥ «В избранное». Прослушанное кэшируется на телефоне. Админ-панель открывается внутри приложения.
 
-            **Установка:** скачайте `AVRmusic-${{ env.APP_VERSION }}.apk`, откройте его на телефоне и разрешите установку из этого источника; новая версия ставится поверх старой. Браузер не нужен. Интерфейс приходит с сервера, так что APK обновлять нужно только ради изменений в самом приложении.
+            **Установка:** скачайте `AVRmusic-${{ env.APP_VERSION }}.apk`, откройте его на телефоне и разрешите установку из этого источника; новая версия ставится поверх старой. Браузер не нужен. После входа данные приходят с сервера; новые версии приложения ставятся поверх.
 
             Подпись: SHA-256 `${{ env.CERT_SHA256 }}` (ключ хранится на сервере в `/srv/avrmusic/android-keystore`).
           files: |

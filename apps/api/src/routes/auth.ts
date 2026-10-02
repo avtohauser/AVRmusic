@@ -61,6 +61,13 @@ export default async function authRoutes(app: FastifyInstance) {
     return u;
   });
 
+  /** A second, independent session for the same user (the Android app opens the web admin with it). */
+  app.post('/api/auth/fork', { preHandler: app.authenticate, config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (req) => {
+    const u = getUser(db, req.userId!);
+    if (!u) throw badRequest('Пользователь не найден');
+    return issueTokens(app, db, u);
+  });
+
   app.patch('/api/auth/me', { preHandler: app.authenticate }, async (req) => {
     const body = z.object({ displayName: z.string().min(1).max(60).optional(), email: z.string().email().optional() }).parse(req.body);
     if (body.displayName) db.prepare('UPDATE users SET display_name = ? WHERE id = ?').run(body.displayName.trim(), req.userId);

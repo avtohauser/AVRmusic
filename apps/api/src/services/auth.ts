@@ -22,6 +22,7 @@ export function mapUser(r: any): User {
     role: r.role,
     avatarUrl: avatarUrl(r.avatar_path),
     createdAt: r.created_at,
+    canAcquire: r.role === 'admin' || r.can_acquire !== 0,
   };
 }
 
@@ -57,6 +58,7 @@ export async function verifyLogin(db: DB, login: string, password: string): Prom
   if (!r) throw unauthorized('Неверный логин или пароль');
   const ok = await bcrypt.compare(password, r.password_hash);
   if (!ok) throw unauthorized('Неверный логин или пароль');
+  if (r.disabled) throw unauthorized('Аккаунт заблокирован администратором');
   return mapUser(r);
 }
 
@@ -76,6 +78,7 @@ export function rotateRefresh(app: FastifyInstance, db: DB, refreshToken: string
   db.prepare('DELETE FROM refresh_tokens WHERE id = ?').run(refreshToken);
   const user = getUser(db, r.user_id);
   if (!user) throw unauthorized();
+  if ((db.prepare('SELECT disabled FROM users WHERE id = ?').get(user.id) as any)?.disabled) throw unauthorized('Аккаунт заблокирован администратором');
   return issueTokens(app, db, user);
 }
 

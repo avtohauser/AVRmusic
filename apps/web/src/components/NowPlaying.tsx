@@ -19,6 +19,7 @@ import { notificationsSupported, setShadeLike, shadeLikeSetting } from '@/lib/sh
 import { M3eAssistChip } from '@/md';
 import { useLikes } from '@/stores/likes';
 import { FlowText } from '@/components/FlowText';
+import { WAVE_CONTEXT, dislikeInWave, useWave } from '@/lib/wave';
 
 type Tab = 'cover' | 'lyrics' | 'queue';
 const thumbValue = (e: Event) => Number((e.target as any)?.value ?? 0);
@@ -61,6 +62,8 @@ export function NowPlaying() {
   }, [open, setOpen]);
   useEffect(() => { if (track && !track.hasLyrics && tab === 'lyrics') setTab('cover'); }, [track?.id]);
 
+  const inWave = usePlayer((s) => s.context === WAVE_CONTEXT);
+  const waveReason = useWave((s) => (track ? s.reasons[track.id] : undefined));
   if (!open || !track) return null;
   const pos = seeking ?? position;
   const showCanvas = track.hasCanvas && tab === 'cover';
@@ -80,8 +83,10 @@ export function NowPlaying() {
         <div className="flex items-center justify-between">
           <M3eIconButton aria-label={t('close')} onClick={() => setOpen(false)}><m3e-icon variant="rounded" name="keyboard_arrow_down" /></M3eIconButton>
           <div className="text-center min-w-0 flex flex-col items-center">
-            <div className="md-label-md uppercase tracking-widest opacity-80 flex items-center gap-2"><Mascot mood={playing ? 'dance' : 'sleep'} burst={burst} className="w-5 h-5" />{t('nowPlaying')}</div>
-            {track.album && <Link to={`/album/${track.album.id}`} onClick={() => setOpen(false)} className="md-title-sm line-1 hover:underline">{track.album.title}</Link>}
+            <div className="md-label-md uppercase tracking-widest opacity-80 flex items-center gap-2"><Mascot mood={playing ? 'dance' : 'sleep'} burst={burst} className="w-5 h-5" />{inWave ? 'Моя волна' : t('nowPlaying')}</div>
+            {inWave && waveReason
+              ? <div className="md-title-sm line-1 wave-reason" key={track.id}>{waveReason}</div>
+              : track.album && <Link to={`/album/${track.album.id}`} onClick={() => setOpen(false)} className="md-title-sm line-1 hover:underline">{track.album.title}</Link>}
           </div>
           <M3eIconButton aria-label="menu" onClick={(e: any) => openMenu(e.clientX, e.clientY, { kind: 'track', track })}><m3e-icon variant="rounded" name="more_vert" /></M3eIconButton>
         </div>
@@ -130,6 +135,7 @@ export function NowPlaying() {
               </div>
             </div>
             {track.hasLyrics && <M3eIconButton toggle selected={tab === 'lyrics' || undefined} aria-label={t('lyrics')} onClick={() => setTab(tab === 'lyrics' ? 'cover' : 'lyrics')}><m3e-icon variant="rounded" name="lyrics" /><m3e-icon variant="rounded" slot="selected" name="lyrics" filled /></M3eIconButton>}
+            {inWave && <M3eIconButton aria-label="Не нравится" title="Не нравится — больше не попадётся в волне" onClick={() => void dislikeInWave(track.id)}><m3e-icon variant="rounded" name="thumb_down" /></M3eIconButton>}
             <LikeButton type="track" id={track.id} alwaysVisible buttonSize="medium" />
           </div>
           {offerShade && (

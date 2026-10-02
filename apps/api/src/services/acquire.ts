@@ -197,7 +197,7 @@ async function ensureCatalogAlbum(db: DB, al: any, artistId: string): Promise<st
 export type AcquireOutcome = { status: 'imported' | 'exists' | 'notfound' | 'error'; trackId?: string; message?: string };
 
 /** Fetch one catalogue track into the library. */
-export async function acquireTrack(db: DB, deezerTrackId: number, api: JobApi, cancelRef: { cancel?: () => void }, albumRaw?: any): Promise<AcquireOutcome> {
+export async function acquireTrack(db: DB, deezerTrackId: number, api: JobApi, cancelRef: { cancel?: () => void }, albumRaw?: any, addedBy: string | null = null): Promise<AcquireOutcome> {
   const exists = db.prepare('SELECT id FROM tracks WHERE deezer_id = ?').get(deezerTrackId) as any;
   if (exists) return { status: 'exists', trackId: exists.id };
   const t = await rawTrack(db, deezerTrackId);
@@ -233,7 +233,7 @@ export async function acquireTrack(db: DB, deezerTrackId: number, api: JobApi, c
       if (await fileTakenBy(db, file)) { fs.rmSync(dir, { recursive: true, force: true }); api.log('   ✗ этот же файл уже у другого трека — ищу дальше'); continue; }
       const match = await checkAudio(t.preview, file, api.log, judgeUpload(c, want).exact);
       if (match === false) { fs.rmSync(dir, { recursive: true, force: true }); continue; }
-      const trackId = await importAcquired(db, file, t, album, c, typeof match === 'number' ? match : null);
+      const trackId = await importAcquired(db, file, t, album, c, typeof match === 'number' ? match : null, addedBy);
       fs.rmSync(dir, { recursive: true, force: true });
       // lyrics arrive in the background: the next track doesn't wait for them
       fetchLyricsForTrack(db, trackId).then((ok) => { if (ok) api.log(`   ♪ текст найден: ${title}`); }).catch(() => { /* optional */ });
@@ -278,7 +278,7 @@ async function checkAudio(previewUrl: string | null | undefined, file: string, l
   return match;
 }
 
-async function importAcquired(db: DB, file: string, t: any, album: any, cand: SourceCandidate, audioMatch: number | null = null): Promise<string> {
+async function importAcquired(db: DB, file: string, t: any, album: any, cand: SourceCandidate, audioMatch: number | null = null, addedBy: string | null = null): Promise<string> {
   const { title, featuring: featNames } = parseFeaturing(t.title ?? '', t.title_short);
   const ext = path.extname(file).toLowerCase() || '.m4a';
   const id = newId();
@@ -298,12 +298,12 @@ async function importAcquired(db: DB, file: string, t: any, album: any, cand: So
   const genre = album?.genres?.data?.[0]?.name ?? null;
   const contributors: any[] = Array.isArray(t.contributors) ? t.contributors.filter((c: any) => c.id !== t.artist.id) : [];
 
-  db.prepare(`INSERT INTO tracks(id, album_id, artist_id, title, track_no, disc_no, duration_ms, file_path, file_size, file_hash, mime_type, bitrate, sample_rate, codec, explicit, genre, deezer_id, isrc, source, source_title, source_ok, audio_match)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?)`).run(
+  db.prepare(`INSERT INTO tracks(id, album_id, artist_id, title, track_no, disc_no, duration_ms, file_path, file_size, file_hash, mime_type, bitrate, sample_rate, codec, explicit, genre, deezer_id, isrc, source, source_title, source_ok, audio_match, added_by)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?)`).run(
     id, albumId, artistId, title, t.track_position ?? null, t.disk_number ?? null,
     Math.round((fmt?.duration ?? t.duration ?? 0) * 1000), dest, stat.size, hash, audioMime(dest),
     fmt?.bitrate ? Math.round(fmt.bitrate) : null, fmt?.sampleRate ?? null, fmt?.codec ?? fmt?.container ?? null,
-    t.explicit_lyrics ? 1 : 0, genre, t.id, t.isrc ?? null, sourceKey(cand), describeSource(cand), audioMatch,
+    t.explicit_lyrics ? 1 : 0, genre, t.id, t.isrc ?? null, sourceKey(cand), describeSource(cand), audioMatch, addedBy,
   );
   const feats = contributors.length ? contributors : featNames.map((n) => ({ id: null, name: n }));
   let pos = 0;
@@ -325,7 +325,7 @@ function summarize(job: Job, stats: Record<string, number>) {
 export async function runAcquireTrack(db: DB, job: Job, deezerTrackId: number, api: JobApi) {
   const cancelRef: { cancel?: () => void } = {};
   api.onCancel(() => cancelRef.cancel?.());
-  const r = await acquireTrack(db, deezerTrackId, api, cancelRef);
+  const r = await acquireTrack(db, deezerTrackId, api, cancelRef, undefined, job.requestedBy ?? null);
   if (r.status === 'imported' || r.status === 'exists') job.imported.push(...getTracksByIds(db, [r.trackId!]));
   summarize(job, { total: 1, imported: r.status === 'imported' ? 1 : 0, exists: r.status === 'exists' ? 1 : 0, failed: r.status === 'notfound' || r.status === 'error' ? 1 : 0 });
   if (r.status === 'notfound' || r.status === 'error') throw new Error(r.message ?? r.status);
@@ -399,7 +399,7 @@ async function acquireMany(db: DB, job: Job, ids: number[], api: JobApi, album: 
     while (!cancelled && next < ids.length) {
       const id = ids[next++];
       try {
-        const r = await acquireTrack(db, id, api, cancelRef, albumsByTrack?.get(id) ?? album);
+        const r = await acquireTrack(db, id, api, cancelRef, albumsByTrack?.get(id) ?? album, job.requestedBy ?? null);
         if (r.status === 'imported') { stats.imported++; job.imported.push(...getTracksByIds(db, [r.trackId!])); }
         else if (r.status === 'exists') stats.exists++;
         else { stats.failed++; api.log(`   ✗ ${r.message ?? r.status}`); }

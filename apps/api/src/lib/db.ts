@@ -208,6 +208,31 @@ const MIGRATIONS: string[] = [
   ALTER TABLE tracks ADD COLUMN audio_match REAL;
   UPDATE tracks SET source_title = NULL, source_ok = NULL, heal_at = NULL WHERE deezer_id IS NOT NULL AND source LIKE 'youtube:%';
   `,
+  // 8: user management (blocked, may fetch to the server, last seen), who added which track,
+  //    file / offline downloads, "My Wave" feedback
+  `
+  ALTER TABLE users ADD COLUMN disabled INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE users ADD COLUMN can_acquire INTEGER NOT NULL DEFAULT 1;
+  ALTER TABLE users ADD COLUMN last_seen_at TEXT;
+  ALTER TABLE tracks ADD COLUMN added_by TEXT;
+  CREATE TABLE downloads (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL,
+    ref_id TEXT,
+    bytes INTEGER,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+  );
+  CREATE INDEX idx_downloads_user ON downloads(user_id, created_at);
+  CREATE TABLE wave_feedback (
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    track_id TEXT NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
+    value INTEGER NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    PRIMARY KEY (user_id, track_id)
+  );
+  CREATE INDEX idx_tracks_added_by ON tracks(added_by);
+  `,
 ];
 
 export function openDatabase(dbPath = config.dbPath): DB {

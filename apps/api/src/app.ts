@@ -19,6 +19,7 @@ import meRoutes from './routes/me.js';
 import adminRoutes from './routes/admin.js';
 import importRoutes from './routes/import.js';
 import catalogRoutes from './routes/catalog.js';
+import waveRoutes from './routes/wave.js';
 import { registerRunners } from './services/runners.js';
 
 declare module 'fastify' {
@@ -55,6 +56,7 @@ export async function buildApp(opts: { db?: DB; logger?: boolean } = {}): Promis
   await app.register(adminRoutes);
   await app.register(importRoutes);
   await app.register(catalogRoutes);
+  await app.register(waveRoutes);
 
   app.get('/api/health', async () => ({ ok: true, version: config.version }));
 

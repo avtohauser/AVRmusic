@@ -461,6 +461,43 @@ test('a feat. version that plays the solo recording is found out and re-fetched 
   assert.notEqual(after.file_path, feat.file_path);
 });
 
+test('My Wave: personal batches with reasons, dislikes stay out; admin sees users and activity', async () => {
+  const h = { authorization: `Bearer ${access}` };
+  const lib = app.db.prepare('SELECT id, duration_ms FROM tracks').all() as any[];
+  assert.ok(lib.length >= 3);
+  for (const t of lib.slice(0, 3)) await app.inject({ method: 'POST', url: '/api/me/plays', headers: h, payload: { trackId: t.id, msPlayed: t.duration_ms || 180000 } });
+  const w = await app.inject({ method: 'POST', url: '/api/wave/next', headers: h, payload: { mode: 'mix', count: 5 } });
+  assert.equal(w.statusCode, 200, w.body);
+  const batch = w.json();
+  assert.ok(batch.tracks.length > 0 && batch.tracks.every((t: any) => typeof t.reason === 'string' && t.reason), JSON.stringify(batch.tracks.map((t: any) => t.reason)));
+  const bad = batch.tracks[0].id;
+  assert.equal((await app.inject({ method: 'POST', url: '/api/wave/feedback', headers: h, payload: { trackId: bad, value: -1 } })).statusCode, 200);
+  for (const mode of ['mix', 'favorites', 'discover', 'popular']) {
+    const r = (await app.inject({ method: 'POST', url: '/api/wave/next', headers: h, payload: { mode, count: 20 } })).json();
+    assert.ok(!r.tracks.some((t: any) => t.id === bad), `disliked track is out of the ${mode} wave`);
+  }
+  // admin: users with activity, one user's details, blocking, activity overview
+  const users = (await app.inject({ method: 'GET', url: '/api/admin/users', headers: h })).json();
+  const me = users.find((u: any) => u.plays >= 3);
+  assert.ok(me, JSON.stringify(users));
+  const detail = (await app.inject({ method: 'GET', url: `/api/admin/users/${me.id}`, headers: h })).json();
+  assert.ok(detail.recentPlays.length >= 3 && detail.topArtists.length >= 1 && Array.isArray(detail.daily));
+  const friend = users.find((u: any) => u.username === 'friend');
+  if (friend) {
+    await app.inject({ method: 'PATCH', url: `/api/admin/users/${friend.id}`, headers: h, payload: { disabled: true } });
+    const login = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { login: 'friend', password: 'secret1' } });
+    assert.equal(login.statusCode, 401, 'a blocked account cannot sign in');
+    await app.inject({ method: 'PATCH', url: `/api/admin/users/${friend.id}`, headers: h, payload: { disabled: false } });
+    const reset = (await app.inject({ method: 'POST', url: `/api/admin/users/${friend.id}/reset-password`, headers: h })).json();
+    assert.equal((await app.inject({ method: 'POST', url: '/api/auth/login', payload: { login: 'friend', password: reset.password } })).statusCode, 200);
+    await app.inject({ method: 'PATCH', url: `/api/admin/users/${friend.id}`, headers: h, payload: {} });
+    // put the old password back for the next test
+    app.db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run((await import('bcryptjs')).default.hashSync('secret1', 4), friend.id);
+  }
+  const act = (await app.inject({ method: 'GET', url: '/api/admin/activity', headers: h })).json();
+  assert.ok(Array.isArray(act.daily) && act.topTracks.length >= 1 && act.sources.length >= 1, JSON.stringify(act));
+});
+
 test('acquire respects ACQUIRE_ROLE=admin', async () => {
   (config as any).acquireRole = 'admin';
   const friend = (await app.inject({ method: 'POST', url: '/api/auth/login', payload: { login: 'friend', password: 'secret1' } })).json();

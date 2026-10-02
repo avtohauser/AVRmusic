@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { AdminStats, Invite, Track, UploadResult, User } from '@avrmusic/shared';
+import type { AdminActivity, AdminStats, AdminUserDetail, AdminUserRow, Invite, Track, UploadResult } from '@avrmusic/shared';
+import { Modal } from '@/components/Modal';
 import { M3eButton, M3eFilterChip, M3eFilterChipSet, M3eFormField, M3eIconButton, M3eOption, M3eSelect } from '@/md';
 import { WavyProgress } from '@/components/WavyProgress';
 import { api } from '@/lib/api';
 import { useUI } from '@/stores/ui';
 import { useT } from '@/lib/i18n';
-import { fmtBytes, fmtMs, fmtNumber } from '@/lib/format';
+import { fmtBytes, fmtDurationLong, fmtMs, fmtNumber } from '@/lib/format';
 import { Cover } from '@/components/Cover';
 import { useDebounced } from '@/lib/hooks';
 
@@ -27,7 +28,7 @@ export default function Admin() {
       <M3eFilterChipSet className="mb-6" onChange={(e: Event) => { const v = (e.target as any)?.value as Tab | undefined; if (v) setParams({ tab: v }); }}>
         {tabs.map(([k, label, icon]) => <M3eFilterChip key={k} value={k} selected={tab === k || undefined}><m3e-icon variant="rounded" slot="icon" name={icon} />{label}</M3eFilterChip>)}
       </M3eFilterChipSet>
-      {tab === 'overview' && <Overview />}
+      {tab === 'overview' && <><Overview /><ActivitySection /></>}
       {tab === 'upload' && <UploadTab />}
       {tab === 'import' && <ImportTab />}
       {tab === 'tracks' && <TracksTab />}
@@ -343,25 +344,140 @@ function InvitesSection() {
   );
 }
 
-function UsersTab() {
-  const t = useT();
+/** Daily bars (last 30 days). */
+function Bars({ data, unit }: { data: Array<{ day: string; value: number }>; unit: (v: number) => string }) {
+  const days: Array<{ day: string; value: number }> = [];
+  const byDay = new Map(data.map((d) => [d.day, d.value]));
+  for (let i = 29; i >= 0; i--) { const d = new Date(Date.now() - i * 86_400_000).toISOString().slice(0, 10); days.push({ day: d, value: byDay.get(d) ?? 0 }); }
+  const max = Math.max(1, ...days.map((d) => d.value));
+  return (
+    <div className="flex items-end gap-[3px] h-28" role="img" aria-label="Активность за 30 дней">
+      {days.map((d) => (
+        <div key={d.day} className="flex-1 min-w-0 rounded-t-[6px] bg-primary/80 hover:bg-primary transition-colors" style={{ height: `${Math.max(3, (d.value / max) * 100)}%`, opacity: d.value ? 1 : 0.25 }} title={`${d.day}: ${unit(d.value)}`} />
+      ))}
+    </div>
+  );
+}
+
+const ago = (iso: string | null) => {
+  if (!iso) return 'ещё не заходил';
+  const m = Math.round((Date.now() - Date.parse(iso)) / 60_000);
+  if (m < 3) return 'сейчас онлайн';
+  if (m < 60) return `${m} мин назад`;
+  if (m < 1440) return `${Math.round(m / 60)} ч назад`;
+  return `${Math.round(m / 1440)} дн назад`;
+};
+
+/** Listening across the service: per day, top tracks and artists, storage by source, queue health. */
+function ActivitySection() {
+  const { data } = useQuery({ queryKey: ['admin', 'activity'], queryFn: () => api.get<AdminActivity>('/api/admin/activity'), refetchInterval: 60_000 });
+  if (!data) return null;
+  return (
+    <div className="grid gap-4 md:grid-cols-2 mt-6">
+      <div className="surface-low rounded-[24px] p-4 md:col-span-2">
+        <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 mb-3">
+          <h2 className="md-title-lg emph flex-1">Прослушивания за 30 дней</h2>
+          <span className="md-body-md muted">активных за неделю: <b className="text-on-surface">{data.activeUsers7d}</b></span>
+          <span className="md-body-md muted">задачи за сутки: <b className="text-on-surface">{data.jobs24h.done}</b> готово · <b className={data.jobs24h.error ? 'text-error' : 'text-on-surface'}>{data.jobs24h.error}</b> ошибок · <b className="text-on-surface">{data.jobs24h.queued + data.jobs24h.running}</b> в очереди</span>
+        </div>
+        <Bars data={data.daily.map((d) => ({ day: d.day, value: d.plays }))} unit={(v) => `${v} прослушиваний`} />
+      </div>
+      <div className="surface-low rounded-[24px] p-4">
+        <h3 className="md-title-md emph mb-2">Топ треков (30 дней)</h3>
+        {data.topTracks.map((t, i) => <div key={t.id} className="flex gap-2 md-body-md py-1"><span className="muted w-5 text-right">{i + 1}</span><span className="flex-1 min-w-0 line-1">{t.artist} — {t.title}</span><span className="muted">{t.plays}</span></div>)}
+      </div>
+      <div className="surface-low rounded-[24px] p-4">
+        <h3 className="md-title-md emph mb-2">Топ исполнителей (30 дней)</h3>
+        {data.topArtists.map((a, i) => <div key={a.id} className="flex gap-2 md-body-md py-1"><span className="muted w-5 text-right">{i + 1}</span><span className="flex-1 min-w-0 line-1">{a.name}</span><span className="muted">{a.plays}</span></div>)}
+        <h3 className="md-title-md emph mt-4 mb-2">Откуда треки</h3>
+        {data.sources.map((x) => <div key={x.source} className="flex gap-2 md-body-md py-0.5"><span className="flex-1">{x.source}</span><span className="muted">{x.tracks} · {fmtBytes(x.bytes)}</span></div>)}
+      </div>
+    </div>
+  );
+}
+
+/** One user: activity, what they listen to, what they added and downloaded; management actions. */
+function UserDetail({ id, onClose }: { id: string; onClose: () => void }) {
   const toast = useUI((s) => s.toast);
   const qc = useQueryClient();
-  const { data } = useQuery({ queryKey: ['admin', 'users'], queryFn: () => api.get<User[]>('/api/admin/users') });
-  const setRole = async (u: User, role: 'admin' | 'user') => { try { await api.patch(`/api/admin/users/${u.id}`, { role }); qc.invalidateQueries({ queryKey: ['admin', 'users'] }); } catch (e: any) { toast(e.message, 'error'); } };
+  const { data } = useQuery({ queryKey: ['admin', 'user', id], queryFn: () => api.get<AdminUserDetail>(`/api/admin/users/${id}`) });
+  const [password, setPassword] = useState<string | null>(null);
+  const patch = async (body: Record<string, unknown>) => {
+    try { await api.patch(`/api/admin/users/${id}`, body); qc.invalidateQueries({ queryKey: ['admin', 'users'] }); qc.invalidateQueries({ queryKey: ['admin', 'user', id] }); }
+    catch (e: any) { toast(e.message, 'error'); }
+  };
+  const u = data?.user;
+  const kinds: Record<string, string> = { file: 'файл', album: 'альбом', playlist: 'плейлист', offline: 'офлайн' };
   return (
-    <div className="fade-in max-w-3xl space-y-1">
+    <Modal open onClose={onClose} title={u ? u.displayName : 'Пользователь'} width="max-w-3xl">
+      {!data || !u ? <div className="h-40" /> : (
+        <div className="space-y-5">
+          <div className="flex items-center gap-3">
+            <Cover src={u.avatarUrl} round kind="artist" className="w-14 h-14" />
+            <div className="min-w-0 flex-1">
+              <div className="md-title-md">@{u.username} <span className="muted">· {u.email}</span></div>
+              <div className="md-body-sm muted">с {new Date(u.createdAt).toLocaleDateString()} · {ago(u.lastSeenAt)}{u.disabled ? ' · заблокирован' : ''}</div>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {([['Прослушиваний', fmtNumber(u.plays)], ['Время', fmtDurationLong(u.msListened)], ['За 7 дней', fmtNumber(u.plays7d)], ['Лайков', fmtNumber(u.likes)], ['Добавил треков', fmtNumber(u.added)], ['Скачиваний', fmtNumber(u.downloads)], ['Скачано', fmtBytes(u.downloadBytes)], ['Плейлистов', fmtNumber(u.playlists)]] as Array<[string, string]>).map(([k, v]) => (
+              <div key={k} className="surface-low rounded-[18px] p-3"><div className="md-label-sm muted uppercase">{k}</div><div className="md-title-lg emph">{v}</div></div>
+            ))}
+          </div>
+          <div><div className="md-label-lg muted mb-2">Прослушивания по дням</div><Bars data={data.daily.map((d) => ({ day: d.day, value: d.plays }))} unit={(v) => `${v} прослушиваний`} /></div>
+          <div className="grid md:grid-cols-2 gap-4">
+            <div><div className="md-label-lg muted mb-1">Любимые исполнители</div>{data.topArtists.map((a) => <div key={a.id} className="flex md-body-md py-0.5"><span className="flex-1 line-1">{a.name}</span><span className="muted">{a.plays}</span></div>)}</div>
+            <div><div className="md-label-lg muted mb-1">Любимые треки</div>{data.topTracks.map((t) => <div key={t.id} className="flex md-body-md py-0.5"><span className="flex-1 line-1">{t.artist} — {t.title}</span><span className="muted">{t.plays}</span></div>)}</div>
+            <div><div className="md-label-lg muted mb-1">Недавно слушал</div>{data.recentPlays.slice(0, 12).map((p, i) => <div key={i} className="flex gap-2 md-body-sm py-0.5"><span className="flex-1 line-1">{p.artist} — {p.title}</span><span className="muted">{new Date(p.playedAt).toLocaleString()}</span></div>)}</div>
+            <div>
+              <div className="md-label-lg muted mb-1">Добавил на сервер {data.jobs.error ? <span className="text-error">· {data.jobs.error} ошибок загрузки</span> : null}</div>
+              {data.added.length ? data.added.slice(0, 8).map((a) => <div key={a.trackId} className="md-body-sm py-0.5 line-1">{a.artist} — {a.title}</div>) : <div className="md-body-sm muted">ничего</div>}
+              <div className="md-label-lg muted mt-3 mb-1">Скачивал</div>
+              {data.downloads.length ? data.downloads.slice(0, 8).map((d, i) => <div key={i} className="flex gap-2 md-body-sm py-0.5"><span className="flex-1 line-1">{d.title ?? d.refId}</span><span className="muted">{kinds[d.kind] ?? d.kind}{d.bytes ? ` · ${fmtBytes(d.bytes)}` : ''}</span></div>) : <div className="md-body-sm muted">ничего</div>}
+            </div>
+          </div>
+          {password && <div className="rounded-[18px] p-3 bg-tertiary-container text-on-tertiary-container md-body-md">Новый пароль: <b className="select-all font-mono">{password}</b> — передайте его пользователю, больше он не покажется.</div>}
+          <div className="flex flex-wrap gap-2 pt-1">
+            <M3eButton variant={u.role === 'admin' ? 'filled' : 'outlined'} onClick={() => void patch({ role: u.role === 'admin' ? 'user' : 'admin' })}><m3e-icon variant="rounded" slot="icon" name="shield" />{u.role === 'admin' ? 'Администратор' : 'Сделать администратором'}</M3eButton>
+            <M3eButton variant={u.canAcquire ? 'tonal' : 'outlined'} onClick={() => void patch({ canAcquire: !u.canAcquire })}><m3e-icon variant="rounded" slot="icon" name={u.canAcquire ? 'cloud_download' : 'cloud_off'} />{u.canAcquire ? 'Может добавлять треки' : 'Добавление запрещено'}</M3eButton>
+            <M3eButton variant="tonal" onClick={async () => { if (!confirm('Сбросить пароль? Пользователь выйдет со всех устройств.')) return; try { setPassword((await api.post<{ password: string }>(`/api/admin/users/${id}/reset-password`)).password); } catch (e: any) { toast(e.message, 'error'); } }}><m3e-icon variant="rounded" slot="icon" name="key" />Сбросить пароль</M3eButton>
+            <M3eButton variant={u.disabled ? 'filled' : 'outlined'} onClick={() => void patch({ disabled: !u.disabled })}><m3e-icon variant="rounded" slot="icon" name={u.disabled ? 'lock_open' : 'block'} />{u.disabled ? 'Разблокировать' : 'Заблокировать'}</M3eButton>
+            <M3eButton variant="text" onClick={async () => { if (!confirm('Удалить пользователя со всеми его лайками и плейлистами?')) return; try { await api.del(`/api/admin/users/${id}`); qc.invalidateQueries({ queryKey: ['admin', 'users'] }); onClose(); } catch (e: any) { toast(e.message, 'error'); } }}><m3e-icon variant="rounded" slot="icon" name="delete" style={{ color: 'var(--md-sys-color-error)' }} />Удалить</M3eButton>
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+function UsersTab() {
+  const t = useT();
+  const { data } = useQuery({ queryKey: ['admin', 'users'], queryFn: () => api.get<AdminUserRow[]>('/api/admin/users'), refetchInterval: 60_000 });
+  const [open, setOpen] = useState<string | null>(null);
+  const [sort, setSort] = useState<'seen' | 'plays' | 'added' | 'downloads'>('seen');
+  const rows = [...(data ?? [])].sort((a, b) => sort === 'plays' ? b.plays - a.plays : sort === 'added' ? b.added - a.added : sort === 'downloads' ? b.downloads - a.downloads : (b.lastSeenAt ?? '').localeCompare(a.lastSeenAt ?? ''));
+  return (
+    <div className="fade-in max-w-4xl space-y-1">
       <InvitesSection />
       <YoutubeCookiesSection />
-      <h2 className="md-title-lg emph px-2 pb-2">{t('users')}</h2>
-      {(data ?? []).map((u) => (
-        <div key={u.id} className="flex items-center gap-3 p-2 rounded-[20px] state-layer">
+      <div className="flex flex-wrap items-center gap-2 px-2 pt-6 pb-2">
+        <h2 className="md-title-lg emph flex-1">{t('users')} · {rows.length}</h2>
+        {([['seen', 'Активность'], ['plays', 'Прослушивания'], ['added', 'Добавили'], ['downloads', 'Скачивания']] as const).map(([k, l]) => (
+          <button key={k} className="wave-mode !bg-[var(--md-sys-color-surface-container-high)]" data-on={sort === k || undefined} onClick={() => setSort(k)}>{l}</button>
+        ))}
+      </div>
+      {rows.map((u) => (
+        <button key={u.id} onClick={() => setOpen(u.id)} className="w-full text-left flex items-center gap-3 p-2 rounded-[20px] state-layer">
           <Cover src={u.avatarUrl} round kind="artist" className="w-11 h-11" />
-          <div className="min-w-0 flex-1"><div className="md-title-sm">{u.displayName} <span className="muted">@{u.username}</span></div><div className="md-body-sm muted">{u.email}</div></div>
-          <M3eButton variant={u.role === 'admin' ? 'filled' : 'outlined'} size="small" onClick={() => setRole(u, u.role === 'admin' ? 'user' : 'admin')}><m3e-icon variant="rounded" slot="icon" name="shield" />{u.role}</M3eButton>
-          <M3eIconButton size="small" onClick={async () => { if (!confirm(t('confirmDelete'))) return; try { await api.del(`/api/admin/users/${u.id}`); qc.invalidateQueries({ queryKey: ['admin', 'users'] }); } catch (e: any) { toast(e.message, 'error'); } }}><m3e-icon variant="rounded" name="delete" style={{ color: 'var(--md-sys-color-error)' }} /></M3eIconButton>
-        </div>
+          <div className="min-w-0 flex-1">
+            <div className="md-title-sm line-1">{u.displayName} <span className="muted">@{u.username}</span>{u.role === 'admin' && <m3e-icon variant="rounded" name="shield" style={{ fontSize: 16, verticalAlign: '-3px', marginLeft: 4, color: 'var(--md-sys-color-primary)' }} />}{u.disabled && <span className="text-error md-label-md ml-2">заблокирован</span>}{!u.canAcquire && <span className="muted md-label-md ml-2">без добавления</span>}</div>
+            <div className="md-body-sm muted line-1">{ago(u.lastSeenAt)} · {fmtNumber(u.plays)} прослушиваний · {fmtDurationLong(u.msListened)} · добавил {u.added} · скачал {u.downloads}{u.downloadBytes ? ` (${fmtBytes(u.downloadBytes)})` : ''}</div>
+          </div>
+          <span className="hidden sm:block md-label-lg text-primary">{u.plays7d ? `+${u.plays7d} за неделю` : ''}</span>
+          <m3e-icon variant="rounded" name="chevron_right" />
+        </button>
       ))}
+      {open && <UserDetail id={open} onClose={() => setOpen(null)} />}
     </div>
   );
 }

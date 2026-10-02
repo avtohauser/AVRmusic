@@ -61,9 +61,15 @@ function downloadName(row: any, db: FastifyInstance['db']): string {
 export default async function mediaRoutes(app: FastifyInstance) {
   const db = app.db;
 
+  const logDownload = (userId: string | null | undefined, kind: 'file' | 'album' | 'playlist' | 'offline', refId: string, bytes: number | null) => {
+    if (userId) db.prepare('INSERT INTO downloads(user_id, kind, ref_id, bytes) VALUES (?,?,?,?)').run(userId, kind, refId, bytes);
+  };
+
   const streamHandler = async (req: FastifyRequest, reply: FastifyReply) => {
     const t = getTrackRaw(db, (req.params as any).id);
     if (!t) throw notFound('Трек не найден');
+    // the app's "save for offline" fetches the whole file with ?offline=1
+    if ((req.query as any)?.offline && !req.headers.range) logDownload(req.userId, 'offline', t.id, t.file_size ?? null);
     return sendRange(req, reply, t.file_path, t.mime_type, { etag: t.file_hash ? `"${t.file_hash}"` : undefined });
   };
   app.get('/api/stream/:id', { preHandler: app.mediaAuth }, streamHandler);
@@ -77,6 +83,7 @@ export default async function mediaRoutes(app: FastifyInstance) {
   app.get('/api/download/:id', { preHandler: requireUser }, async (req, reply) => {
     const t = getTrackRaw(db, (req.params as any).id);
     if (!t) throw notFound('Трек не найден');
+    if (!req.headers.range) logDownload(req.userId, 'file', t.id, t.file_size ?? null);
     return sendRange(req, reply, t.file_path, t.mime_type, { download: downloadName(t, db), cache: 'private, no-store' });
   });
 
@@ -103,6 +110,7 @@ export default async function mediaRoutes(app: FastifyInstance) {
     const al = db.prepare('SELECT al.*, ar.name artist_name FROM albums al JOIN artists ar ON ar.id = al.artist_id WHERE al.id = ?').get((req.params as any).id) as any;
     if (!al) throw notFound('Альбом не найден');
     const rows = db.prepare('SELECT * FROM tracks WHERE album_id = ? ORDER BY disc_no, track_no, title').all(al.id) as any[];
+    logDownload(req.userId, 'album', al.id, rows.reduce((n, r) => n + (r.file_size ?? 0), 0));
     return zipTracks(reply, `${al.artist_name} - ${al.title}`, rows);
   });
 
@@ -111,6 +119,7 @@ export default async function mediaRoutes(app: FastifyInstance) {
     if (!p) throw notFound('Плейлист не найден');
     if (!p.is_public && p.owner_id !== req.userId && req.userRole !== 'admin') throw unauthorized('Плейлист приватный');
     const rows = db.prepare('SELECT t.* FROM playlist_tracks pt JOIN tracks t ON t.id = pt.track_id WHERE pt.playlist_id = ? ORDER BY pt.position').all(p.id) as any[];
+    logDownload(req.userId, 'playlist', p.id, rows.reduce((n, r) => n + (r.file_size ?? 0), 0));
     return zipTracks(reply, p.title, rows.map((r, i) => ({ ...r, track_no: i + 1 })));
   });
 

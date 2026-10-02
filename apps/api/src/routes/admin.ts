@@ -3,7 +3,9 @@ import { z } from 'zod';
 import fs from 'node:fs';
 import path from 'node:path';
 import mime from 'mime-types';
-import type { AdminStats, UploadResult } from '@avrmusic/shared';
+import type { AdminActivity, AdminStats, AdminUserDetail, AdminUserRow, UploadResult } from '@avrmusic/shared';
+import bcrypt from 'bcryptjs';
+import crypto from 'node:crypto';
 import { CANVAS_IMAGE_EXT, CANVAS_VIDEO_EXT, config } from '../config.js';
 import { badRequest, notFound } from '../lib/errors.js';
 import { lrcToPlain, parseLrc } from '../lib/lyrics.js';
@@ -302,14 +304,80 @@ export default async function adminRoutes(app: FastifyInstance) {
   });
   app.delete('/api/admin/youtube-cookies', admin, async () => { removeCookies(); return cookiesStatus(); });
 
-  app.get('/api/admin/users', admin, async () => (db.prepare('SELECT * FROM users ORDER BY created_at').all() as any[]).map(mapUser));
+  /* ---------- users: list with activity, details, management ---------- */
+  const userRow = (r: any): AdminUserRow => ({
+    ...mapUser(r), disabled: !!r.disabled, lastSeenAt: r.last_seen_at ?? null,
+    plays: r.plays ?? 0, msListened: r.ms ?? 0, plays7d: r.plays7d ?? 0, likes: r.likes ?? 0, playlists: r.playlists ?? 0,
+    added: r.added ?? 0, downloads: r.downloads ?? 0, downloadBytes: r.download_bytes ?? 0,
+  });
+  const USER_STATS = `SELECT u.*,
+      (SELECT COUNT(*) FROM plays p WHERE p.user_id = u.id) plays,
+      (SELECT COALESCE(SUM(ms_played),0) FROM plays p WHERE p.user_id = u.id) ms,
+      (SELECT COUNT(*) FROM plays p WHERE p.user_id = u.id AND p.played_at > datetime('now','-7 days')) plays7d,
+      (SELECT COUNT(*) FROM likes l WHERE l.user_id = u.id) likes,
+      (SELECT COUNT(*) FROM playlists pl WHERE pl.owner_id = u.id) playlists,
+      (SELECT COUNT(*) FROM tracks t WHERE t.added_by = u.id) added,
+      (SELECT COUNT(*) FROM downloads d WHERE d.user_id = u.id) downloads,
+      (SELECT COALESCE(SUM(bytes),0) FROM downloads d WHERE d.user_id = u.id) download_bytes
+    FROM users u`;
+
+  app.get('/api/admin/users', admin, async (): Promise<AdminUserRow[]> => (db.prepare(`${USER_STATS} ORDER BY u.created_at`).all() as any[]).map(userRow));
+
+  app.get('/api/admin/users/:id', admin, async (req): Promise<AdminUserDetail> => {
+    const id = (req.params as any).id;
+    const r = db.prepare(`${USER_STATS} WHERE u.id = ?`).get(id);
+    if (!r) throw notFound('Пользователь не найден');
+    const daily = db.prepare(`SELECT substr(played_at,1,10) day, COUNT(*) plays, COALESCE(SUM(ms_played),0) ms FROM plays WHERE user_id = ? AND played_at > datetime('now','-30 days') GROUP BY day ORDER BY day`).all(id) as any[];
+    const topArtists = db.prepare(`SELECT ar.id, ar.name, COUNT(*) plays FROM plays p JOIN tracks t ON t.id = p.track_id JOIN artists ar ON ar.id = t.artist_id WHERE p.user_id = ? GROUP BY ar.id ORDER BY plays DESC LIMIT 10`).all(id) as any[];
+    const topTracks = db.prepare(`SELECT t.id, t.title, ar.name artist, COUNT(*) plays FROM plays p JOIN tracks t ON t.id = p.track_id JOIN artists ar ON ar.id = t.artist_id WHERE p.user_id = ? GROUP BY t.id ORDER BY plays DESC LIMIT 10`).all(id) as any[];
+    const recentPlays = (db.prepare(`SELECT t.id trackId, t.title, ar.name artist, p.played_at playedAt, p.ms_played msPlayed FROM plays p JOIN tracks t ON t.id = p.track_id JOIN artists ar ON ar.id = t.artist_id WHERE p.user_id = ? ORDER BY p.played_at DESC LIMIT 30`).all(id) as any[]);
+    const added = db.prepare(`SELECT t.id trackId, t.title, ar.name artist, t.created_at createdAt FROM tracks t JOIN artists ar ON ar.id = t.artist_id WHERE t.added_by = ? ORDER BY t.created_at DESC LIMIT 30`).all(id) as any[];
+    const downloads = db.prepare(`SELECT d.kind, d.ref_id refId, d.bytes, d.created_at createdAt,
+        COALESCE((SELECT title FROM tracks WHERE id = d.ref_id), (SELECT title FROM albums WHERE id = d.ref_id), (SELECT title FROM playlists WHERE id = d.ref_id)) title
+      FROM downloads d WHERE d.user_id = ? ORDER BY d.created_at DESC LIMIT 30`).all(id) as any[];
+    const jobs = { done: 0, error: 0, queued: 0 };
+    for (const j of db.prepare(`SELECT status, COUNT(*) n FROM jobs WHERE requested_by = ? GROUP BY status`).all(id) as any[]) {
+      if (j.status === 'done') jobs.done += j.n; else if (j.status === 'error') jobs.error += j.n; else jobs.queued += j.n;
+    }
+    return { user: userRow(r), daily, topArtists, topTracks, recentPlays, added, downloads, jobs };
+  });
 
   app.patch('/api/admin/users/:id', admin, async (req) => {
     const id = (req.params as any).id;
-    const body = z.object({ role: z.enum(['admin', 'user']) }).parse(req.body);
-    if (id === req.userId && body.role !== 'admin') throw badRequest('Нельзя снять права с самого себя');
-    db.prepare('UPDATE users SET role = ? WHERE id = ?').run(body.role, id);
-    return mapUser(db.prepare('SELECT * FROM users WHERE id = ?').get(id));
+    const body = z.object({ role: z.enum(['admin', 'user']).optional(), disabled: z.boolean().optional(), canAcquire: z.boolean().optional(), displayName: z.string().trim().min(1).max(60).optional() }).parse(req.body);
+    if (id === req.userId && (body.role === 'user' || body.disabled)) throw badRequest('Нельзя снять права или заблокировать самого себя');
+    if (!db.prepare('SELECT 1 FROM users WHERE id = ?').get(id)) throw notFound('Пользователь не найден');
+    if (body.role) db.prepare('UPDATE users SET role = ? WHERE id = ?').run(body.role, id);
+    if (body.disabled !== undefined) {
+      db.prepare('UPDATE users SET disabled = ? WHERE id = ?').run(body.disabled ? 1 : 0, id);
+      if (body.disabled) db.prepare('DELETE FROM refresh_tokens WHERE user_id = ?').run(id); // signed out everywhere
+      app.forgetUserState(id);
+    }
+    if (body.canAcquire !== undefined) db.prepare('UPDATE users SET can_acquire = ? WHERE id = ?').run(body.canAcquire ? 1 : 0, id);
+    if (body.displayName) db.prepare('UPDATE users SET display_name = ? WHERE id = ?').run(body.displayName, id);
+    return userRow(db.prepare(`${USER_STATS} WHERE u.id = ?`).get(id));
+  });
+
+  /** A new temporary password (shown once); the user is signed out everywhere. */
+  app.post('/api/admin/users/:id/reset-password', admin, async (req) => {
+    const id = (req.params as any).id;
+    if (!db.prepare('SELECT 1 FROM users WHERE id = ?').get(id)) throw notFound('Пользователь не найден');
+    const password = Array.from(crypto.getRandomValues(new Uint8Array(10)), (b) => 'abcdefghjkmnpqrstuvwxyz23456789'[b % 31]).join('');
+    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(await bcrypt.hash(password, 10), id);
+    db.prepare('DELETE FROM refresh_tokens WHERE user_id = ?').run(id);
+    return { password };
+  });
+
+  /** Activity of the whole service: listening per day, top tracks and artists, storage by source, jobs. */
+  app.get('/api/admin/activity', admin, async (): Promise<AdminActivity> => {
+    const daily = db.prepare(`SELECT substr(played_at,1,10) day, COUNT(*) plays, COALESCE(SUM(ms_played),0) ms, COUNT(DISTINCT user_id) users FROM plays WHERE played_at > datetime('now','-30 days') GROUP BY day ORDER BY day`).all() as any[];
+    const topTracks = db.prepare(`SELECT t.id, t.title, ar.name artist, COUNT(*) plays FROM plays p JOIN tracks t ON t.id = p.track_id JOIN artists ar ON ar.id = t.artist_id WHERE p.played_at > datetime('now','-30 days') GROUP BY t.id ORDER BY plays DESC LIMIT 10`).all() as any[];
+    const topArtists = db.prepare(`SELECT ar.id, ar.name, COUNT(*) plays FROM plays p JOIN tracks t ON t.id = p.track_id JOIN artists ar ON ar.id = t.artist_id WHERE p.played_at > datetime('now','-30 days') GROUP BY ar.id ORDER BY plays DESC LIMIT 10`).all() as any[];
+    const sources = db.prepare(`SELECT COALESCE(substr(source, 1, instr(source || ':', ':') - 1), 'upload') source, COUNT(*) tracks, COALESCE(SUM(file_size),0) bytes FROM tracks GROUP BY 1 ORDER BY tracks DESC`).all() as any[];
+    const jobs24h = { done: 0, error: 0, queued: 0, running: 0 };
+    for (const j of db.prepare(`SELECT status, COUNT(*) n FROM jobs WHERE created_at > strftime('%Y-%m-%dT%H:%M:%fZ', datetime('now','-1 day')) OR status IN ('queued','running') GROUP BY status`).all() as any[]) (jobs24h as any)[j.status] = j.n;
+    const activeUsers7d = (db.prepare(`SELECT COUNT(DISTINCT user_id) n FROM plays WHERE played_at > datetime('now','-7 days')`).get() as any).n;
+    return { daily, topTracks, topArtists, sources: sources.map((x) => ({ ...x, source: x.source || 'upload' })), jobs24h, activeUsers7d };
   });
 
   app.delete('/api/admin/users/:id', admin, async (req) => {

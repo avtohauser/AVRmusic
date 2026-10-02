@@ -10,6 +10,8 @@ export interface User {
   role: Role;
   avatarUrl: string | null;
   createdAt: string;
+  /** May fetch tracks from the catalogue to the server */
+  canAcquire?: boolean;
 }
 
 export interface AuthTokens {
@@ -289,3 +291,42 @@ export interface ApiError {
 }
 
 export type Paginated<T> = { items: T[]; total: number; offset: number; limit: number };
+
+/* ---------- My Wave / suggestions ---------- */
+export type WaveMode = 'mix' | 'favorites' | 'discover' | 'popular';
+export interface WaveTrack extends Track { reason: string }
+export interface WaveBatch { tracks: WaveTrack[]; mode: WaveMode }
+export interface SuggestionTrack extends CatalogTrack { reason: string }
+export interface Suggestions { releases: Array<CatalogAlbum & { reason: string }>; tracks: SuggestionTrack[] }
+
+/* ---------- Admin: users and activity ---------- */
+export interface AdminUserRow extends User {
+  disabled: boolean;
+  lastSeenAt: string | null;
+  plays: number;
+  msListened: number;
+  plays7d: number;
+  likes: number;
+  playlists: number;
+  added: number;
+  downloads: number;
+  downloadBytes: number;
+}
+export interface AdminUserDetail {
+  user: AdminUserRow;
+  daily: Array<{ day: string; plays: number; ms: number }>;
+  topArtists: Array<{ id: string; name: string; plays: number }>;
+  topTracks: Array<{ id: string; title: string; artist: string; plays: number }>;
+  recentPlays: Array<{ trackId: string; title: string; artist: string; playedAt: string; msPlayed: number }>;
+  added: Array<{ trackId: string; title: string; artist: string; createdAt: string }>;
+  downloads: Array<{ kind: string; refId: string | null; title: string | null; bytes: number | null; createdAt: string }>;
+  jobs: { done: number; error: number; queued: number };
+}
+export interface AdminActivity {
+  daily: Array<{ day: string; plays: number; ms: number; users: number }>;
+  topTracks: Array<{ id: string; title: string; artist: string; plays: number }>;
+  topArtists: Array<{ id: string; name: string; plays: number }>;
+  sources: Array<{ source: string; tracks: number; bytes: number }>;
+  jobs24h: { done: number; error: number; queued: number; running: number };
+  activeUsers7d: number;
+}

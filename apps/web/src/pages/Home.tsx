@@ -13,6 +13,7 @@ import { ShelfSkeleton, Skeleton } from '@/components/Skeleton';
 import { EmptyState } from '@/components/EmptyState';
 import type { AlbumSummary, ArtistSummary, Genre, PlaylistSummary, Track } from '@avrmusic/shared';
 import { FlowText } from '@/components/FlowText';
+import { WaveCard } from '@/components/WaveCard';
 
 export default function Home() {
   const { data, isLoading, error } = useHome();
@@ -56,6 +57,7 @@ export default function Home() {
   return (
     <div className="page pt-4">
       <FlowText as="h1" text={`${greeting}${user ? `, ${user.displayName}` : ''}`} className="md-headline-lg emph mb-5 block" />
+      {user && !empty && <WaveCard />}
       {empty && (
         <EmptyState icon="music_note" title={t('emptyLibrary')} hint={t('emptyLibraryHint')} action={user?.role === 'admin' ? <M3eButton variant="filled" href="/admin"><m3e-icon variant="rounded" slot="icon" name="upload" />{t('upload')}</M3eButton> : undefined} />
       )}
@@ -67,6 +69,13 @@ export default function Home() {
             return <QuickPick key={q.id} title={q.title} cover={q.coverUrl} to={`/album/${q.id}`} onPlay={async () => play((await api.get<{ tracks: Track[] }>(`/api/albums/${q.id}`)).tracks, 0, `album:${q.id}`)} />;
           })}
         </div>
+      )}
+      {user && !empty && (
+        <Link to="/discover" className="discover-link mb-8 fade-in">
+          <m3e-icon variant="rounded" name="explore" filled />
+          <span className="min-w-0 flex-1"><span className="md-title-md emph block">Предложка</span><span className="md-body-sm muted block line-1">Новое по вашему вкусу: свежие релизы и похожие исполнители</span></span>
+          <m3e-icon variant="rounded" name="chevron_right" />
+        </Link>
       )}
       {data.sections.map((s) => (
         <Shelf key={s.id} title={s.title} subtitle={s.subtitle} to={s.kind === 'genres' ? '/library?tab=genres' : s.kind === 'artists' ? '/library?tab=artists' : s.kind === 'albums' ? '/library?tab=albums' : undefined}>

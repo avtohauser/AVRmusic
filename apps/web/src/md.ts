@@ -34,6 +34,12 @@ import '@m3e/web/option';
 
 // Icons (rounded variant): each import registers the SVG with <m3e-icon name="…">
 import '@m3e/icons/rounded/home';
+import '@m3e/icons/rounded/all_inclusive';
+import '@m3e/icons/rounded/local_fire_department';
+import '@m3e/icons/rounded/thumb_down';
+import '@m3e/icons/rounded/block';
+import '@m3e/icons/rounded/lock_open';
+import '@m3e/icons/rounded/upload_file';
 import '@m3e/icons/rounded/search';
 import '@m3e/icons/rounded/library_music';
 import '@m3e/icons/rounded/download';

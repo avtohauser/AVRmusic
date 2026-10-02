@@ -25,6 +25,7 @@ export default async function catalogRoutes(app: FastifyInstance) {
     await app.authenticate(req, reply);
     if (config.acquireRole === 'off') throw forbidden('Загрузка из каталога отключена');
     if (config.acquireRole === 'admin' && req.userRole !== 'admin') throw forbidden('Только администратор может добавлять треки из каталога');
+    if (req.userRole !== 'admin' && (app.db.prepare('SELECT can_acquire FROM users WHERE id = ?').get(req.userId) as any)?.can_acquire === 0) throw forbidden('Администратор отключил вам добавление треков на сервер');
   };
 
   app.post('/api/catalog/acquire', { preHandler: canAcquire }, async (req) => {

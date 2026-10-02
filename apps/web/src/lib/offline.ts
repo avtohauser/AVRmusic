@@ -43,7 +43,8 @@ export async function offlineIds(): Promise<Set<string>> {
 }
 
 export async function saveOffline(track: Track, onProgress?: (pct: number) => void): Promise<void> {
-  const res = await fetch(streamUrl(track.id));
+  const src = streamUrl(track.id);
+  const res = await fetch(`${src}${src.includes('?') ? '&' : '?'}offline=1`); // counted as a download in the admin stats
   if (!res.ok) throw new Error('Не удалось скачать трек');
   const total = Number(res.headers.get('content-length') || 0);
   const mime = res.headers.get('content-type') || track.mimeType;

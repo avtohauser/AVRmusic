@@ -218,6 +218,31 @@ m3e-app-bar { --m3e-app-bar-container-color: transparent; }
 m3e-search-bar { width: 100%; max-width: 560px; }
 m3e-slider.seek { --m3e-slider-active-track-color: var(--md-sys-color-primary); width: 100%; }
 m3e-card.media-card { --m3e-card-container-shape: 24px; }
+/* ---- My Wave card (components/WaveCard.tsx): blobs drift by transform only ---- */
+.wave-card { position: relative; overflow: hidden; border-radius: 32px; padding: 20px; isolation: isolate;
+  background: linear-gradient(135deg, var(--md-sys-color-primary-container), var(--md-sys-color-tertiary-container));
+  color: var(--md-sys-color-on-primary-container); }
+.wave-blob { position: absolute; border-radius: 50%; pointer-events: none; z-index: -1; opacity: .55; will-change: transform;
+  animation: wave-drift 14s ease-in-out infinite alternate; animation-play-state: paused; }
+.wave-card[data-live] .wave-blob { animation-play-state: running; }
+.wave-blob-a { width: 60%; aspect-ratio: 1; left: -15%; top: -40%; background: radial-gradient(closest-side, var(--md-sys-color-primary), transparent); }
+.wave-blob-b { width: 50%; aspect-ratio: 1; right: -10%; bottom: -50%; background: radial-gradient(closest-side, var(--md-sys-color-tertiary), transparent); animation-duration: 18s; animation-direction: alternate-reverse; }
+.wave-blob-c { width: 35%; aspect-ratio: 1; left: 40%; top: 10%; background: radial-gradient(closest-side, var(--md-sys-color-secondary), transparent); animation-duration: 11s; }
+@keyframes wave-drift { from { transform: translate(0, 0) scale(1); } to { transform: translate(12%, 10%) scale(1.25); } }
+.wave-play { position: relative; flex-shrink: 0; width: 84px; height: 84px; border-radius: 28px; display: grid; place-items: center;
+  background: color-mix(in srgb, var(--md-sys-color-surface) 35%, transparent); transition: border-radius .4s cubic-bezier(.2,0,0,1), transform .2s; }
+.wave-play:hover { border-radius: 42px; } .wave-play:active { transform: scale(.94); }
+.wave-play-icon { position: absolute; right: -4px; bottom: -4px; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--md-sys-color-primary); color: var(--md-sys-color-on-primary); box-shadow: 0 2px 8px rgba(0,0,0,.25); }
+.wave-mode { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; padding: 8px 14px; border-radius: 999px; font: 500 14px/20px var(--font-sans);
+  background: color-mix(in srgb, var(--md-sys-color-surface) 30%, transparent); transition: background .2s, border-radius .3s; }
+.wave-mode[data-on] { background: var(--md-sys-color-primary); color: var(--md-sys-color-on-primary); border-radius: 12px; }
+.wave-reason { animation: fade-in .4s ease both; }
+.discover-link { display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-radius: 24px; background: var(--md-sys-color-surface-container-low); }
+.discover-link > m3e-icon:first-child { color: var(--md-sys-color-tertiary); }
+.no-scrollbar { scrollbar-width: none; } .no-scrollbar::-webkit-scrollbar { display: none; }
+@media (prefers-reduced-motion: reduce) { .wave-blob { animation: none !important; } }
+
 /* the page under the open full-screen player: not drawn, nothing animating */
 [data-np-covered] :is(.app-body, [data-playerbar], .floating-nav) { visibility: hidden; }
 [data-np-covered] :is(.app-body, [data-playerbar], .floating-nav) * { animation-play-state: paused !important; }

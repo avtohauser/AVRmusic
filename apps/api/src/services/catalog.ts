@@ -258,3 +258,11 @@ export async function rawArtistFeatures(db: DB, artist: { id: number | string; n
 export const rawTrack = (db: DB, id: number) => dz(db, `/track/${id}`);
 /** Raw catalogue track search (used by the acquisition dry run). */
 export const rawSearchTracks = async (db: DB, q: string, limit = 25): Promise<any[]> => ((await dz(db, `/search/track?q=${encodeURIComponent(q)}&limit=${limit}`, TTL_MS.search)).data ?? []);
+
+/* ---------- for suggestions (services/suggest.ts) ---------- */
+export const rawRelatedArtists = async (db: DB, id: number, limit = 8): Promise<any[]> => ((await dz(db, `/artist/${id}/related?limit=${limit}`).catch(() => ({ data: [] }))).data ?? []);
+export const rawArtistTop = async (db: DB, id: number, limit = 5): Promise<any[]> => ((await dz(db, `/artist/${id}/top?limit=${limit}`).catch(() => ({ data: [] }))).data ?? []);
+export const rawArtistAlbumsPage = async (db: DB, id: number, limit = 25): Promise<any[]> => ((await dz(db, `/artist/${id}/albums?limit=${limit}`, TTL_MS.search).catch(() => ({ data: [] }))).data ?? []);
+/** Catalogue tracks / albums as the app shows them (with "already in the library" links). */
+export function mapRawTracks(db: DB, raws: any[]): CatalogTrack[] { const l = new Linker(db); return raws.map((t) => mapTrack(l, t)); }
+export function mapRawAlbums(db: DB, raws: any[], artist?: any): CatalogAlbum[] { const l = new Linker(db); return raws.map((a) => mapAlbum(l, a, artist)); }

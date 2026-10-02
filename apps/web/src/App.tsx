@@ -9,6 +9,7 @@ import { useLikes } from '@/stores/likes';
 import { useUI } from '@/stores/ui';
 import { usePlayer } from '@/stores/player';
 import { initAudioEngine } from '@/lib/audio';
+import { initWave } from '@/lib/wave';
 import { initShadeLike } from '@/lib/shadeLike';
 import { inNativeApp } from '@/lib/native';
 import { useI18n } from '@/lib/i18n';
@@ -31,6 +32,7 @@ const Admin = lazy(() => import('@/pages/Admin'));
 const AdminTrack = lazy(() => import('@/pages/AdminTrack'));
 const CatalogArtist = lazy(() => import('@/pages/CatalogArtist'));
 const CatalogAlbum = lazy(() => import('@/pages/CatalogAlbum'));
+const Discover = lazy(() => import('@/pages/Discover'));
 
 const qc = new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false, staleTime: 15_000 } } });
 
@@ -52,6 +54,7 @@ function Boot() {
   const lang = useI18n((s) => s.lang);
   useEffect(() => {
     initAudioEngine();
+    initWave();
     init();
     initShadeLike();
     document.documentElement.lang = lang;
@@ -168,6 +171,7 @@ export default function App() {
               <Route path="/catalog/album/:id" element={<CatalogAlbum />} />
               <Route path="/liked" element={<RequireAuth><Liked /></RequireAuth>} />
               <Route path="/downloads" element={<RequireAuth><Downloads /></RequireAuth>} />
+              <Route path="/discover" element={<RequireAuth><Discover /></RequireAuth>} />
               <Route path="/history" element={<RequireAuth><History /></RequireAuth>} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/admin" element={<RequireAuth admin><Admin /></RequireAuth>} />

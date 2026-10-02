@@ -10,8 +10,9 @@ on:
   workflow_dispatch:
 permissions:
   contents: write
-# shares the group with deploy.yml so the two never touch the server at the same time
-concurrency: deploy-prod
+# its own queue: sharing deploy.yml's group let a newer deploy cancel a waiting APK build
+# (the server step here only refreshes assetlinks.json and is safe next to a deploy)
+concurrency: android-apk
 jobs:
   apk:
     runs-on: ubuntu-latest

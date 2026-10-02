@@ -216,7 +216,7 @@ fun NowPlayingScreen(onClose: () -> Unit) {
       Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         AnimatedContent(
           targetState = t,
-          contentKey = { ix?.id },
+          contentKey = { it?.id },
           transitionSpec = {
             (slideInVertically(Motion.expressive.defaultSpatialSpec()) { it / 3 } + fadeIn(Motion.expressive.defaultEffectsSpec()))
               .togetherWith(slideOutVertically(Motion.expressive.fastSpatialSpec()) { -it / 3 } + fadeOut(Motion.expressive.fastEffectsSpec()))

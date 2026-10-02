@@ -179,15 +179,6 @@ private fun Main() {
   var backTarget by remember { mutableFloatStateOf(0f) }
   val back by animateFloatAsState(backTarget, Motion.expressive.fastSpatialSpec(), label = "back")
   LaunchedEffect(playerOpen) { if (playerOpen) backTarget = 0f }
-  PredictiveBackHandler(enabled = playerOpen) { events ->
-    try {
-      events.collect { backTarget = it.progress }
-      playerOpen = false
-    } catch (e: CancellationException) {
-      backTarget = 0f
-      throw e
-    }
-  }
 
   SharedTransitionLayout {
   CompositionLocalProvider(LocalNav provides nav, LocalEdges provides edges, LocalShared provides this) {
@@ -265,6 +256,16 @@ private fun Main() {
         }
       }
       SnackbarHost(snack, Modifier.align(Alignment.BottomCenter).padding(bottom = if (playerOpen) 104.dp else edges.bottom))
+    }
+    // after the NavHost, so that with the player open a back closes the player, not the page under it
+    PredictiveBackHandler(enabled = playerOpen) { events ->
+      try {
+        events.collect { backTarget = it.progress }
+        playerOpen = false
+      } catch (e: CancellationException) {
+        backTarget = 0f
+        throw e
+      }
     }
   }
   }

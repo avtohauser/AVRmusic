@@ -2,6 +2,7 @@
 
 package space.avthsr.music.ui
 
+import space.avthsr.music.tr
 import android.app.DownloadManager
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -56,13 +57,13 @@ fun trackPath(t: Track) = t.album?.let { "/album/${it.id}?track=${t.id}" } ?: "/
 
 fun share(context: Context, path: String, title: String) {
   val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, "$title\n${siteLink(path)}")
-  context.startActivity(Intent.createChooser(send, "Поделиться").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+  context.startActivity(Intent.createChooser(send, tr("Поделиться")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
 }
 
 fun copyLink(context: Context, path: String) {
   val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
   cm.setPrimaryClip(ClipData.newPlainText("AVRmusic", siteLink(path)))
-  App.say("Ссылка скопирована")
+  App.say(tr("Ссылка скопирована"))
 }
 
 /* ---------- files to the phone's Downloads ---------- */
@@ -86,8 +87,8 @@ fun downloadToDevice(context: Context, path: String, fileName: String) {
     if (Build.VERSION.SDK_INT >= 29) req.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, name)
     else req.setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, name)
     (context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager).enqueue(req)
-    App.say("Скачивание началось: $fileName")
-  }.onFailure { App.say("Не удалось скачать: ${it.message}") }
+    App.say(tr("Скачивание началось: {}", fileName))
+  }.onFailure { App.say(tr("Не удалось скачать: {}", it.message)) }
 }
 
 fun downloadTrack(context: Context, t: Track) = downloadToDevice(context, "/api/download/${t.id}", "${t.artists} - ${t.title}.${extOf(t.mimeType)}")
@@ -112,11 +113,11 @@ fun OfflineButton(tracks: List<Track>) {
         val done = tracks.count { it.id in saved } + busy.sumOf { (progress[it.id] ?: 0f).toDouble() }.toFloat()
         CircularWavyProgressIndicator(progress = { (done / tracks.size).coerceIn(0f, 1f) }, modifier = Modifier.size(28.dp))
       }
-      all -> Ico(R.drawable.ic_offline, "Сохранено офлайн", tint = MaterialTheme.colorScheme.primary)
-      else -> Ico(R.drawable.ic_download, "Сохранить офлайн", tint = LocalContentColor.current)
+      all -> Ico(R.drawable.ic_offline, tr("Сохранено офлайн"), tint = MaterialTheme.colorScheme.primary)
+      else -> Ico(R.drawable.ic_download, tr("Сохранить офлайн"), tint = LocalContentColor.current)
     }
   }
-  if (confirm) ConfirmDialog("Удалить из офлайн?", "Файлы удалятся с телефона, на сервере всё останется.", "Удалить", { confirm = false }) {
+  if (confirm) ConfirmDialog(tr("Удалить из офлайн?"), tr("Файлы удалятся с телефона, на сервере всё останется."), tr("Удалить"), { confirm = false }) {
     Offline.remove(tracks.map { it.id })
   }
 }
@@ -133,32 +134,32 @@ fun DownloadsScreen() {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 56.dp, bottom = 24.dp)) {
       item {
         Column(Modifier.padding(horizontal = 20.dp)) {
-          FlowText("Скачанные", MaterialTheme.typography.headlineMedium, maxLines = 1)
+          FlowText(tr("Скачанные"), MaterialTheme.typography.headlineMedium, maxLines = 1)
           Text(
-            "${tracksWord(list.size)} · ${fmtBytes(list.sumOf { it.size })}" + if (progress.isNotEmpty()) " · сохраняется ещё ${progress.size}" else "",
+            "${tracksWord(list.size)} · ${fmtBytes(list.sumOf { it.size })}" + if (progress.isNotEmpty()) tr(" · сохраняется ещё {}", progress.size) else "",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
           Spacer(Modifier.height(12.dp))
           Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
             PlayButtons(tracks, "offline")
-            if (list.isNotEmpty()) TextButton(onClick = { clear = true }) { Text("Удалить все") }
+            if (list.isNotEmpty()) TextButton(onClick = { clear = true }) { Text(tr("Удалить все")) }
           }
         }
       }
       if (list.isEmpty()) item {
         Text(
-          "Нет сохранённых треков. Нажмите ⤓ у альбома, плейлиста или трека — он сохранится в приложении и будет играть без интернета.",
+          tr("Нет сохранённых треков. Нажмите ⤓ у альбома, плейлиста или трека — он сохранится в приложении и будет играть без интернета."),
           Modifier.padding(20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
       }
       itemsIndexed(tracks) { i, t ->
         TrackRow(t, onClick = { PlayerConn.play(tracks, i, "offline") }, subtitle = "${t.artists} · ${fmtBytes(list[i].size)}", menuExtra = { close ->
-          DropdownMenuItem(text = { Text("Удалить из офлайн") }, leadingIcon = { Ico(R.drawable.ic_delete) }, onClick = { close(); Offline.remove(listOf(t.id)) })
+          DropdownMenuItem(text = { Text(tr("Удалить из офлайн")) }, leadingIcon = { Ico(R.drawable.ic_delete) }, onClick = { close(); Offline.remove(listOf(t.id)) })
         })
       }
     }
   }
-  if (clear) ConfirmDialog("Удалить все сохранённые?", "${tracksWord(list.size)} удалятся с телефона.", "Удалить", { clear = false }) {
+  if (clear) ConfirmDialog(tr("Удалить все сохранённые?"), tr("{} удалятся с телефона.", (tracksWord(list.size))), tr("Удалить"), { clear = false }) {
     Offline.remove(list.map { it.track.id })
   }
 }
@@ -171,7 +172,7 @@ fun OfflineBanner(onOpen: () -> Unit) {
     verticalAlignment = Alignment.CenterVertically,
   ) {
     Ico(R.drawable.ic_cloud_off, null, Modifier.size(18.dp), MaterialTheme.colorScheme.error)
-    Text("  Вы офлайн — доступны сохранённые треки", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.error, modifier = Modifier.weight(1f))
-    TextButton(onClick = onOpen) { Text("Открыть") }
+    Text(tr("  Вы офлайн — доступны сохранённые треки"), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.error, modifier = Modifier.weight(1f))
+    TextButton(onClick = onOpen) { Text(tr("Открыть")) }
   }
 }

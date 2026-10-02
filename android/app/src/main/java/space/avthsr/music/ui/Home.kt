@@ -2,6 +2,7 @@
 
 package space.avthsr.music.ui
 
+import space.avthsr.music.tr
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
@@ -85,10 +86,10 @@ private fun <T> JsonObject.decode(s: kotlinx.serialization.KSerializer<T>): T? =
 fun parseColor(hex: String, fallback: Color): Color = runCatching { Color(android.graphics.Color.parseColor(hex)) }.getOrDefault(fallback)
 
 private fun localGreeting(): String = when (Calendar.getInstance().get(Calendar.HOUR_OF_DAY)) {
-  in 5..11 -> "Доброе утро"
-  in 12..17 -> "Добрый день"
-  in 18..22 -> "Добрый вечер"
-  else -> "Доброй ночи"
+  in 5..11 -> tr("Доброе утро")
+  in 12..17 -> tr("Добрый день")
+  in 18..22 -> tr("Добрый вечер")
+  else -> tr("Доброй ночи")
 }
 
 @Composable
@@ -126,7 +127,7 @@ fun HomeScreen() {
       is Load.Err -> item {
         Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
           Text(s.message, color = MaterialTheme.colorScheme.onSurfaceVariant)
-          TextButton(onClick = loader.reload) { Text("Повторить") }
+          TextButton(onClick = loader.reload) { Text(tr("Повторить")) }
         }
       }
       else -> item { Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { LoadingIndicator() } }
@@ -148,7 +149,7 @@ fun WaveCard() {
     if (busy) return
     busy = true
     scope.launch {
-      try { PlayerConn.startWave(m) } catch (e: Exception) { App.say(e.message ?: "Не получилось") } finally { busy = false }
+      try { PlayerConn.startWave(m) } catch (e: Exception) { App.say(e.message ?: tr("Не получилось")) } finally { busy = false }
     }
   }
   val cs = MaterialTheme.colorScheme
@@ -171,7 +172,7 @@ fun WaveCard() {
     Column {
       Row(verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
-          FlowText("Моя волна", MaterialTheme.typography.displaySmall, color = cs.onPrimaryContainer, maxLines = 1)
+          FlowText(tr("Моя волна"), MaterialTheme.typography.displaySmall, color = cs.onPrimaryContainer, maxLines = 1)
           Spacer(Modifier.height(4.dp))
           val line = if (inWave) player.track?.reason ?: player.track?.let { "${it.title} · ${it.artists}" } ?: ""
           else Queue.modes.firstOrNull { it.id == mode }?.hint ?: ""
@@ -225,8 +226,8 @@ private fun DiscoverEntry(onClick: () -> Unit) {
     }
     Spacer(Modifier.width(14.dp))
     Column(Modifier.weight(1f)) {
-      Text("Предложка", style = MaterialTheme.typography.titleLarge)
-      Text("Новая музыка для вас — добавьте на сервер в одно касание", style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+      Text(tr("Предложка"), style = MaterialTheme.typography.titleLarge)
+      Text(tr("Новая музыка для вас — добавьте на сервер в одно касание"), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
     }
   }
 }
@@ -242,7 +243,7 @@ private fun QuickPicks(picks: List<JsonObject>) {
           val isPlaylist = o.containsKey("owner")
           val album = if (kind == null && !isPlaylist) o.decode(AlbumSummary.serializer()) else null
           val playlist = if (isPlaylist) o.decode(PlaylistSummary.serializer()) else null
-          val title = album?.title ?: playlist?.title ?: "Любимые треки"
+          val title = album?.title ?: playlist?.title ?: tr("Любимые треки")
           val cover = album?.coverUrl ?: playlist?.let { it.coverUrl ?: it.mosaic.firstOrNull() }
           Row(
             Modifier.weight(1f).height(60.dp).clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh)

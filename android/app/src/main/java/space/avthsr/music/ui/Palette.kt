@@ -3,6 +3,7 @@
 // Schemes come from Material's colour science (MaterialKolor port of material-color-utilities).
 package space.avthsr.music.ui
 
+import space.avthsr.music.tr
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.drawable.BitmapDrawable
@@ -40,18 +41,18 @@ import space.avthsr.music.api.Api
 data class Choice(val id: String, val label: String)
 
 object Look {
-  val modes = listOf(Choice("auto", "Как в системе"), Choice("dark", "Тёмная"), Choice("light", "Светлая"))
-  val sources = listOfNotNull(
-    if (Build.VERSION.SDK_INT >= 31) Choice("system", "Цвета Android") else null,
-    Choice("cover", "Из обложки трека"),
-    Choice("seed", "Свой цвет"),
+  val modes get() = listOf(Choice("auto", tr("Как в системе")), Choice("dark", tr("Тёмная")), Choice("light", tr("Светлая")))
+  val sources get() = listOfNotNull(
+    if (Build.VERSION.SDK_INT >= 31) Choice("system", tr("Цвета Android")) else null,
+    Choice("cover", tr("Из обложки трека")),
+    Choice("seed", tr("Свой цвет")),
   )
-  val variants = listOf(
-    Choice("expressive", "Выразительная"), Choice("tonal", "Тональная"), Choice("vibrant", "Яркая"),
-    Choice("fidelity", "Точная"), Choice("content", "По контенту"), Choice("neutral", "Нейтральная"),
-    Choice("monochrome", "Монохром"), Choice("rainbow", "Радуга"), Choice("fruit", "Фруктовый салат"),
+  val variants get() = listOf(
+    Choice("expressive", tr("Выразительная")), Choice("tonal", tr("Тональная")), Choice("vibrant", tr("Яркая")),
+    Choice("fidelity", tr("Точная")), Choice("content", tr("По контенту")), Choice("neutral", tr("Нейтральная")),
+    Choice("monochrome", tr("Монохром")), Choice("rainbow", tr("Радуга")), Choice("fruit", tr("Фруктовый салат")),
   )
-  val contrasts = listOf(Choice("standard", "Обычный"), Choice("medium", "Средний"), Choice("high", "Высокий"))
+  val contrasts get() = listOf(Choice("standard", tr("Обычный")), Choice("medium", tr("Средний")), Choice("high", tr("Высокий")))
   val seeds = listOf(
     0xFF6750A4, 0xFF8E4585, 0xFFB3261E, 0xFFD9480F, 0xFFE8A317, 0xFF7C8F00,
     0xFF2E7D32, 0xFF00897B, 0xFF0277BD, 0xFF3F51B5, 0xFF5D4037, 0xFF546E7A,

@@ -2,6 +2,7 @@
 
 package space.avthsr.music.ui
 
+import space.avthsr.music.tr
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -61,7 +62,7 @@ import space.avthsr.music.api.PlaylistSummary
 import space.avthsr.music.api.Track
 import space.avthsr.music.player.PlayerConn
 
-private val types = listOf("all" to "Всё", "track" to "Треки", "album" to "Альбомы", "artist" to "Исполнители", "playlist" to "Плейлисты")
+private val types get() = listOf("all" to tr("Всё"), "track" to tr("Треки"), "album" to tr("Альбомы"), "artist" to tr("Исполнители"), "playlist" to tr("Плейлисты"))
 
 /** Recent searches, kept on the phone. */
 private object Recent {
@@ -96,9 +97,9 @@ fun SearchScreen() {
       value = q,
       onValueChange = { q = it },
       modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp),
-      placeholder = { Text("Что хотите послушать?") },
+      placeholder = { Text(tr("Что хотите послушать?")) },
       leadingIcon = { Ico(R.drawable.ic_search) },
-      trailingIcon = { if (q.isNotEmpty()) IconButton(onClick = { q = "" }) { Ico(R.drawable.ic_close, "Очистить") } },
+      trailingIcon = { if (q.isNotEmpty()) IconButton(onClick = { q = "" }) { Ico(R.drawable.ic_close, tr("Очистить")) } },
       singleLine = true,
       shape = RoundedCornerShape(28.dp),
       keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
@@ -114,7 +115,7 @@ fun SearchScreen() {
       if (query.isEmpty()) {
         if (recent.isNotEmpty()) {
           item {
-            SectionTitle("Недавние запросы") { TextButton(onClick = { Recent.clear(); recent = emptyList() }) { Text("Очистить") } }
+            SectionTitle(tr("Недавние запросы")) { TextButton(onClick = { Recent.clear(); recent = emptyList() }) { Text(tr("Очистить")) } }
             Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
               recent.forEach { r -> AssistChip(onClick = { q = r; query = r }, label = { Text(r) }, leadingIcon = { Ico(R.drawable.ic_history, null, Modifier.size(18.dp)) }) }
             }
@@ -122,7 +123,7 @@ fun SearchScreen() {
         }
         val g = genres.data.orEmpty()
         if (g.isNotEmpty()) {
-          item { SectionTitle("Обзор: жанры и настроения") }
+          item { SectionTitle(tr("Обзор: жанры и настроения")) }
           items(g.chunked(2)) { row ->
             Row(Modifier.padding(horizontal = 16.dp, vertical = 5.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
               row.forEach { GenreTile(it, Modifier.weight(1f)) { nav.genre(it.slug) } }
@@ -140,33 +141,33 @@ fun SearchScreen() {
             if (empty) {
               item {
                 Text(
-                  if (canAcquire) "На сервере ничего не нашлось — посмотрите в каталоге ниже" else "Ничего не найдено. Попробуйте другой запрос",
+                  if (canAcquire) tr("На сервере ничего не нашлось — посмотрите в каталоге ниже") else tr("Ничего не найдено. Попробуйте другой запрос"),
                   Modifier.fillMaxWidth().padding(24.dp), textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
               }
             }
             if (type == "all") r.top?.let { top -> item { TopResult(top) { keep() } } }
             if (r.tracks.isNotEmpty()) {
-              item { SectionTitle("Треки") }
+              item { SectionTitle(tr("Треки")) }
               items(if (type == "all") r.tracks.take(8) else r.tracks) { t ->
                 TrackRow(t, onClick = { keep(); PlayerConn.play(r.tracks, r.tracks.indexOf(t), "search") })
               }
             }
             if (r.artists.isNotEmpty()) {
               if (type == "all") item {
-                SectionTitle("Исполнители")
+                SectionTitle(tr("Исполнители"))
                 CardRow(r.artists) { a -> MediaCard(a.name, "", a.imageUrl, { keep(); nav.artist(a.id) }, circle = true, width = 124.dp) }
-              } else items(r.artists) { a -> ResultRow(a.imageUrl, a.name, "Исполнитель", circle = true) { keep(); nav.artist(a.id) } }
+              } else items(r.artists) { a -> ResultRow(a.imageUrl, a.name, tr("Исполнитель"), circle = true) { keep(); nav.artist(a.id) } }
             }
             if (r.albums.isNotEmpty()) {
               if (type == "all") item {
-                SectionTitle("Альбомы")
+                SectionTitle(tr("Альбомы"))
                 CardRow(r.albums) { a -> MediaCard(a.title, a.artist.name, a.coverUrl, { keep(); nav.album(a.id) }) }
               } else items(r.albums) { a -> ResultRow(a.coverUrl, a.title, listOfNotNull(albumType(a.type), a.artist.name, a.year?.toString()).joinToString(" · ")) { keep(); nav.album(a.id) } }
             }
             if (r.playlists.isNotEmpty()) {
               if (type == "all") item {
-                SectionTitle("Плейлисты")
+                SectionTitle(tr("Плейлисты"))
                 CardRow(r.playlists) { p -> MediaCard(p.title, p.owner?.displayName ?: "", p.coverUrl ?: p.mosaic.firstOrNull(), { keep(); nav.playlist(p.id) }) }
               } else items(r.playlists) { p -> ResultRow(p.coverUrl ?: p.mosaic.firstOrNull(), p.title, listOfNotNull(p.owner?.displayName, tracksWord(p.trackCount)).joinToString(" · ")) { keep(); nav.playlist(p.id) } }
             }
@@ -178,7 +179,7 @@ fun SearchScreen() {
       if (canAcquire && type == "all") {
         val c = remote.data
         if (c != null && (c.tracks.isNotEmpty() || c.albums.isNotEmpty() || c.artists.isNotEmpty())) {
-          item { SectionTitle("В каталоге", "Чего нет на сервере — добавьте в одно касание") }
+          item { SectionTitle(tr("В каталоге"), tr("Чего нет на сервере — добавьте в одно касание")) }
           items(c.tracks.take(8)) { CatalogTrackRow(it) }
           if (c.albums.isNotEmpty()) item { CardRow(c.albums) { CatalogAlbumCard(it) } }
           if (c.artists.isNotEmpty()) item {
@@ -215,13 +216,13 @@ private fun TopResult(top: JsonObject, onOpen: () -> Unit) {
   var circle = false
   var open: () -> Unit = {}
   when (kind) {
-    "track" -> dec(Track.serializer())?.let { t -> cover = t.coverUrl; title = t.title; subtitle = "Трек · ${t.artists}"; open = { PlayerConn.play(listOf(t), 0, "search") } }
+    "track" -> dec(Track.serializer())?.let { t -> cover = t.coverUrl; title = t.title; subtitle = tr("Трек · {}", t.artists); open = { PlayerConn.play(listOf(t), 0, "search") } }
     "album" -> dec(AlbumSummary.serializer())?.let { a -> cover = a.coverUrl; title = a.title; subtitle = "${albumType(a.type)} · ${a.artist.name}"; open = { nav.album(a.id) } }
-    "artist" -> dec(ArtistSummary.serializer())?.let { a -> cover = a.imageUrl; title = a.name; subtitle = "Исполнитель"; circle = true; open = { nav.artist(a.id) } }
-    "playlist" -> dec(PlaylistSummary.serializer())?.let { p -> cover = p.coverUrl ?: p.mosaic.firstOrNull(); title = p.title; subtitle = "Плейлист · ${p.owner?.displayName ?: ""}"; open = { nav.playlist(p.id) } }
+    "artist" -> dec(ArtistSummary.serializer())?.let { a -> cover = a.imageUrl; title = a.name; subtitle = tr("Исполнитель"); circle = true; open = { nav.artist(a.id) } }
+    "playlist" -> dec(PlaylistSummary.serializer())?.let { p -> cover = p.coverUrl ?: p.mosaic.firstOrNull(); title = p.title; subtitle = tr("Плейлист · {}", (p.owner?.displayName ?: "")); open = { nav.playlist(p.id) } }
   }
   if (title.isEmpty()) return
-  SectionTitle("Лучший результат")
+  SectionTitle(tr("Лучший результат"))
   Row(
     Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh)
       .clickable { onOpen(); open() }.padding(16.dp),

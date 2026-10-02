@@ -2,6 +2,7 @@
 
 package space.avthsr.music.ui
 
+import space.avthsr.music.tr
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
@@ -82,7 +83,7 @@ fun MorphPlayButton(
       .clickable(interactionSource = interaction, indication = LocalIndication.current, onClick = onClick),
     contentAlignment = Alignment.Center,
   ) {
-    Ico(if (playing) R.drawable.ic_pause else R.drawable.ic_play, if (playing) "Пауза" else "Играть", Modifier.size(iconSize), content)
+    Ico(if (playing) R.drawable.ic_pause else R.drawable.ic_play, if (playing) tr("Пауза") else tr("Играть"), Modifier.size(iconSize), content)
   }
 }
 

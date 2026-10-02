@@ -2,6 +2,8 @@
 
 package space.avthsr.music.ui
 
+import space.avthsr.music.tr
+import space.avthsr.music.Lang
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ButtonDefaults
@@ -122,6 +124,7 @@ fun plural(n: Int, one: String, few: String, many: String): String {
   val m10 = n % 10
   val m100 = n % 100
   val w = when {
+    Lang.code == "en" -> if (n == 1) one else many
     m10 == 1 && m100 != 11 -> one
     m10 in 2..4 && m100 !in 12..14 -> few
     else -> many
@@ -129,13 +132,13 @@ fun plural(n: Int, one: String, few: String, many: String): String {
   return "$n $w"
 }
 
-fun tracksWord(n: Int) = plural(n, "трек", "трека", "треков")
+fun tracksWord(n: Int) = plural(n, tr("трек"), tr("трека"), tr("треков"))
 
 fun albumType(t: String) = when (t) {
-  "single" -> "Сингл"
+  "single" -> tr("Сингл")
   "ep" -> "EP"
-  "compilation" -> "Сборник"
-  else -> "Альбом"
+  "compilation" -> tr("Сборник")
+  else -> tr("Альбом")
 }
 
 /* ---------- loading ---------- */
@@ -163,7 +166,7 @@ fun <T> rememberLoad(vararg keys: Any?, load: suspend () -> T): Loader<T> {
     } catch (e: CancellationException) {
       throw e
     } catch (e: Exception) {
-      if (state is Load.Ok) state else Load.Err(e.message ?: "Не удалось загрузить")
+      if (state is Load.Ok) state else Load.Err(e.message ?: tr("Не удалось загрузить"))
     }
   }
   return Loader(state) { version++ }
@@ -180,7 +183,7 @@ fun <T> Loaded(loader: Loader<T>, content: @Composable (T) -> Unit) {
     ) {
       Text(s.message, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
       Spacer(Modifier.height(16.dp))
-      Button(shapes = ButtonDefaults.shapes(), onClick = loader.reload) { Text("Повторить") }
+      Button(shapes = ButtonDefaults.shapes(), onClick = loader.reload) { Text(tr("Повторить")) }
     }
     is Load.Ok -> content(s.data)
   }
@@ -258,9 +261,9 @@ fun TrackRow(
         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
     }
-    if (t.id in liked) Ico(R.drawable.ic_heart_filled, "В избранном", Modifier.size(16.dp), MaterialTheme.colorScheme.primary)
+    if (t.id in liked) Ico(R.drawable.ic_heart_filled, tr("В избранном"), Modifier.size(16.dp), MaterialTheme.colorScheme.primary)
     Box {
-      IconButton(onClick = { menu = true }) { Ico(R.drawable.ic_more, "Ещё", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+      IconButton(onClick = { menu = true }) { Ico(R.drawable.ic_more, tr("Ещё"), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
       TrackMenu(t, menu, { menu = false }, menuExtra)
     }
   }
@@ -273,38 +276,38 @@ fun TrackMenu(t: Track, expanded: Boolean, close: () -> Unit, extra: (@Composabl
   val liked by Likes.tracks.collectAsStateWithLifecycle()
   var pick by remember { mutableStateOf(false) }
   DropdownMenu(expanded = expanded, onDismissRequest = close) {
-    DropdownMenuItem(text = { Text("Играть следующим") }, leadingIcon = { Ico(R.drawable.ic_queue) }, onClick = { close(); PlayerConn.playNext(t) })
-    DropdownMenuItem(text = { Text("Добавить в очередь") }, leadingIcon = { Ico(R.drawable.ic_add) }, onClick = { close(); PlayerConn.enqueue(t) })
-    DropdownMenuItem(text = { Text("Радио по треку") }, leadingIcon = { Ico(R.drawable.ic_radio) }, onClick = {
+    DropdownMenuItem(text = { Text(tr("Играть следующим")) }, leadingIcon = { Ico(R.drawable.ic_queue) }, onClick = { close(); PlayerConn.playNext(t) })
+    DropdownMenuItem(text = { Text(tr("Добавить в очередь")) }, leadingIcon = { Ico(R.drawable.ic_add) }, onClick = { close(); PlayerConn.enqueue(t) })
+    DropdownMenuItem(text = { Text(tr("Радио по треку")) }, leadingIcon = { Ico(R.drawable.ic_radio) }, onClick = {
       close(); App.scope.launch { PlayerConn.radio(t) }
     })
     val on = t.id in liked
     DropdownMenuItem(
-      text = { Text(if (on) "Убрать из избранного" else "В избранное") },
+      text = { Text(if (on) tr("Убрать из избранного") else tr("В избранное")) },
       leadingIcon = { Ico(if (on) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline) },
       onClick = { close(); toggleLike("track", t.id) },
     )
-    DropdownMenuItem(text = { Text("Добавить в плейлист") }, leadingIcon = { Ico(R.drawable.ic_playlist_add) }, onClick = { close(); pick = true })
-    t.album?.let { a -> DropdownMenuItem(text = { Text("К альбому") }, leadingIcon = { Ico(R.drawable.ic_album) }, onClick = { close(); nav.album(a.id) }) }
+    DropdownMenuItem(text = { Text(tr("Добавить в плейлист")) }, leadingIcon = { Ico(R.drawable.ic_playlist_add) }, onClick = { close(); pick = true })
+    t.album?.let { a -> DropdownMenuItem(text = { Text(tr("К альбому")) }, leadingIcon = { Ico(R.drawable.ic_album) }, onClick = { close(); nav.album(a.id) }) }
     if (t.artist.id.isNotEmpty()) {
-      DropdownMenuItem(text = { Text("К исполнителю") }, leadingIcon = { Ico(R.drawable.ic_person) }, onClick = { close(); nav.artist(t.artist.id) })
+      DropdownMenuItem(text = { Text(tr("К исполнителю")) }, leadingIcon = { Ico(R.drawable.ic_person) }, onClick = { close(); nav.artist(t.artist.id) })
     }
     val savedOffline by Offline.entries.collectAsStateWithLifecycle()
     if (t.id in savedOffline) {
-      DropdownMenuItem(text = { Text("Удалить из офлайн") }, leadingIcon = { Ico(R.drawable.ic_offline) }, onClick = { close(); Offline.remove(listOf(t.id)) })
+      DropdownMenuItem(text = { Text(tr("Удалить из офлайн")) }, leadingIcon = { Ico(R.drawable.ic_offline) }, onClick = { close(); Offline.remove(listOf(t.id)) })
     } else {
-      DropdownMenuItem(text = { Text("Сохранить офлайн") }, leadingIcon = { Ico(R.drawable.ic_download) }, onClick = { close(); Offline.save(listOf(t)) })
+      DropdownMenuItem(text = { Text(tr("Сохранить офлайн")) }, leadingIcon = { Ico(R.drawable.ic_download) }, onClick = { close(); Offline.save(listOf(t)) })
     }
-    DropdownMenuItem(text = { Text("Скачать на устройство") }, leadingIcon = { Ico(R.drawable.ic_folder) }, onClick = { close(); downloadTrack(context, t) })
-    DropdownMenuItem(text = { Text("Поделиться") }, leadingIcon = { Ico(R.drawable.ic_share) }, onClick = { close(); share(context, trackPath(t), "${t.artists} — ${t.title}") })
-    DropdownMenuItem(text = { Text("Скопировать ссылку") }, leadingIcon = { Ico(R.drawable.ic_link) }, onClick = { close(); copyLink(context, trackPath(t)) })
+    DropdownMenuItem(text = { Text(tr("Скачать на устройство")) }, leadingIcon = { Ico(R.drawable.ic_folder) }, onClick = { close(); downloadTrack(context, t) })
+    DropdownMenuItem(text = { Text(tr("Поделиться")) }, leadingIcon = { Ico(R.drawable.ic_share) }, onClick = { close(); share(context, trackPath(t), "${t.artists} — ${t.title}") })
+    DropdownMenuItem(text = { Text(tr("Скопировать ссылку")) }, leadingIcon = { Ico(R.drawable.ic_link) }, onClick = { close(); copyLink(context, trackPath(t)) })
     if (!t.hasCanvas && Api.user?.canAcquire != false) {
-      DropdownMenuItem(text = { Text("Найти канвас") }, leadingIcon = { Ico(R.drawable.ic_movie) }, onClick = {
-        close(); act("Ищу клип — канвас появится через минуту") { Api.requestCanvas(t.id) }
+      DropdownMenuItem(text = { Text(tr("Найти канвас")) }, leadingIcon = { Ico(R.drawable.ic_movie) }, onClick = {
+        close(); act(tr("Ищу клип — канвас появится через минуту")) { Api.requestCanvas(t.id) }
       })
     }
     if (Api.user?.isAdmin == true) {
-      DropdownMenuItem(text = { Text("Редактировать трек") }, leadingIcon = { Ico(R.drawable.ic_settings) }, onClick = { close(); nav.route("admin/track/${Uri.encode(t.id)}") })
+      DropdownMenuItem(text = { Text(tr("Редактировать трек")) }, leadingIcon = { Ico(R.drawable.ic_settings) }, onClick = { close(); nav.route("admin/track/${Uri.encode(t.id)}") })
     }
     extra?.invoke(this, close)
   }
@@ -314,8 +317,8 @@ fun TrackMenu(t: Track, expanded: Boolean, close: () -> Unit, extra: (@Composabl
 fun toggleLike(type: String, id: String) {
   App.scope.launch {
     runCatching { Likes.toggle(type, id) }
-      .onSuccess { if (type == "track") App.say(if (it) "Добавлено в избранное" else "Убрано из избранного") }
-      .onFailure { App.say(it.message ?: "Не получилось") }
+      .onSuccess { if (type == "track") App.say(if (it) tr("Добавлено в избранное") else tr("Убрано из избранного")) }
+      .onFailure { App.say(it.message ?: tr("Не получилось")) }
   }
 }
 
@@ -325,7 +328,7 @@ fun LikeButton(type: String, id: String) {
   val on = id in liked
   IconButton(onClick = { toggleLike(type, id) }, shapes = IconButtonDefaults.shapes()) {
     Ico(
-      if (on) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline, if (on) "Убрать из избранного" else "В избранное",
+      if (on) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline, if (on) tr("Убрать из избранного") else tr("В избранное"),
       tint = if (on) MaterialTheme.colorScheme.primary else LocalContentColor.current,
     )
   }
@@ -340,13 +343,13 @@ fun PlaylistPicker(trackIds: List<String>, onDone: () -> Unit) {
     onDone()
     App.scope.launch {
       runCatching { Api.addToPlaylist(p.id, trackIds) }
-        .onSuccess { App.say("Добавлено в «${p.title}»") }
-        .onFailure { App.say(it.message ?: "Не получилось") }
+        .onSuccess { App.say(tr("Добавлено в «{}»", p.title)) }
+        .onFailure { App.say(it.message ?: tr("Не получилось")) }
     }
   }
   AlertDialog(
     onDismissRequest = onDone,
-    title = { Text("Добавить в плейлист") },
+    title = { Text(tr("Добавить в плейлист")) },
     text = {
       Column {
         when (val s = loader.state) {
@@ -362,7 +365,7 @@ fun PlaylistPicker(trackIds: List<String>, onDone: () -> Unit) {
           else -> LoadingIndicator()
         }
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
-        OutlinedTextField(title, { title = it }, label = { Text("Новый плейлист") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(title, { title = it }, label = { Text(tr("Новый плейлист")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
       }
     },
     confirmButton = {
@@ -371,12 +374,12 @@ fun PlaylistPicker(trackIds: List<String>, onDone: () -> Unit) {
         onDone()
         App.scope.launch {
           runCatching { Api.addToPlaylist(Api.createPlaylist(name).id, trackIds) }
-            .onSuccess { App.say("Плейлист «$name» создан") }
-            .onFailure { App.say(it.message ?: "Не получилось") }
+            .onSuccess { App.say(tr("Плейлист «{}» создан", name)) }
+            .onFailure { App.say(it.message ?: tr("Не получилось")) }
         }
-      }) { Text("Создать") }
+      }) { Text(tr("Создать")) }
     },
-    dismissButton = { TextButton(onClick = onDone) { Text("Отмена") } },
+    dismissButton = { TextButton(onClick = onDone) { Text(tr("Отмена")) } },
   )
 }
 
@@ -394,6 +397,6 @@ fun Page(back: Boolean = true, content: @Composable () -> Unit) {
 fun BackButton(modifier: Modifier = Modifier) {
   val nav = LocalNav.current
   IconButton(onClick = { nav.back() }, modifier = modifier.padding(4.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f))) {
-    Ico(R.drawable.ic_back, "Назад")
+    Ico(R.drawable.ic_back, tr("Назад"))
   }
 }

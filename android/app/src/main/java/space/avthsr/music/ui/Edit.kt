@@ -1,6 +1,7 @@
 // Editing in place: the owner's playlist menu, and the admin's album / artist menus.
 package space.avthsr.music.ui
 
+import space.avthsr.music.tr
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.horizontalScroll
@@ -55,14 +56,14 @@ fun PlaylistOwnerMenu(p: Playlist, reload: () -> Unit) {
   var edit by remember { mutableStateOf(false) }
   var delete by remember { mutableStateOf(false) }
   val pickCover = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-    if (uri != null) act("Обложка обновлена", then = reload) { Api.playlistCover(context, p.id, uri) }
+    if (uri != null) act(tr("Обложка обновлена"), then = reload) { Api.playlistCover(context, p.id, uri) }
   }
   Box {
-    IconButton(onClick = { menu = true }) { Ico(R.drawable.ic_more, "Изменить плейлист") }
+    IconButton(onClick = { menu = true }) { Ico(R.drawable.ic_more, tr("Изменить плейлист")) }
     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-      DropdownMenuItem(text = { Text("Изменить") }, onClick = { menu = false; edit = true })
-      DropdownMenuItem(text = { Text("Сменить обложку") }, onClick = { menu = false; pickCover.launch("image/*") })
-      DropdownMenuItem(text = { Text("Удалить плейлист") }, onClick = { menu = false; delete = true })
+      DropdownMenuItem(text = { Text(tr("Изменить")) }, onClick = { menu = false; edit = true })
+      DropdownMenuItem(text = { Text(tr("Сменить обложку")) }, onClick = { menu = false; pickCover.launch("image/*") })
+      DropdownMenuItem(text = { Text(tr("Удалить плейлист")) }, onClick = { menu = false; delete = true })
     }
   }
   if (edit) {
@@ -71,29 +72,29 @@ fun PlaylistOwnerMenu(p: Playlist, reload: () -> Unit) {
     var public by remember { mutableStateOf(p.isPublic) }
     AlertDialog(
       onDismissRequest = { edit = false },
-      title = { Text("Плейлист") },
+      title = { Text(tr("Плейлист")) },
       text = {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-          OutlinedTextField(title, { title = it }, Modifier.fillMaxWidth(), label = { Text("Название") }, singleLine = true)
-          OutlinedTextField(description, { description = it }, Modifier.fillMaxWidth(), label = { Text("Описание") }, minLines = 2)
-          CheckRow("Виден всем (в «Плейлистах сообщества»)", public) { public = it }
+          OutlinedTextField(title, { title = it }, Modifier.fillMaxWidth(), label = { Text(tr("Название")) }, singleLine = true)
+          OutlinedTextField(description, { description = it }, Modifier.fillMaxWidth(), label = { Text(tr("Описание")) }, minLines = 2)
+          CheckRow(tr("Виден всем (в «Плейлистах сообщества»)"), public) { public = it }
         }
       },
       confirmButton = {
         TextButton(enabled = title.isNotBlank(), onClick = {
           edit = false
-          act("Сохранено", then = reload) { Api.editPlaylist(p.id, title, description, public) }
-        }) { Text("Сохранить") }
+          act(tr("Сохранено"), then = reload) { Api.editPlaylist(p.id, title, description, public) }
+        }) { Text(tr("Сохранить")) }
       },
-      dismissButton = { TextButton(onClick = { edit = false }) { Text("Отмена") } },
+      dismissButton = { TextButton(onClick = { edit = false }) { Text(tr("Отмена")) } },
     )
   }
-  if (delete) ConfirmDialog("Удалить «${p.title}»?", "Плейлист удалится, треки останутся в библиотеке.", "Удалить", { delete = false }) {
-    act("Плейлист удалён", then = { nav.back() }) { Api.deletePlaylist(p.id) }
+  if (delete) ConfirmDialog(tr("Удалить «{}»?", p.title), tr("Плейлист удалится, треки останутся в библиотеке."), tr("Удалить"), { delete = false }) {
+    act(tr("Плейлист удалён"), then = { nav.back() }) { Api.deletePlaylist(p.id) }
   }
 }
 
-private val albumTypes = listOf("album" to "Альбом", "single" to "Сингл", "ep" to "EP", "compilation" to "Сборник")
+private val albumTypes get() = listOf("album" to tr("Альбом"), "single" to tr("Сингл"), "ep" to "EP", "compilation" to tr("Сборник"))
 
 @Composable
 fun AlbumAdminMenu(a: Album, reload: () -> Unit) {
@@ -103,14 +104,14 @@ fun AlbumAdminMenu(a: Album, reload: () -> Unit) {
   var edit by remember { mutableStateOf(false) }
   var delete by remember { mutableStateOf(false) }
   val pickCover = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-    if (uri != null) act("Обложка обновлена", then = reload) { Api.adminAlbumCover(context, a.id, uri) }
+    if (uri != null) act(tr("Обложка обновлена"), then = reload) { Api.adminAlbumCover(context, a.id, uri) }
   }
   Box {
-    IconButton(onClick = { menu = true }) { Ico(R.drawable.ic_settings, "Редактировать альбом") }
+    IconButton(onClick = { menu = true }) { Ico(R.drawable.ic_settings, tr("Редактировать альбом")) }
     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-      DropdownMenuItem(text = { Text("Редактировать") }, onClick = { menu = false; edit = true })
-      DropdownMenuItem(text = { Text("Сменить обложку") }, onClick = { menu = false; pickCover.launch("image/*") })
-      DropdownMenuItem(text = { Text("Удалить альбом") }, onClick = { menu = false; delete = true })
+      DropdownMenuItem(text = { Text(tr("Редактировать")) }, onClick = { menu = false; edit = true })
+      DropdownMenuItem(text = { Text(tr("Сменить обложку")) }, onClick = { menu = false; pickCover.launch("image/*") })
+      DropdownMenuItem(text = { Text(tr("Удалить альбом")) }, onClick = { menu = false; delete = true })
     }
   }
   if (edit) {
@@ -120,12 +121,12 @@ fun AlbumAdminMenu(a: Album, reload: () -> Unit) {
     var type by remember { mutableStateOf(a.type) }
     AlertDialog(
       onDismissRequest = { edit = false },
-      title = { Text("Альбом") },
+      title = { Text(tr("Альбом")) },
       text = {
         Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-          OutlinedTextField(title, { title = it }, Modifier.fillMaxWidth(), label = { Text("Название") }, singleLine = true)
-          OutlinedTextField(year, { year = it }, Modifier.fillMaxWidth(), label = { Text("Год") }, singleLine = true)
-          OutlinedTextField(label, { label = it }, Modifier.fillMaxWidth(), label = { Text("Лейбл") }, singleLine = true)
+          OutlinedTextField(title, { title = it }, Modifier.fillMaxWidth(), label = { Text(tr("Название")) }, singleLine = true)
+          OutlinedTextField(year, { year = it }, Modifier.fillMaxWidth(), label = { Text(tr("Год")) }, singleLine = true)
+          OutlinedTextField(label, { label = it }, Modifier.fillMaxWidth(), label = { Text(tr("Лейбл")) }, singleLine = true)
           Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             albumTypes.forEach { (id, name) -> FilterChip(selected = type == id, onClick = { type = id }, label = { Text(name) }) }
           }
@@ -140,14 +141,14 @@ fun AlbumAdminMenu(a: Album, reload: () -> Unit) {
             put("label", textOrNull(label))
             put("type", type)
           }
-          act("Сохранено", then = reload) { Api.adminPatchAlbum(a.id, body) }
-        }) { Text("Сохранить") }
+          act(tr("Сохранено"), then = reload) { Api.adminPatchAlbum(a.id, body) }
+        }) { Text(tr("Сохранить")) }
       },
-      dismissButton = { TextButton(onClick = { edit = false }) { Text("Отмена") } },
+      dismissButton = { TextButton(onClick = { edit = false }) { Text(tr("Отмена")) } },
     )
   }
-  if (delete) ConfirmDialog("Удалить «${a.title}»?", "Альбом и все его треки удалятся с сервера.", "Удалить", { delete = false }) {
-    act("Альбом удалён", then = { nav.back() }) { Api.adminDeleteAlbum(a.id) }
+  if (delete) ConfirmDialog(tr("Удалить «{}»?", a.title), tr("Альбом и все его треки удалятся с сервера."), tr("Удалить"), { delete = false }) {
+    act(tr("Альбом удалён"), then = { nav.back() }) { Api.adminDeleteAlbum(a.id) }
   }
 }
 
@@ -157,21 +158,21 @@ fun ArtistAdminMenu(a: ArtistPage, reload: () -> Unit) {
   var menu by remember { mutableStateOf(false) }
   var edit by remember { mutableStateOf(false) }
   val pickImage = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-    if (uri != null) act("Фото обновлено", then = reload) { Api.adminArtistImage(context, a.id, uri) }
+    if (uri != null) act(tr("Фото обновлено"), then = reload) { Api.adminArtistImage(context, a.id, uri) }
   }
   Box {
-    IconButton(onClick = { menu = true }) { Ico(R.drawable.ic_settings, "Редактировать исполнителя") }
+    IconButton(onClick = { menu = true }) { Ico(R.drawable.ic_settings, tr("Редактировать исполнителя")) }
     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-      DropdownMenuItem(text = { Text("Редактировать") }, onClick = { menu = false; edit = true })
-      DropdownMenuItem(text = { Text("Сменить фото") }, onClick = { menu = false; pickImage.launch("image/*") })
+      DropdownMenuItem(text = { Text(tr("Редактировать")) }, onClick = { menu = false; edit = true })
+      DropdownMenuItem(text = { Text(tr("Сменить фото")) }, onClick = { menu = false; pickImage.launch("image/*") })
     }
   }
   if (edit) FormDialog(
-    "Исполнитель",
-    listOf(Field("Имя", a.name), Field("О исполнителе", a.bio.orEmpty(), lines = 4)),
+    tr("Исполнитель"),
+    listOf(Field(tr("Имя"), a.name), Field(tr("О исполнителе"), a.bio.orEmpty(), lines = 4)),
     onDismiss = { edit = false },
   ) { v ->
     val body = buildJsonObject { put("name", v[0].trim()); put("bio", textOrNull(v[1])) }
-    act("Сохранено", then = reload) { Api.adminPatchArtist(a.id, body) }
+    act(tr("Сохранено"), then = reload) { Api.adminPatchArtist(a.id, body) }
   }
 }

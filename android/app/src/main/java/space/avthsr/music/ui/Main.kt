@@ -2,6 +2,7 @@
 
 package space.avthsr.music.ui
 
+import space.avthsr.music.tr
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -85,15 +86,15 @@ fun Root() {
   crash?.let { text ->
     AlertDialog(
       onDismissRequest = { App.lastCrash.value = null },
-      title = { Text("Приложение закрылось с ошибкой") },
+      title = { Text(tr("Приложение закрылось с ошибкой")) },
       text = {
         Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) {
-          Text("Отчёт уже отправлен на сервер. Вот что случилось:", style = MaterialTheme.typography.bodyMedium)
+          Text(tr("Отчёт уже отправлен на сервер. Вот что случилось:"), style = MaterialTheme.typography.bodyMedium)
           Spacer(Modifier.height(8.dp))
           SelectionContainer { Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
       },
-      confirmButton = { TextButton(onClick = { App.lastCrash.value = null }) { Text("Понятно") } },
+      confirmButton = { TextButton(onClick = { App.lastCrash.value = null }) { Text(tr("Понятно")) } },
     )
   }
 }
@@ -177,10 +178,10 @@ private fun Main() {
 
 private data class Tab(val route: String, val label: String, val icon: Int)
 
-private val tabs = listOf(
-  Tab("home", "Главная", R.drawable.ic_home),
-  Tab("search", "Поиск", R.drawable.ic_search),
-  Tab("library", "Медиатека", R.drawable.ic_library),
+private val tabs get() = listOf(
+  Tab("home", tr("Главная"), R.drawable.ic_home),
+  Tab("search", tr("Поиск"), R.drawable.ic_search),
+  Tab("library", tr("Медиатека"), R.drawable.ic_library),
 )
 
 @Composable
@@ -233,7 +234,7 @@ private fun MiniPlayer(onOpen: () -> Unit) {
       }
       LikeButton("track", t.id)
       MorphPlayButton(s.playing, { PlayerConn.toggle() }, 44.dp)
-      IconButton(onClick = { PlayerConn.next() }, shapes = IconButtonDefaults.shapes()) { Ico(R.drawable.ic_skip_next, "Следующий") }
+      IconButton(onClick = { PlayerConn.next() }, shapes = IconButtonDefaults.shapes()) { Ico(R.drawable.ic_skip_next, tr("Следующий")) }
     }
     LinearWavyProgressIndicator(
       progress = { progress },

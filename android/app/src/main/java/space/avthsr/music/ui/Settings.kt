@@ -2,6 +2,8 @@
 
 package space.avthsr.music.ui
 
+import space.avthsr.music.tr
+import space.avthsr.music.Lang
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -44,10 +46,11 @@ fun SettingsScreen() {
   val speed by PlayerConn.speed.collectAsStateWithLifecycle()
   Page {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, top = 60.dp, bottom = 32.dp)) {
-      FlowText("Оформление", MaterialTheme.typography.headlineMedium, maxLines = 1)
-      Group("Тема") { Choices(Look.modes, mode) { Look.set(mode = it) } }
-      Group("Цвета") { Choices(Look.sources, source) { Look.set(source = it) } }
-      if (source == "seed") Group("Основной цвет") {
+      FlowText(tr("Оформление"), MaterialTheme.typography.headlineMedium, maxLines = 1)
+      Group(tr("Язык")) { Choices(Lang.choices, Lang.code) { Lang.set(it) } }
+      Group(tr("Тема")) { Choices(Look.modes, mode) { Look.set(mode = it) } }
+      Group(tr("Цвета")) { Choices(Look.sources, source) { Look.set(source = it) } }
+      if (source == "seed") Group(tr("Основной цвет")) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
           Look.seeds.forEach { c ->
             val on = c == seed
@@ -61,12 +64,12 @@ fun SettingsScreen() {
         }
       }
       if (source != "system") {
-        Group("Вариант палитры") { Choices(Look.variants, variant) { Look.set(variant = it) } }
-        Group("Контраст") { Choices(Look.contrasts, contrast) { Look.set(contrast = it) } }
+        Group(tr("Вариант палитры")) { Choices(Look.variants, variant) { Look.set(variant = it) } }
+        Group(tr("Контраст")) { Choices(Look.contrasts, contrast) { Look.set(contrast = it) } }
       }
       Spacer(Modifier.height(12.dp))
-      Text("Воспроизведение", style = MaterialTheme.typography.headlineSmall)
-      Group("Скорость") {
+      Text(tr("Воспроизведение"), style = MaterialTheme.typography.headlineSmall)
+      Group(tr("Скорость")) {
         Choices(PlayerConn.speeds.map { Choice(it.toString(), "${if (it % 1f == 0f) it.toInt() else it}×") }, speed.toString()) { PlayerConn.setSpeed(it.toFloat()) }
       }
     }

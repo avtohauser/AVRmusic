@@ -2,7 +2,8 @@
 // formatting of sizes / durations / dates, and a bar chart.
 package space.avthsr.music.ui
 
-import android.text.format.DateUtils
+import space.avthsr.music.tr
+import space.avthsr.music.Lang
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -51,7 +52,7 @@ fun act(ok: String? = null, then: () -> Unit = {}, work: suspend () -> Unit) {
   App.scope.launch {
     runCatching { work() }
       .onSuccess { ok?.let { App.say(it) }; then() }
-      .onFailure { App.say(it.message ?: "Не получилось") }
+      .onFailure { App.say(it.message ?: tr("Не получилось")) }
   }
 }
 
@@ -65,7 +66,7 @@ data class Field(
 
 /** A dialog with text fields; [onConfirm] gets the values in the same order. */
 @Composable
-fun FormDialog(title: String, fields: List<Field>, confirm: String = "Сохранить", onDismiss: () -> Unit, onConfirm: (List<String>) -> Unit) {
+fun FormDialog(title: String, fields: List<Field>, confirm: String = tr("Сохранить"), onDismiss: () -> Unit, onConfirm: (List<String>) -> Unit) {
   val values = remember { mutableStateListOf(*fields.map { it.initial }.toTypedArray()) }
   AlertDialog(
     onDismissRequest = onDismiss,
@@ -87,7 +88,7 @@ fun FormDialog(title: String, fields: List<Field>, confirm: String = "Сохра
       }
     },
     confirmButton = { TextButton(onClick = { onDismiss(); onConfirm(values.toList()) }) { Text(confirm) } },
-    dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } },
+    dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Отмена")) } },
   )
 }
 
@@ -98,7 +99,7 @@ fun ConfirmDialog(title: String, text: String, confirm: String, onDismiss: () ->
     title = { Text(title) },
     text = { Text(text) },
     confirmButton = { TextButton(onClick = { onDismiss(); onConfirm() }) { Text(confirm, color = MaterialTheme.colorScheme.error) } },
-    dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } },
+    dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Отмена")) } },
   )
 }
 
@@ -170,16 +171,16 @@ fun Dot(on: Boolean) {
 }
 
 fun fmtBytes(b: Long): String = when {
-  b >= 1L shl 30 -> "%.1f ГБ".format(b / (1L shl 30).toDouble())
-  b >= 1L shl 20 -> "%.0f МБ".format(b / (1L shl 20).toDouble())
-  b >= 1L shl 10 -> "%.0f КБ".format(b / 1024.0)
-  else -> "$b Б"
+  b >= 1L shl 30 -> tr("%.1f ГБ").format(b / (1L shl 30).toDouble())
+  b >= 1L shl 20 -> tr("%.0f МБ").format(b / (1L shl 20).toDouble())
+  b >= 1L shl 10 -> tr("%.0f КБ").format(b / 1024.0)
+  else -> tr("{} Б", b)
 }
 
 /** "12 ч 5 мин" */
 fun fmtListened(ms: Long): String {
   val min = ms / 60_000
-  return if (min >= 60) "${min / 60} ч ${min % 60} мин" else "$min мин"
+  return if (min >= 60) tr("{} ч {} мин", (min / 60), (min % 60)) else tr("{} мин", min)
 }
 
 private val formats = listOf("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", "yyyy-MM-dd'T'HH:mm:ss'Z'", "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd")
@@ -195,13 +196,23 @@ fun parseTime(s: String?): Long? {
   return null
 }
 
-/** "5 минут назад", "вчера" … */
+private fun locale() = Locale(Lang.code)
+
+/** "5 мин назад", "вчера" … in the app's language */
 fun fmtAgo(s: String?): String {
   val t = parseTime(s) ?: return "—"
-  return DateUtils.getRelativeTimeSpanString(t, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS).toString()
+  val min = (System.currentTimeMillis() - t) / 60_000
+  return when {
+    min < 1 -> tr("только что")
+    min < 60 -> tr("{} мин назад", min)
+    min < 24 * 60 -> tr("{} ч назад", (min / 60))
+    min < 48 * 60 -> tr("вчера")
+    min < 7 * 24 * 60 -> tr("{} дн назад", (min / (24 * 60)))
+    else -> SimpleDateFormat("d MMM yyyy", locale()).format(java.util.Date(t))
+  }
 }
 
 fun fmtDateTime(s: String?): String {
   val t = parseTime(s) ?: return "—"
-  return SimpleDateFormat("d MMM yyyy, HH:mm", Locale("ru")).format(java.util.Date(t))
+  return SimpleDateFormat("d MMM yyyy, HH:mm", locale()).format(java.util.Date(t))
 }

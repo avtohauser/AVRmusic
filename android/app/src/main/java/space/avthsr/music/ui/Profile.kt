@@ -1,5 +1,6 @@
 package space.avthsr.music.ui
 
+import space.avthsr.music.tr
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -64,7 +65,7 @@ fun ProfileScreen() {
   var logout by remember { mutableStateOf(false) }
   val stats = rememberLoad(Unit) { Api.myStats() }
   val pickAvatar = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-    if (uri != null) act("Аватар обновлён") { Api.uploadAvatarSquare(context, uri) }
+    if (uri != null) act(tr("Аватар обновлён")) { Api.uploadAvatarSquare(context, uri) }
   }
 
   Page {
@@ -74,75 +75,75 @@ fun ProfileScreen() {
           Box {
             Cover(u.avatarUrl, Modifier.size(88.dp).clickable { avatarMenu = true }, AvatarShape, R.drawable.ic_person)
             DropdownMenu(expanded = avatarMenu, onDismissRequest = { avatarMenu = false }) {
-              DropdownMenuItem(text = { Text("Выбрать фото") }, onClick = { avatarMenu = false; pickAvatar.launch("image/*") })
-              if (u.avatarUrl != null) DropdownMenuItem(text = { Text("Убрать фото") }, onClick = { avatarMenu = false; act("Фото убрано") { Api.removeAvatar() } })
+              DropdownMenuItem(text = { Text(tr("Выбрать фото")) }, onClick = { avatarMenu = false; pickAvatar.launch("image/*") })
+              if (u.avatarUrl != null) DropdownMenuItem(text = { Text(tr("Убрать фото")) }, onClick = { avatarMenu = false; act(tr("Фото убрано")) { Api.removeAvatar() } })
             }
           }
           Spacer(Modifier.width(16.dp))
           Column(Modifier.weight(1f)) {
             Text(u.displayName.ifBlank { u.username }, style = MaterialTheme.typography.headlineSmall)
-            Text("@${u.username}" + if (u.isAdmin) " · администратор" else "", color = cs.onSurfaceVariant)
+            Text("@${u.username}" + if (u.isAdmin) tr(" · администратор") else "", color = cs.onSurfaceVariant)
             Text(u.email, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
           }
         }
       }
       val s = stats.data
       if (s != null) {
-        item { SectionTitle("Статистика") }
-        item { StatGrid(listOf(s.plays.toString() to "прослушиваний", fmtListened(s.msListened) to "музыки всего")) }
+        item { SectionTitle(tr("Статистика")) }
+        item { StatGrid(listOf(s.plays.toString() to tr("прослушиваний"), fmtListened(s.msListened) to tr("музыки всего"))) }
         if (s.topArtists.isNotEmpty()) item {
-          SectionTitle("Чаще всего слушаете")
+          SectionTitle(tr("Чаще всего слушаете"))
           CardRow(s.topArtists) { a -> MediaCard(a.name, "", a.imageUrl, { nav.artist(a.id) }, circle = true, width = 116.dp) }
         }
         if (s.topTracks.isNotEmpty()) {
-          item { SectionTitle("Любимые треки по прослушиваниям") }
+          item { SectionTitle(tr("Любимые треки по прослушиваниям")) }
           itemsIndexed(s.topTracks.take(5)) { i, t -> TrackRow(t, onClick = { PlayerConn.play(s.topTracks, i, "top") }) }
         }
         if (s.topGenres.isNotEmpty()) item {
           Text(
-            "Жанры: " + s.topGenres.joinToString(", ") { it.name },
+            tr("Жанры: ") + s.topGenres.joinToString(", ") { it.name },
             Modifier.padding(horizontal = 20.dp, vertical = 8.dp), style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant,
           )
         }
       }
-      item { SectionTitle("Аккаунт") }
+      item { SectionTitle(tr("Аккаунт")) }
       item {
         Column(Modifier.padding(horizontal = 16.dp)) {
-          if (u.isAdmin) ProfileItem(R.drawable.ic_settings, "Админ-панель", "Пользователи, приглашения, загрузки, аккаунты YouTube, треки") { nav.route("admin") }
-          ProfileItem(R.drawable.ic_queue, "История прослушиваний", "Что и когда вы слушали") { nav.route("history") }
-          ProfileItem(R.drawable.ic_download, "Загрузки на сервер", "Что сейчас качается и кто в очереди") { nav.jobs() }
-          ProfileItem(R.drawable.ic_sparkle, "Предложка", "Новая музыка для вас") { nav.discover() }
-          ProfileItem(R.drawable.ic_palette, "Оформление", "Тема, цвета, палитра, контраст, скорость") { nav.route("settings") }
-          ProfileItem(R.drawable.ic_offline, "Скачанные", "Треки, сохранённые в приложении") { nav.downloads() }
-          ProfileItem(R.drawable.ic_person, "Имя и email", u.displayName.ifBlank { u.username }) { editName = true }
-          ProfileItem(R.drawable.ic_settings, "Сменить пароль", "") { editPassword = true }
-          ProfileItem(R.drawable.ic_logout, "Выйти", "") { logout = true }
+          if (u.isAdmin) ProfileItem(R.drawable.ic_settings, tr("Админ-панель"), tr("Пользователи, приглашения, загрузки, аккаунты YouTube, треки")) { nav.route("admin") }
+          ProfileItem(R.drawable.ic_queue, tr("История прослушиваний"), tr("Что и когда вы слушали")) { nav.route("history") }
+          ProfileItem(R.drawable.ic_download, tr("Загрузки на сервер"), tr("Что сейчас качается и кто в очереди")) { nav.jobs() }
+          ProfileItem(R.drawable.ic_sparkle, tr("Предложка"), tr("Новая музыка для вас")) { nav.discover() }
+          ProfileItem(R.drawable.ic_palette, tr("Оформление"), tr("Язык, тема, цвета, палитра, контраст, скорость")) { nav.route("settings") }
+          ProfileItem(R.drawable.ic_offline, tr("Скачанные"), tr("Треки, сохранённые в приложении")) { nav.downloads() }
+          ProfileItem(R.drawable.ic_person, tr("Имя и email"), u.displayName.ifBlank { u.username }) { editName = true }
+          ProfileItem(R.drawable.ic_settings, tr("Сменить пароль"), "") { editPassword = true }
+          ProfileItem(R.drawable.ic_logout, tr("Выйти"), "") { logout = true }
           Spacer(Modifier.height(16.dp))
-          Text("AVRmusic для Android ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+          Text(tr("AVRmusic для Android {}", BuildConfig.VERSION_NAME), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
         }
       }
     }
   }
 
   if (editName) FormDialog(
-    "Имя и email",
-    listOf(Field("Как вас называть", u.displayName), Field("Email", u.email)),
+    tr("Имя и email"),
+    listOf(Field(tr("Как вас называть"), u.displayName), Field("Email", u.email)),
     onDismiss = { editName = false },
-  ) { v -> act("Сохранено") { Api.updateProfile(v[0], v[1]) } }
+  ) { v -> act(tr("Сохранено")) { Api.updateProfile(v[0], v[1]) } }
 
   if (editPassword) FormDialog(
-    "Сменить пароль",
-    listOf(Field("Текущий пароль", password = true), Field("Новый пароль", password = true), Field("Новый пароль ещё раз", password = true)),
+    tr("Сменить пароль"),
+    listOf(Field(tr("Текущий пароль"), password = true), Field(tr("Новый пароль"), password = true), Field(tr("Новый пароль ещё раз"), password = true)),
     onDismiss = { editPassword = false },
   ) { v ->
     when {
-      v[1].length < 6 -> App.say("Новый пароль — не короче 6 символов")
-      v[1] != v[2] -> App.say("Пароли не совпадают")
-      else -> act("Пароль изменён") { Api.changePassword(v[0], v[1]) }
+      v[1].length < 6 -> App.say(tr("Новый пароль — не короче 6 символов"))
+      v[1] != v[2] -> App.say(tr("Пароли не совпадают"))
+      else -> act(tr("Пароль изменён")) { Api.changePassword(v[0], v[1]) }
     }
   }
 
-  if (logout) ConfirmDialog("Выйти из аккаунта?", "Музыка остановится, вход понадобится снова.", "Выйти", { logout = false }) {
+  if (logout) ConfirmDialog(tr("Выйти из аккаунта?"), tr("Музыка остановится, вход понадобится снова."), tr("Выйти"), { logout = false }) {
     App.scope.launch {
       PlayerConn.stop()
       Api.logout()
@@ -180,11 +181,11 @@ fun HistoryScreen() {
       LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 56.dp, bottom = 24.dp)) {
         item {
           Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("История", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
-            if (list.isNotEmpty()) IconButton(onClick = { clear = true }) { Ico(R.drawable.ic_close, "Очистить") }
+            Text(tr("История"), style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
+            if (list.isNotEmpty()) IconButton(onClick = { clear = true }) { Ico(R.drawable.ic_close, tr("Очистить")) }
           }
         }
-        if (list.isEmpty()) item { Text("Пока пусто", Modifier.padding(20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        if (list.isEmpty()) item { Text(tr("Пока пусто"), Modifier.padding(20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
         val tracks = list.map { it.track }
         itemsIndexed(list) { i, e ->
           TrackRow(e.track, onClick = { PlayerConn.play(tracks, i, "history") }, subtitle = "${e.track.artists} · ${fmtAgo(e.playedAt)}")
@@ -192,7 +193,7 @@ fun HistoryScreen() {
       }
     }
   }
-  if (clear) ConfirmDialog("Очистить историю?", "Статистика и «Моя волна» начнут учиться заново.", "Очистить", { clear = false }) {
-    act("История очищена", then = { version++ }) { Api.clearHistory() }
+  if (clear) ConfirmDialog(tr("Очистить историю?"), tr("Статистика и «Моя волна» начнут учиться заново."), tr("Очистить"), { clear = false }) {
+    act(tr("История очищена"), then = { version++ }) { Api.clearHistory() }
   }
 }

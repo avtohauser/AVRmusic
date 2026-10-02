@@ -2,6 +2,7 @@
 
 package space.avthsr.music.ui
 
+import space.avthsr.music.tr
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.foundation.background
@@ -84,7 +85,7 @@ fun LoginScreen() {
         if (register) Api.register(email, username, name, password, invite) else Api.login(login, password)
         App.scope.launch { Likes.load() }
       } catch (e: Exception) {
-        error = e.message ?: "Не удалось войти"
+        error = e.message ?: tr("Не удалось войти")
       } finally {
         busy = false
       }
@@ -107,38 +108,38 @@ fun LoginScreen() {
       FlowText("AVRmusic", MaterialTheme.typography.displaySmall, maxLines = 1)
       Text(
         when {
-          setup -> "Первый запуск: создайте аккаунт администратора — он сможет приглашать друзей"
-          register -> if (needInvite) "Регистрация по коду приглашения" else "Регистрация"
-          else -> "Войдите, чтобы слушать, сохранять и скачивать"
+          setup -> tr("Первый запуск: создайте аккаунт администратора — он сможет приглашать друзей")
+          register -> if (needInvite) tr("Регистрация по коду приглашения") else tr("Регистрация")
+          else -> tr("Войдите, чтобы слушать, сохранять и скачивать")
         },
         style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center,
       )
       Spacer(Modifier.height(4.dp))
       val field = Modifier.fillMaxWidth()
       if (register) {
-        if (needInvite) OutlinedTextField(invite, { invite = it }, field, label = { Text("Код приглашения") }, supportingText = { Text("Код выдаёт администратор, он одноразовый") }, singleLine = true)
+        if (needInvite) OutlinedTextField(invite, { invite = it }, field, label = { Text(tr("Код приглашения")) }, supportingText = { Text(tr("Код выдаёт администратор, он одноразовый")) }, singleLine = true)
         OutlinedTextField(
           email, { email = it }, field, label = { Text("Email") }, singleLine = true,
           keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
         )
-        OutlinedTextField(username, { username = it }, field, label = { Text("Имя пользователя") }, singleLine = true)
-        OutlinedTextField(name, { name = it }, field, label = { Text("Как вас называть") }, singleLine = true)
+        OutlinedTextField(username, { username = it }, field, label = { Text(tr("Имя пользователя")) }, singleLine = true)
+        OutlinedTextField(name, { name = it }, field, label = { Text(tr("Как вас называть")) }, singleLine = true)
       } else {
-        OutlinedTextField(login, { login = it }, field, label = { Text("Email или имя пользователя") }, singleLine = true)
+        OutlinedTextField(login, { login = it }, field, label = { Text(tr("Email или имя пользователя")) }, singleLine = true)
       }
       OutlinedTextField(
-        password, { password = it }, field, label = { Text("Пароль") }, singleLine = true,
+        password, { password = it }, field, label = { Text(tr("Пароль")) }, singleLine = true,
         visualTransformation = PasswordVisualTransformation(),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
       )
       error?.let { Text(it, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center) }
       Button(shapes = ButtonDefaults.shapes(), onClick = { submit() }, enabled = !busy, modifier = Modifier.fillMaxWidth().height(56.dp)) {
         if (busy) LoadingIndicator(Modifier.size(32.dp))
-        else Text(if (register) "Создать аккаунт" else "Войти", style = MaterialTheme.typography.titleMedium)
+        else Text(if (register) tr("Создать аккаунт") else tr("Войти"), style = MaterialTheme.typography.titleMedium)
       }
       if (!setup) Row {
         TextButton(onClick = { register = !register; error = null }) {
-          Text(if (register) "Уже есть аккаунт? Войти" else "Есть код приглашения? Регистрация")
+          Text(if (register) tr("Уже есть аккаунт? Войти") else tr("Есть код приглашения? Регистрация"))
         }
       }
     }

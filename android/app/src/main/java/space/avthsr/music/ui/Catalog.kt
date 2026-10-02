@@ -4,6 +4,7 @@
 // it — a track, an album or a whole discography. Also "Предложка", new music picked for the listener.
 package space.avthsr.music.ui
 
+import space.avthsr.music.tr
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.foundation.background
@@ -56,14 +57,14 @@ import space.avthsr.music.player.PlayerConn
 import space.avthsr.music.player.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
-private const val ADDED_HINT = "появится в медиатеке через минуту-другую"
+private val ADDED_HINT get() = tr("появится в медиатеке через минуту-другую")
 
 /** Asks the server to fetch something; [done] gets whether the request was accepted. */
 fun acquire(kind: String, id: Long, what: String, done: (Boolean) -> Unit = {}) {
   App.scope.launch {
     runCatching { Api.acquire(kind, id) }
-      .onSuccess { r -> App.say("$what добавляется на сервер — $ADDED_HINT" + if (r.duplicate) " (уже в очереди)" else ""); done(true) }
-      .onFailure { App.say(it.message ?: "Не получилось"); done(false) }
+      .onSuccess { r -> App.say(tr("{} добавляется на сервер — {}", what, ADDED_HINT) + if (r.duplicate) tr(" (уже в очереди)") else ""); done(true) }
+      .onFailure { App.say(it.message ?: tr("Не получилось")); done(false) }
   }
 }
 
@@ -76,7 +77,7 @@ fun CatalogTrackRow(t: CatalogTrack, index: Int? = null, cover: String? = t.albu
   var state by remember(t.id) { mutableIntStateOf(0) } // 0 idle, 1 sending, 2 sent
   Row(
     Modifier.fillMaxWidth()
-      .clickable(enabled = have != null) { if (have != null) App.scope.launch { runCatching { PlayerConn.playId(have) }.onFailure { App.say(it.message ?: "Не получилось") } } }
+      .clickable(enabled = have != null) { if (have != null) App.scope.launch { runCatching { PlayerConn.playId(have) }.onFailure { App.say(it.message ?: tr("Не получилось")) } } }
       .padding(start = 16.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
     verticalAlignment = Alignment.CenterVertically,
   ) {
@@ -96,15 +97,15 @@ fun CatalogTrackRow(t: CatalogTrack, index: Int? = null, cover: String? = t.albu
     if (have == null && preview != null) {
       val on = previewing == t.id
       IconButton(onClick = { Preview.toggle(context, t.id, preview) }) {
-        Ico(if (on) R.drawable.ic_stop else R.drawable.ic_play, if (on) "Остановить превью" else "Превью 30 сек", tint = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+        Ico(if (on) R.drawable.ic_stop else R.drawable.ic_play, if (on) tr("Остановить превью") else tr("Превью 30 сек"), tint = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
       }
     }
     when {
-      have != null -> Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) { Ico(R.drawable.ic_play, "На сервере", tint = MaterialTheme.colorScheme.primary) }
+      have != null -> Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) { Ico(R.drawable.ic_play, tr("На сервере"), tint = MaterialTheme.colorScheme.primary) }
       state == 1 -> Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) { LoadingIndicator(Modifier.size(30.dp)) }
-      state == 2 -> Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) { Ico(R.drawable.ic_check, "Добавляется", tint = MaterialTheme.colorScheme.primary) }
-      else -> IconButton(onClick = { state = 1; acquire("track", t.id, "Трек") { ok -> state = if (ok) 2 else 0 } }) {
-        Ico(R.drawable.ic_download, "Добавить на сервер")
+      state == 2 -> Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) { Ico(R.drawable.ic_check, tr("Добавляется"), tint = MaterialTheme.colorScheme.primary) }
+      else -> IconButton(onClick = { state = 1; acquire("track", t.id, tr("Трек")) { ok -> state = if (ok) 2 else 0 } }) {
+        Ico(R.drawable.ic_download, tr("Добавить на сервер"))
       }
     }
   }
@@ -131,11 +132,11 @@ fun CatalogAlbumScreen(id: Long) {
           onSubtitle = { nav.catalogArtist(a.artist.id) },
           meta = listOfNotNull(albumType(a.type), a.year?.toString(), tracksWord(a.trackCount), a.label).joinToString(" · "),
         ) {
-          if (a.libraryAlbumId != null) FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { nav.album(a.libraryAlbumId) }) { Text("В медиатеке") }
+          if (a.libraryAlbumId != null) FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { nav.album(a.libraryAlbumId) }) { Text(tr("В медиатеке")) }
           if (a.inLibrary < a.trackCount) {
-            Button(shapes = ButtonDefaults.shapes(), enabled = !sent, onClick = { sent = true; acquire("album", a.id, "Альбом") { ok -> sent = ok } }) {
+            Button(shapes = ButtonDefaults.shapes(), enabled = !sent, onClick = { sent = true; acquire("album", a.id, tr("Альбом")) { ok -> sent = ok } }) {
               Ico(R.drawable.ic_download, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp))
-              Text(if (sent) "Добавляется…" else if (a.inLibrary > 0) "Добавить остальное" else "Добавить на сервер")
+              Text(if (sent) tr("Добавляется…") else if (a.inLibrary > 0) tr("Добавить остальное") else tr("Добавить на сервер"))
             }
           }
         }
@@ -155,28 +156,28 @@ fun CatalogArtistScreen(id: Long) {
     val a = p.artist
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
       item {
-        Header(cover = a.imageUrl, title = a.name, meta = if (a.fans > 0) "${a.fans} поклонников в Deezer" else "", circle = true) {
-          if (a.libraryArtistId != null) FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { nav.artist(a.libraryArtistId) }) { Text("В медиатеке") }
-          Button(shapes = ButtonDefaults.shapes(), onClick = { confirm = true }) { Text("Вся дискография") }
+        Header(cover = a.imageUrl, title = a.name, meta = if (a.fans > 0) tr("{} поклонников в Deezer", a.fans) else "", circle = true) {
+          if (a.libraryArtistId != null) FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { nav.artist(a.libraryArtistId) }) { Text(tr("В медиатеке")) }
+          Button(shapes = ButtonDefaults.shapes(), onClick = { confirm = true }) { Text(tr("Вся дискография")) }
         }
       }
       if (p.topTracks.isNotEmpty()) {
-        item { SectionTitle("Популярные треки") }
+        item { SectionTitle(tr("Популярные треки")) }
         items(p.topTracks.take(10)) { CatalogTrackRow(it) }
       }
-      if (p.albums.isNotEmpty()) item { SectionTitle("Альбомы"); CardRow(p.albums) { CatalogAlbumCard(it, it.year?.toString() ?: "") } }
-      if (p.singles.isNotEmpty()) item { SectionTitle("Синглы и EP"); CardRow(p.singles) { CatalogAlbumCard(it, it.year?.toString() ?: "") } }
+      if (p.albums.isNotEmpty()) item { SectionTitle(tr("Альбомы")); CardRow(p.albums) { CatalogAlbumCard(it, it.year?.toString() ?: "") } }
+      if (p.singles.isNotEmpty()) item { SectionTitle(tr("Синглы и EP")); CardRow(p.singles) { CatalogAlbumCard(it, it.year?.toString() ?: "") } }
       if (p.related.isNotEmpty()) item {
-        SectionTitle("Похожие")
+        SectionTitle(tr("Похожие"))
         CardRow(p.related) { r -> MediaCard(r.name, "", r.imageUrl, { nav.catalogArtist(r.id) }, circle = true, width = 124.dp) }
       }
     }
     if (confirm) AlertDialog(
       onDismissRequest = { confirm = false },
-      title = { Text("Добавить дискографию?") },
-      text = { Text("Сервер скачает все альбомы и синглы ${a.name}. Это может занять время.") },
-      confirmButton = { TextButton(onClick = { confirm = false; acquire("artist", a.id, "Дискография") }) { Text("Добавить") } },
-      dismissButton = { TextButton(onClick = { confirm = false }) { Text("Отмена") } },
+      title = { Text(tr("Добавить дискографию?")) },
+      text = { Text(tr("Сервер скачает все альбомы и синглы {}. Это может занять время.", a.name)) },
+      confirmButton = { TextButton(onClick = { confirm = false; acquire("artist", a.id, tr("Дискография")) }) { Text(tr("Добавить")) } },
+      dismissButton = { TextButton(onClick = { confirm = false }) { Text(tr("Отмена")) } },
     )
   }
   }
@@ -189,23 +190,23 @@ fun DiscoverScreen() {
   val loader = rememberLoad(fresh) { Api.suggestions(fresh > 0) }
   Page { Column(Modifier.fillMaxSize()) {
     Row(Modifier.fillMaxWidth().padding(start = 56.dp, end = 8.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-      FlowText("Предложка", MaterialTheme.typography.headlineMedium, Modifier.weight(1f), maxLines = 1)
-      IconButton(onClick = { fresh++ }) { Ico(R.drawable.ic_refresh, "Обновить") }
+      FlowText(tr("Предложка"), MaterialTheme.typography.headlineMedium, Modifier.weight(1f), maxLines = 1)
+      IconButton(onClick = { fresh++ }) { Ico(R.drawable.ic_refresh, tr("Обновить")) }
     }
     Box(Modifier.weight(1f)) {
       Loaded(loader) { s ->
         if (s.releases.isEmpty() && s.tracks.isEmpty()) {
           Text(
-            "Послушайте и лайкните побольше треков — тогда здесь появятся новинки для вас.",
+            tr("Послушайте и лайкните побольше треков — тогда здесь появятся новинки для вас."),
             Modifier.fillMaxWidth().padding(32.dp), textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
         } else LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
           if (s.releases.isNotEmpty()) item {
-            SectionTitle("Новые релизы", "Свежее от исполнителей, которых вы слушаете")
+            SectionTitle(tr("Новые релизы"), tr("Свежее от исполнителей, которых вы слушаете"))
             CardRow(s.releases) { a -> CatalogAlbumCard(a, a.reason ?: a.artist.name) }
           }
           if (s.tracks.isNotEmpty()) {
-            item { SectionTitle("Может понравиться", "Нажмите ⤓, чтобы добавить трек на сервер") }
+            item { SectionTitle(tr("Может понравиться"), tr("Нажмите ⤓, чтобы добавить трек на сервер")) }
             items(s.tracks) { CatalogTrackRow(it, reason = true) }
           }
         }

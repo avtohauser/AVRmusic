@@ -2,6 +2,7 @@
 
 package space.avthsr.music.ui
 
+import space.avthsr.music.tr
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -132,13 +133,13 @@ fun NowPlayingScreen(onClose: () -> Unit) {
 
     Column(Modifier.fillMaxSize().windowInsetsPadding(SafeBars).padding(horizontal = 24.dp, vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
       Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = onClose) { Ico(R.drawable.ic_expand_more, "Свернуть") }
+        IconButton(onClick = onClose) { Ico(R.drawable.ic_expand_more, tr("Свернуть")) }
         Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-          Text(if (inWave) "Моя волна" else "Сейчас играет", style = MaterialTheme.typography.labelLarge, color = cs.onSurfaceVariant)
+          Text(if (inWave) tr("Моя волна") else tr("Сейчас играет"), style = MaterialTheme.typography.labelLarge, color = cs.onSurfaceVariant)
           if (inWave) Text(Queue.modes.firstOrNull { it.id == Queue.waveMode.value }?.label ?: "", style = MaterialTheme.typography.labelSmall, color = cs.primary)
         }
         Box {
-          IconButton(onClick = { menu = true }, enabled = t != null) { Ico(R.drawable.ic_more, "Ещё") }
+          IconButton(onClick = { menu = true }, enabled = t != null) { Ico(R.drawable.ic_more, tr("Ещё")) }
           if (t != null) TrackMenu(t, menu, { menu = false })
         }
       }
@@ -158,7 +159,7 @@ fun NowPlayingScreen(onClose: () -> Unit) {
 
       Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
-          Text(t?.title ?: "Ничего не играет", style = MaterialTheme.typography.headlineSmall, maxLines = 1, modifier = Modifier.basicMarquee())
+          Text(t?.title ?: tr("Ничего не играет"), style = MaterialTheme.typography.headlineSmall, maxLines = 1, modifier = Modifier.basicMarquee())
           Text(
             t?.artists ?: "", style = MaterialTheme.typography.titleMedium, color = cs.primary, maxLines = 1, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable(enabled = !t?.artist?.id.isNullOrEmpty()) {
@@ -199,18 +200,18 @@ fun NowPlayingScreen(onClose: () -> Unit) {
       Spacer(Modifier.height(10.dp))
       Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = { PlayerConn.toggleShuffle() }, shapes = IconButtonDefaults.shapes()) {
-          Ico(R.drawable.ic_shuffle, "Вперемешку", tint = if (s.shuffle) cs.primary else cs.onSurfaceVariant)
+          Ico(R.drawable.ic_shuffle, tr("Вперемешку"), tint = if (s.shuffle) cs.primary else cs.onSurfaceVariant)
         }
         FilledTonalIconButton(onClick = { PlayerConn.prev() }, modifier = Modifier.size(64.dp), shapes = IconButtonDefaults.shapes()) {
-          Ico(R.drawable.ic_skip_prev, "Предыдущий", Modifier.size(32.dp))
+          Ico(R.drawable.ic_skip_prev, tr("Предыдущий"), Modifier.size(32.dp))
         }
         MorphPlayButton(s.playing, { PlayerConn.toggle() }, 96.dp)
         FilledTonalIconButton(onClick = { PlayerConn.next() }, modifier = Modifier.size(64.dp), shapes = IconButtonDefaults.shapes()) {
-          Ico(R.drawable.ic_skip_next, "Следующий", Modifier.size(32.dp))
+          Ico(R.drawable.ic_skip_next, tr("Следующий"), Modifier.size(32.dp))
         }
         IconButton(onClick = { PlayerConn.cycleRepeat() }, shapes = IconButtonDefaults.shapes()) {
           Ico(
-            if (s.repeat == Player.REPEAT_MODE_ONE) R.drawable.ic_repeat_one else R.drawable.ic_repeat, "Повтор",
+            if (s.repeat == Player.REPEAT_MODE_ONE) R.drawable.ic_repeat_one else R.drawable.ic_repeat, tr("Повтор"),
             tint = if (s.repeat == Player.REPEAT_MODE_OFF) cs.onSurfaceVariant else cs.primary,
           )
         }
@@ -219,24 +220,24 @@ fun NowPlayingScreen(onClose: () -> Unit) {
       Spacer(Modifier.height(14.dp))
       HorizontalFloatingToolbar(expanded = true, modifier = Modifier.align(Alignment.CenterHorizontally)) {
         if (inWave && t != null) {
-          IconButton(onClick = { PlayerConn.dislike(t) }, shapes = IconButtonDefaults.shapes()) { Ico(R.drawable.ic_thumb_down, "Не нравится") }
+          IconButton(onClick = { PlayerConn.dislike(t) }, shapes = IconButtonDefaults.shapes()) { Ico(R.drawable.ic_thumb_down, tr("Не нравится")) }
         }
         if (t != null) LikeButton("track", t.id)
-        IconButton(onClick = { lyricsOpen = true }, enabled = t?.hasLyrics == true, shapes = IconButtonDefaults.shapes()) { Ico(R.drawable.ic_lyrics, "Текст") }
-        IconButton(onClick = { queueOpen = true }, shapes = IconButtonDefaults.shapes()) { Ico(R.drawable.ic_queue, "Очередь") }
+        IconButton(onClick = { lyricsOpen = true }, enabled = t?.hasLyrics == true, shapes = IconButtonDefaults.shapes()) { Ico(R.drawable.ic_lyrics, tr("Текст")) }
+        IconButton(onClick = { queueOpen = true }, shapes = IconButtonDefaults.shapes()) { Ico(R.drawable.ic_queue, tr("Очередь")) }
         TextButton(onClick = { PlayerConn.cycleSpeed() }) { Text("${fmtSpeed(speed)}×", style = MaterialTheme.typography.labelLarge) }
         Box {
           IconButton(onClick = { sleepMenu = true }, shapes = IconButtonDefaults.shapes()) {
-            Ico(R.drawable.ic_bedtime, "Таймер сна", tint = if (sleepAt != null) cs.primary else LocalContentColor.current)
+            Ico(R.drawable.ic_bedtime, tr("Таймер сна"), tint = if (sleepAt != null) cs.primary else LocalContentColor.current)
           }
           DropdownMenu(expanded = sleepMenu, onDismissRequest = { sleepMenu = false }) {
             sleepAt?.let { at ->
-              Text("Остановится в ${java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(at))}", Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.labelLarge, color = cs.primary)
+              Text(tr("Остановится в {}", (java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(at)))), Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.labelLarge, color = cs.primary)
             }
             listOf(15, 30, 45, 60, 90).forEach { m ->
-              DropdownMenuItem(text = { Text("Через $m мин") }, onClick = { sleepMenu = false; PlayerConn.setSleep(m); App.say("Музыка остановится через $m мин") })
+              DropdownMenuItem(text = { Text(tr("Через {} мин", m)) }, onClick = { sleepMenu = false; PlayerConn.setSleep(m); App.say(tr("Музыка остановится через {} мин", m)) })
             }
-            if (sleepAt != null) DropdownMenuItem(text = { Text("Выключить таймер") }, onClick = { sleepMenu = false; PlayerConn.setSleep(null) })
+            if (sleepAt != null) DropdownMenuItem(text = { Text(tr("Выключить таймер")) }, onClick = { sleepMenu = false; PlayerConn.setSleep(null) })
           }
         }
       }
@@ -255,11 +256,11 @@ private fun QueueSheet(s: PlayerUi, onDismiss: () -> Unit) {
   var offset by remember { mutableFloatStateOf(0f) }
   ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
     Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-      Text("Очередь · ${s.queue.size}", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-      TextButton(onClick = { PlayerConn.clearQueue() }, enabled = s.queue.size > 1) { Ico(R.drawable.ic_clear_all, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Очистить") }
+      Text(tr("Очередь · {}", s.queue.size), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+      TextButton(onClick = { PlayerConn.clearQueue() }, enabled = s.queue.size > 1) { Ico(R.drawable.ic_clear_all, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(tr("Очистить")) }
     }
     Text(
-      "Перетаскивайте за ≡, чтобы поменять порядок", Modifier.padding(horizontal = 20.dp),
+      tr("Перетаскивайте за ≡, чтобы поменять порядок"), Modifier.padding(horizontal = 20.dp),
       style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant,
     )
     val list = rememberLazyListState(initialFirstVisibleItemIndex = max(0, s.index - 1))
@@ -289,14 +290,14 @@ private fun QueueSheet(s: PlayerUi, onDismiss: () -> Unit) {
               ) { change, amount -> change.consume(); offset += amount.y }
             },
             contentAlignment = Alignment.Center,
-          ) { Ico(R.drawable.ic_drag, "Перетащить", tint = cs.onSurfaceVariant) }
+          ) { Ico(R.drawable.ic_drag, tr("Перетащить"), tint = cs.onSurfaceVariant) }
           Cover(t.coverUrl, Modifier.size(46.dp), RoundedCornerShape(12.dp))
           Spacer(Modifier.width(12.dp))
           Column(Modifier.weight(1f)) {
             Text(t.title, maxLines = 1, overflow = TextOverflow.Ellipsis, color = if (current) cs.primary else cs.onSurface, style = MaterialTheme.typography.titleSmall)
             Text(t.artists, maxLines = 1, overflow = TextOverflow.Ellipsis, color = cs.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
           }
-          if (!current) IconButton(onClick = { PlayerConn.removeAt(i) }) { Ico(R.drawable.ic_close, "Убрать", tint = cs.onSurfaceVariant) }
+          if (!current) IconButton(onClick = { PlayerConn.removeAt(i) }) { Ico(R.drawable.ic_close, tr("Убрать"), tint = cs.onSurfaceVariant) }
         }
       }
     }
@@ -336,7 +337,7 @@ private fun LyricsSheet(t: Track, position: () -> Long, onDismiss: () -> Unit) {
           }
         } else {
           Text(
-            l.plain?.takeIf { it.isNotBlank() } ?: "Текста пока нет",
+            l.plain?.takeIf { it.isNotBlank() } ?: tr("Текста пока нет"),
             Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
             style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Start,
           )

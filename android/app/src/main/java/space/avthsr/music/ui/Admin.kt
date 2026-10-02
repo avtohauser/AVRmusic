@@ -2,6 +2,7 @@
 
 package space.avthsr.music.ui
 
+import space.avthsr.music.tr
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ButtonDefaults
@@ -108,14 +109,14 @@ import space.avthsr.music.api.uploadTracks
 import space.avthsr.music.api.wakeYtAccount
 import space.avthsr.music.api.ytAccounts
 
-private val adminTabs = listOf("Обзор", "Пользователи", "Приглашения", "Загрузки", "YouTube", "Треки", "Ошибки")
+private val adminTabs get() = listOf(tr("Обзор"), tr("Пользователи"), tr("Приглашения"), tr("Загрузки"), "YouTube", tr("Треки"), tr("Ошибки"))
 
 @Composable
 fun AdminScreen() {
   var tab by rememberSaveable { mutableIntStateOf(0) }
   Page {
     Column(Modifier.fillMaxSize()) {
-      FlowText("Админ-панель", MaterialTheme.typography.headlineMedium, Modifier.padding(start = 60.dp, top = 10.dp, bottom = 6.dp), maxLines = 1)
+      FlowText(tr("Админ-панель"), MaterialTheme.typography.headlineMedium, Modifier.padding(start = 60.dp, top = 10.dp, bottom = 6.dp), maxLines = 1)
       Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         adminTabs.forEachIndexed { i, label -> FilterChip(selected = tab == i, onClick = { tab = i }, label = { Text(label) }) }
       }
@@ -145,37 +146,37 @@ private fun AdminOverview() {
       item {
         StatGrid(
           listOf(
-            s.tracks.toString() to "треков", s.albums.toString() to "альбомов",
-            s.artists.toString() to "исполнителей", s.users.toString() to "пользователей",
-            s.plays.toString() to "прослушиваний", fmtBytes(s.storageBytes) to "музыки на диске",
-            s.withLyrics.toString() to "с текстом", s.withCanvas.toString() to "с канвасом",
+            s.tracks.toString() to tr("треков"), s.albums.toString() to tr("альбомов"),
+            s.artists.toString() to tr("исполнителей"), s.users.toString() to tr("пользователей"),
+            s.plays.toString() to tr("прослушиваний"), fmtBytes(s.storageBytes) to tr("музыки на диске"),
+            s.withLyrics.toString() to tr("с текстом"), s.withCanvas.toString() to tr("с канвасом"),
           ),
         )
       }
     }
     activity.data?.let { a ->
       item {
-        SectionTitle("Активность")
+        SectionTitle(tr("Активность"))
         StatGrid(
           listOf(
-            a.activeUsers7d.toString() to "слушали за 7 дней",
-            "${a.jobs24h.done} / ${a.jobs24h.error}" to "задач за сутки: готово / ошибок",
-            "${a.jobs24h.running}" to "задач идёт", "${a.jobs24h.queued}" to "в очереди",
+            a.activeUsers7d.toString() to tr("слушали за 7 дней"),
+            "${a.jobs24h.done} / ${a.jobs24h.error}" to tr("задач за сутки: готово / ошибок"),
+            "${a.jobs24h.running}" to tr("задач идёт"), "${a.jobs24h.queued}" to tr("в очереди"),
           ),
         )
         Spacer(Modifier.height(12.dp))
-        Bars(a.daily.map { it.plays.toFloat() }, "Прослушивания за 30 дней · всего ${a.daily.sumOf { it.plays }}, ${fmtListened(a.daily.sumOf { it.ms })}")
+        Bars(a.daily.map { it.plays.toFloat() }, tr("Прослушивания за 30 дней · всего {}, {}", (a.daily.sumOf { it.plays }), (fmtListened(a.daily.sumOf { it.ms }))))
       }
       if (a.topTracks.isNotEmpty()) {
-        item { SectionTitle("Топ треков за месяц") }
+        item { SectionTitle(tr("Топ треков за месяц")) }
         items(a.topTracks) { t -> SimpleRow(t.title, t.artist, "${t.plays}") }
       }
       if (a.topArtists.isNotEmpty()) {
-        item { SectionTitle("Топ исполнителей") }
+        item { SectionTitle(tr("Топ исполнителей")) }
         items(a.topArtists) { t -> SimpleRow(t.name, "", "${t.plays}") }
       }
       if (a.sources.isNotEmpty()) {
-        item { SectionTitle("Откуда музыка") }
+        item { SectionTitle(tr("Откуда музыка")) }
         items(a.sources) { s -> SimpleRow(s.source, tracksWord(s.tracks), fmtBytes(s.bytes)) }
       }
     }
@@ -199,7 +200,7 @@ private fun SimpleRow(title: String, subtitle: String, trailing: String, onClick
 
 /* ---------- users ---------- */
 
-private val userSorts = listOf("Активность", "Прослушивания", "Добавили", "Скачивания")
+private val userSorts get() = listOf(tr("Активность"), tr("Прослушивания"), tr("Добавили"), tr("Скачивания"))
 
 @Composable
 private fun AdminUsers() {
@@ -234,11 +235,11 @@ private fun UserRow(u: AdminUser, onClick: () -> Unit) {
     Column(Modifier.weight(1f)) {
       Row(verticalAlignment = Alignment.CenterVertically) {
         Text(u.displayName.ifBlank { u.username }, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-        if (u.role == "admin") Badge("админ", cs.primary)
-        if (u.disabled) Badge("заблокирован", cs.error)
+        if (u.role == "admin") Badge(tr("админ"), cs.primary)
+        if (u.disabled) Badge(tr("заблокирован"), cs.error)
       }
       Text(
-        "@${u.username} · был ${fmtAgo(u.lastSeenAt)} · ${u.plays} прослушиваний · добавил ${u.added} · скачал ${u.downloads}",
+        tr("@{} · был {} · {} прослушиваний · добавил {} · скачал {}", u.username, (fmtAgo(u.lastSeenAt)), u.plays, u.added, u.downloads),
         style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis,
       )
     }
@@ -275,7 +276,7 @@ fun AdminUserScreen(id: String) {
             Column {
               Text(u.displayName.ifBlank { u.username }, style = MaterialTheme.typography.headlineSmall)
               Text("@${u.username} · ${u.email}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-              Text("с нами с ${fmtDateTime(u.createdAt)} · был ${fmtAgo(u.lastSeenAt)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+              Text(tr("с нами с {} · был {}", (fmtDateTime(u.createdAt)), (fmtAgo(u.lastSeenAt))), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
           }
         }
@@ -283,72 +284,72 @@ fun AdminUserScreen(id: String) {
           Spacer(Modifier.height(12.dp))
           StatGrid(
             listOf(
-              u.plays.toString() to "прослушиваний", fmtListened(u.msListened) to "музыки",
-              u.plays7d.toString() to "за 7 дней", u.likes.toString() to "лайков",
-              u.added.toString() to "добавил треков", "${u.downloads} · ${fmtBytes(u.downloadBytes)}" to "скачал",
-              u.playlists.toString() to "плейлистов", "${d.jobs.done} / ${d.jobs.error}" to "задач: готово / ошибок",
+              u.plays.toString() to tr("прослушиваний"), fmtListened(u.msListened) to tr("музыки"),
+              u.plays7d.toString() to tr("за 7 дней"), u.likes.toString() to tr("лайков"),
+              u.added.toString() to tr("добавил треков"), "${u.downloads} · ${fmtBytes(u.downloadBytes)}" to tr("скачал"),
+              u.playlists.toString() to tr("плейлистов"), "${d.jobs.done} / ${d.jobs.error}" to tr("задач: готово / ошибок"),
             ),
           )
           Spacer(Modifier.height(12.dp))
-          Bars(d.daily.map { it.plays.toFloat() }, "Прослушивания по дням")
+          Bars(d.daily.map { it.plays.toFloat() }, tr("Прослушивания по дням"))
         }
         item {
-          SectionTitle("Права")
+          SectionTitle(tr("Права"))
           Column(Modifier.padding(horizontal = 12.dp)) {
-            CheckRow("Администратор", u.role == "admin") { on ->
-              if (u.id == me) App.say("Нельзя снять права с самого себя")
-              else patch(if (on) "Теперь администратор" else "Права сняты", buildJsonObject { put("role", if (on) "admin" else "user") })
+            CheckRow(tr("Администратор"), u.role == "admin") { on ->
+              if (u.id == me) App.say(tr("Нельзя снять права с самого себя"))
+              else patch(if (on) tr("Теперь администратор") else tr("Права сняты"), buildJsonObject { put("role", if (on) "admin" else "user") })
             }
-            CheckRow("Может добавлять треки на сервер", u.canAcquire != false) { on -> patch("Сохранено", buildJsonObject { put("canAcquire", on) }) }
-            CheckRow("Заблокирован", u.disabled) { on ->
-              if (u.id == me) App.say("Нельзя заблокировать самого себя")
-              else patch(if (on) "Заблокирован и вышел отовсюду" else "Разблокирован", buildJsonObject { put("disabled", on) })
+            CheckRow(tr("Может добавлять треки на сервер"), u.canAcquire != false) { on -> patch(tr("Сохранено"), buildJsonObject { put("canAcquire", on) }) }
+            CheckRow(tr("Заблокирован"), u.disabled) { on ->
+              if (u.id == me) App.say(tr("Нельзя заблокировать самого себя"))
+              else patch(if (on) tr("Заблокирован и вышел отовсюду") else tr("Разблокирован"), buildJsonObject { put("disabled", on) })
             }
           }
           Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { confirmReset = true }) { Text("Сбросить пароль") }
-            if (u.id != me) OutlinedButton(shapes = ButtonDefaults.shapes(), onClick = { confirmDelete = true }) { Text("Удалить", color = MaterialTheme.colorScheme.error) }
+            FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { confirmReset = true }) { Text(tr("Сбросить пароль")) }
+            if (u.id != me) OutlinedButton(shapes = ButtonDefaults.shapes(), onClick = { confirmDelete = true }) { Text(tr("Удалить"), color = MaterialTheme.colorScheme.error) }
           }
         }
         if (d.topArtists.isNotEmpty()) {
-          item { SectionTitle("Любимые исполнители") }
+          item { SectionTitle(tr("Любимые исполнители")) }
           items(d.topArtists) { a -> SimpleRow(a.name, "", "${a.plays}") { nav.artist(a.id) } }
         }
         if (d.topTracks.isNotEmpty()) {
-          item { SectionTitle("Любимые треки") }
+          item { SectionTitle(tr("Любимые треки")) }
           items(d.topTracks) { t -> SimpleRow(t.title, t.artist, "${t.plays}") }
         }
         if (d.recentPlays.isNotEmpty()) {
-          item { SectionTitle("Недавно слушал") }
+          item { SectionTitle(tr("Недавно слушал")) }
           items(d.recentPlays) { p -> SimpleRow(p.title, "${p.artist} · ${fmtAgo(p.playedAt)}", fmtTime(p.msPlayed)) }
         }
         if (d.added.isNotEmpty()) {
-          item { SectionTitle("Добавил на сервер") }
+          item { SectionTitle(tr("Добавил на сервер")) }
           items(d.added) { a -> SimpleRow(a.title, "${a.artist} · ${fmtAgo(a.createdAt)}", "") }
         }
         if (d.downloads.isNotEmpty()) {
-          item { SectionTitle("Скачал") }
+          item { SectionTitle(tr("Скачал")) }
           items(d.downloads) { x ->
-            val kind = when (x.kind) { "album" -> "альбом"; "playlist" -> "плейлист"; "offline" -> "офлайн"; else -> "файл" }
+            val kind = when (x.kind) { "album" -> tr("альбом"); "playlist" -> tr("плейлист"); "offline" -> tr("офлайн"); else -> tr("файл") }
             SimpleRow(x.title ?: x.refId ?: "—", "$kind · ${fmtAgo(x.createdAt)}", x.bytes?.let { fmtBytes(it) } ?: "")
           }
         }
       }
-      if (confirmReset) ConfirmDialog("Сбросить пароль?", "Будет создан новый временный пароль, ${u.username} выйдет отовсюду.", "Сбросить", { confirmReset = false }) {
+      if (confirmReset) ConfirmDialog(tr("Сбросить пароль?"), tr("Будет создан новый временный пароль, {} выйдет отовсюду.", u.username), tr("Сбросить"), { confirmReset = false }) {
         act { password = Api.adminResetPassword(id) }
       }
-      if (confirmDelete) ConfirmDialog("Удалить ${u.username}?", "Аккаунт, его лайки, плейлисты и история удалятся навсегда.", "Удалить", { confirmDelete = false }) {
-        act("Пользователь удалён", then = { nav.back() }) { Api.adminDeleteUser(id) }
+      if (confirmDelete) ConfirmDialog(tr("Удалить {}?", u.username), tr("Аккаунт, его лайки, плейлисты и история удалятся навсегда."), tr("Удалить"), { confirmDelete = false }) {
+        act(tr("Пользователь удалён"), then = { nav.back() }) { Api.adminDeleteUser(id) }
       }
     }
   }
   password?.let { p ->
     AlertDialog(
       onDismissRequest = { password = null },
-      title = { Text("Новый пароль") },
+      title = { Text(tr("Новый пароль")) },
       text = { SelectionContainer { Text(p, style = MaterialTheme.typography.headlineSmall) } },
-      confirmButton = { TextButton(onClick = { clipboard.setText(AnnotatedString(p)); App.say("Скопировано"); password = null }) { Text("Скопировать") } },
-      dismissButton = { TextButton(onClick = { password = null }) { Text("Закрыть") } },
+      confirmButton = { TextButton(onClick = { clipboard.setText(AnnotatedString(p)); App.say(tr("Скопировано")); password = null }) { Text(tr("Скопировать")) } },
+      dismissButton = { TextButton(onClick = { password = null }) { Text(tr("Закрыть")) } },
     )
   }
 }
@@ -367,25 +368,25 @@ private fun AdminInvites() {
   var created by remember { mutableStateOf<Invite?>(null) }
   fun share(code: String) {
     val send = Intent(Intent.ACTION_SEND).setType("text/plain")
-      .putExtra(Intent.EXTRA_TEXT, "Приглашение в AVRmusic: ${inviteLink(code)}\nКод: $code")
-    context.startActivity(Intent.createChooser(send, "Отправить приглашение"))
+      .putExtra(Intent.EXTRA_TEXT, tr("Приглашение в AVRmusic: {}\nКод: {}", (inviteLink(code)), code))
+    context.startActivity(Intent.createChooser(send, tr("Отправить приглашение")))
   }
   LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
     item {
       Text(
-        "Каждый код одноразовый: после регистрации он сгорает. Ссылка открывает регистрацию с уже вписанным кодом.",
+        tr("Каждый код одноразовый: после регистрации он сгорает. Ссылка открывает регистрацию с уже вписанным кодом."),
         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
       Spacer(Modifier.height(8.dp))
-      Button(shapes = ButtonDefaults.shapes(), onClick = { create = true }) { Ico(R.drawable.ic_add, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Создать код") }
+      Button(shapes = ButtonDefaults.shapes(), onClick = { create = true }) { Ico(R.drawable.ic_add, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(tr("Создать код")) }
     }
     items(loader.data.orEmpty()) { inv ->
       val expired = inv.expiresAt != null && (parseTime(inv.expiresAt) ?: Long.MAX_VALUE) < System.currentTimeMillis()
       val status = when {
-        inv.usedAt != null -> "использован: ${inv.usedBy?.displayName ?: inv.usedBy?.username ?: ""} · ${fmtAgo(inv.usedAt)}"
-        expired -> "истёк"
-        inv.expiresAt != null -> "активен до ${fmtDateTime(inv.expiresAt)}"
-        else -> "активен"
+        inv.usedAt != null -> tr("использован: {} · {}", (inv.usedBy?.displayName ?: inv.usedBy?.username ?: ""), (fmtAgo(inv.usedAt)))
+        expired -> tr("истёк")
+        inv.expiresAt != null -> tr("активен до {}", (fmtDateTime(inv.expiresAt)))
+        else -> tr("активен")
       }
       Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.surfaceContainer).padding(start = 16.dp, top = 8.dp, bottom = 8.dp),
@@ -396,23 +397,23 @@ private fun AdminInvites() {
           Text(listOfNotNull(inv.note, status).joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         if (inv.usedAt == null && !expired) {
-          IconButton(onClick = { clipboard.setText(AnnotatedString(inviteLink(inv.code))); App.say("Ссылка скопирована") }) { Ico(R.drawable.ic_playlist_add, "Скопировать ссылку") }
-          IconButton(onClick = { share(inv.code) }) { Ico(R.drawable.ic_web, "Отправить") }
+          IconButton(onClick = { clipboard.setText(AnnotatedString(inviteLink(inv.code))); App.say(tr("Ссылка скопирована")) }) { Ico(R.drawable.ic_playlist_add, tr("Скопировать ссылку")) }
+          IconButton(onClick = { share(inv.code) }) { Ico(R.drawable.ic_web, tr("Отправить")) }
         }
-        IconButton(onClick = { act("Код удалён", then = { version++ }) { Api.deleteInvite(inv.code) } }) { Ico(R.drawable.ic_close, "Удалить") }
+        IconButton(onClick = { act(tr("Код удалён"), then = { version++ }) { Api.deleteInvite(inv.code) } }) { Ico(R.drawable.ic_close, tr("Удалить")) }
       }
     }
   }
-  if (create) FormDialog("Новый код", listOf(Field("Для кого (необязательно)"), Field("Срок, дней (пусто — бессрочно)", number = true)), "Создать", { create = false }) { v ->
+  if (create) FormDialog(tr("Новый код"), listOf(Field(tr("Для кого (необязательно)")), Field(tr("Срок, дней (пусто — бессрочно)"), number = true)), tr("Создать"), { create = false }) { v ->
     act(then = { version++ }) { created = Api.createInvite(v[0], v[1].trim().toIntOrNull()) }
   }
   created?.let { inv ->
     AlertDialog(
       onDismissRequest = { created = null },
-      title = { Text("Код создан") },
+      title = { Text(tr("Код создан")) },
       text = { SelectionContainer { Text("${inv.code}\n\n${inviteLink(inv.code)}") } },
-      confirmButton = { TextButton(onClick = { share(inv.code); created = null }) { Text("Отправить") } },
-      dismissButton = { TextButton(onClick = { clipboard.setText(AnnotatedString(inviteLink(inv.code))); App.say("Ссылка скопирована"); created = null }) { Text("Скопировать") } },
+      confirmButton = { TextButton(onClick = { share(inv.code); created = null }) { Text(tr("Отправить")) } },
+      dismissButton = { TextButton(onClick = { clipboard.setText(AnnotatedString(inviteLink(inv.code))); App.say(tr("Ссылка скопирована")); created = null }) { Text(tr("Скопировать")) } },
     )
   }
 }
@@ -438,59 +439,59 @@ private fun AdminDownloads() {
   val caps by produceState<space.avthsr.music.api.Capabilities?>(null) { value = runCatching { Api.capabilities() }.getOrNull() }
   LazyColumn(Modifier.fillMaxSize().imePadding(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
     item {
-      Text("Загрузить файлы", style = MaterialTheme.typography.titleLarge)
-      Text("Аудиофайлы с телефона попадут в библиотеку с тегами из файлов.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+      Text(tr("Загрузить файлы"), style = MaterialTheme.typography.titleLarge)
+      Text(tr("Аудиофайлы с телефона попадут в библиотеку с тегами из файлов."), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
       Spacer(Modifier.height(6.dp))
       Row(verticalAlignment = Alignment.CenterVertically) {
-        Button(shapes = ButtonDefaults.shapes(), onClick = { pick.launch("audio/*") }, enabled = !uploading) { Ico(R.drawable.ic_add, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Выбрать файлы") }
-        if (uploading) { Spacer(Modifier.width(12.dp)); LoadingIndicator(Modifier.size(32.dp)); Text("  загружается…") }
+        Button(shapes = ButtonDefaults.shapes(), onClick = { pick.launch("audio/*") }, enabled = !uploading) { Ico(R.drawable.ic_add, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(tr("Выбрать файлы")) }
+        if (uploading) { Spacer(Modifier.width(12.dp)); LoadingIndicator(Modifier.size(32.dp)); Text(tr("  загружается…")) }
       }
     }
     item {
       Spacer(Modifier.height(8.dp))
-      Text("Импорт по ссылке", style = MaterialTheme.typography.titleLarge)
-      OutlinedTextField(url, { url = it }, Modifier.fillMaxWidth(), label = { Text("Ссылка (YouTube, SoundCloud, …)") }, singleLine = true)
+      Text(tr("Импорт по ссылке"), style = MaterialTheme.typography.titleLarge)
+      OutlinedTextField(url, { url = it }, Modifier.fillMaxWidth(), label = { Text(tr("Ссылка (YouTube, SoundCloud, …)")) }, singleLine = true)
       Row(verticalAlignment = Alignment.CenterVertically) {
-        CheckRow("Как видео (канвас)", video) { video = it }
+        CheckRow(tr("Как видео (канвас)"), video) { video = it }
       }
-      Button(shapes = ButtonDefaults.shapes(), enabled = url.isNotBlank(), onClick = { val u = url; act("Добавлено в очередь", then = { url = "" }) { Api.importUrl(u, video) } }) { Text("Импортировать") }
+      Button(shapes = ButtonDefaults.shapes(), enabled = url.isNotBlank(), onClick = { val u = url; act(tr("Добавлено в очередь"), then = { url = "" }) { Api.importUrl(u, video) } }) { Text(tr("Импортировать")) }
     }
     item {
       Spacer(Modifier.height(8.dp))
       Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = {
-          act { val r = Api.scanLibrary(); App.say("Папка ${r.dir}: импортировано ${r.imported}, пропущено ${r.skipped.size}") }
-        }) { Text("Сканировать папку") }
-        FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { act("Поиск переиндексирован") { Api.reindex() } }) { Text("Переиндексировать поиск") }
-        FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { act("Ищу недостающие тексты") { Api.fetchMissingLyrics() } }) { Text("Найти тексты") }
-        FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { act("Канвасы в очереди") { Api.fetchMissingCanvases() } }) { Text("Нарезать канвасы") }
+          act { val r = Api.scanLibrary(); App.say(tr("Папка {}: импортировано {}, пропущено {}", r.dir, r.imported, r.skipped.size)) }
+        }) { Text(tr("Сканировать папку")) }
+        FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { act(tr("Поиск переиндексирован")) { Api.reindex() } }) { Text(tr("Переиндексировать поиск")) }
+        FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { act(tr("Ищу недостающие тексты")) { Api.fetchMissingLyrics() } }) { Text(tr("Найти тексты")) }
+        FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { act(tr("Канвасы в очереди")) { Api.fetchMissingCanvases() } }) { Text(tr("Нарезать канвасы")) }
       }
       caps?.let { c ->
         Spacer(Modifier.height(10.dp))
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.surfaceContainer).padding(14.dp)) {
-          Text("Инструменты сервера", style = MaterialTheme.typography.titleSmall)
+          Text(tr("Инструменты сервера"), style = MaterialTheme.typography.titleSmall)
           Row(verticalAlignment = Alignment.CenterVertically) { Dot(c.ytdlp); Text("  yt-dlp ${c.ytdlpVersion ?: ""}", style = MaterialTheme.typography.bodySmall) }
           Row(verticalAlignment = Alignment.CenterVertically) { Dot(c.ffmpeg); Text("  ffmpeg", style = MaterialTheme.typography.bodySmall) }
-          c.musicDir?.let { Text("Папка музыки: $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+          c.musicDir?.let { Text(tr("Папка музыки: {}", it), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
           c.sources.forEach { src ->
             Row(verticalAlignment = Alignment.CenterVertically) {
               Dot(src.ok && src.enabled)
-              Text("  ${src.label}" + (if (!src.enabled) " · выключен" else "") + (src.reason?.let { " · $it" } ?: ""), style = MaterialTheme.typography.bodySmall)
+              Text("  ${src.label}" + (if (!src.enabled) tr(" · выключен") else "") + (src.reason?.let { " · $it" } ?: ""), style = MaterialTheme.typography.bodySmall)
             }
           }
         }
       }
-      SectionTitle("Задачи")
+      SectionTitle(tr("Задачи"))
     }
     val active = jobs.filter { it.status == "running" || it.status == "queued" }.sortedWith(compareBy({ if (it.status == "running") 0 else 1 }, { it.position ?: Int.MAX_VALUE }))
     val done = jobs.filter { it.status == "done" || it.status == "error" }.take(30)
-    if (jobs.isEmpty()) item { Text("Задач нет", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+    if (jobs.isEmpty()) item { Text(tr("Задач нет"), color = MaterialTheme.colorScheme.onSurfaceVariant) }
     items(active + done) { j -> ServerJobCard(j, open == j.id, { open = if (open == j.id) null else j.id }) }
   }
   if (files.isNotEmpty()) FormDialog(
-    "Загрузить ${files.size} ${if (files.size == 1) "файл" else "файлов"}",
-    listOf(Field("Исполнитель (если в тегах нет)"), Field("Альбом"), Field("Жанр"), Field("Год", number = true)),
-    "Загрузить",
+    tr("Загрузить {} {}", files.size, (if (files.size == 1) tr("файл") else tr("файлов"))),
+    listOf(Field(tr("Исполнитель (если в тегах нет)")), Field(tr("Альбом")), Field(tr("Жанр")), Field(tr("Год"), number = true)),
+    tr("Загрузить"),
     { files = emptyList() },
   ) { v ->
     val list = files
@@ -499,7 +500,7 @@ private fun AdminDownloads() {
     act(then = { uploading = false }) {
       try {
         val r = Api.uploadTracks(context, list, mapOf("artist" to v[0], "album" to v[1], "genre" to v[2], "year" to v[3]))
-        App.say("Загружено: ${r.imported.size}" + if (r.skipped.isNotEmpty()) ", пропущено: ${r.skipped.size} (${r.skipped.first().reason})" else "")
+        App.say(tr("Загружено: {}", r.imported.size) + if (r.skipped.isNotEmpty()) tr(", пропущено: {} ({})", r.skipped.size, (r.skipped.first().reason)) else "")
       } finally { uploading = false }
     }
   }
@@ -509,12 +510,12 @@ private fun AdminDownloads() {
 private fun ServerJobCard(j: ServerJob, expanded: Boolean, toggle: () -> Unit) {
   val cs = MaterialTheme.colorScheme
   val s = j.stats
-  val kind = when (j.kind) { "acquire" -> "Каталог"; "canvas" -> "Канвасы"; "heal" -> "Проверка звука"; "url" -> "Ссылка"; "lyrics" -> "Тексты"; else -> j.kind }
+  val kind = when (j.kind) { "acquire" -> tr("Каталог"); "canvas" -> tr("Канвасы"); "heal" -> tr("Проверка звука"); "url" -> tr("Ссылка"); "lyrics" -> tr("Тексты"); else -> j.kind }
   val status = when (j.status) {
-    "running" -> "идёт ${j.progress.toInt()}%" + (s?.let { " · загружено ${it["imported"] ?: 0}, было ${it["exists"] ?: 0}, не найдено ${it["failed"] ?: 0} из ${it["total"] ?: 0}" } ?: "")
-    "queued" -> j.position?.let { if (it <= 1) "в очереди · следующая" else "в очереди · впереди ${it - 1}" } ?: "в очереди"
-    "done" -> "готово" + (s?.let { " · загружено ${it["imported"] ?: 0}, было ${it["exists"] ?: 0}, не найдено ${it["failed"] ?: 0}" } ?: "")
-    else -> "ошибка: ${j.error ?: ""}"
+    "running" -> tr("идёт {}%", (j.progress.toInt())) + (s?.let { tr(" · загружено {}, было {}, не найдено {} из {}", (it["imported"] ?: 0), (it["exists"] ?: 0), (it["failed"] ?: 0), (it["total"] ?: 0)) } ?: "")
+    "queued" -> j.position?.let { if (it <= 1) tr("в очереди · следующая") else tr("в очереди · впереди {}", (it - 1)) } ?: tr("в очереди")
+    "done" -> tr("готово") + (s?.let { tr(" · загружено {}, было {}, не найдено {}", (it["imported"] ?: 0), (it["exists"] ?: 0), (it["failed"] ?: 0)) } ?: "")
+    else -> tr("ошибка: {}", (j.error ?: ""))
   }
   Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(cs.surfaceContainer).clickable(onClick = toggle).padding(14.dp)) {
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -523,7 +524,7 @@ private fun ServerJobCard(j: ServerJob, expanded: Boolean, toggle: () -> Unit) {
         Text("$kind · $status", style = MaterialTheme.typography.bodySmall, color = if (j.status == "error") cs.error else cs.onSurfaceVariant, maxLines = 3)
       }
       if (j.status == "running" || j.status == "queued") {
-        IconButton(onClick = { act("Задача отменена") { Api.cancelJob(j.id) } }) { Ico(R.drawable.ic_close, "Отменить") }
+        IconButton(onClick = { act(tr("Задача отменена")) { Api.cancelJob(j.id) } }) { Ico(R.drawable.ic_close, tr("Отменить")) }
       }
     }
     if (j.status == "running") {
@@ -557,27 +558,27 @@ private fun AdminYoutube() {
   val pick = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
     if (uri != null) {
       val name = label
-      act("Аккаунт добавлен", then = { label = ""; tick++ }) { Api.addYtAccount(context, uri, name) }
+      act(tr("Аккаунт добавлен"), then = { label = ""; tick++ }) { Api.addYtAccount(context, uri, name) }
     }
   }
   LazyColumn(Modifier.fillMaxSize().imePadding(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
     item {
       Text(
-        "Каждый аккаунт качает по 2 трека одновременно с остальными. Если YouTube откажет аккаунту, он отдохнёт 20 минут, а загрузка перейдёт на следующий. Нужен cookies.txt (формат Netscape) из отдельного Google-аккаунта; хранится только на сервере.",
+        tr("Каждый аккаунт качает по 2 трека одновременно с остальными. Если YouTube откажет аккаунту, он отдохнёт 20 минут, а загрузка перейдёт на следующий. Нужен cookies.txt (формат Netscape) из отдельного Google-аккаунта; хранится только на сервере."),
         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
       Spacer(Modifier.height(8.dp))
-      OutlinedTextField(label, { label = it }, Modifier.fillMaxWidth(), label = { Text("Название нового аккаунта (необязательно)") }, singleLine = true)
+      OutlinedTextField(label, { label = it }, Modifier.fillMaxWidth(), label = { Text(tr("Название нового аккаунта (необязательно)")) }, singleLine = true)
       Spacer(Modifier.height(6.dp))
       Button(shapes = ButtonDefaults.shapes(), onClick = { pick.launch(arrayOf("text/plain", "text/*", "application/octet-stream", "*/*")) }) {
-        Ico(R.drawable.ic_add, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Добавить cookies.txt")
+        Ico(R.drawable.ic_add, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(tr("Добавить cookies.txt"))
       }
     }
     val list = accounts
-    if (list != null && list.isEmpty()) item { Text("Аккаунтов нет: загрузки идут без входа, по 2 одновременно.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+    if (list != null && list.isEmpty()) item { Text(tr("Аккаунтов нет: загрузки идут без входа, по 2 одновременно."), color = MaterialTheme.colorScheme.onSurfaceVariant) }
     items(list.orEmpty()) { a ->
       val cs = MaterialTheme.colorScheme
-      val state = when { a.busy -> "качает"; a.coolingUntil != null -> "отдыхает до ${fmtDateTime(a.coolingUntil).substringAfter(", ")}"; else -> "свободен" }
+      val state = when { a.busy -> tr("качает"); a.coolingUntil != null -> tr("отдыхает до {}", (fmtDateTime(a.coolingUntil).substringAfter(", "))); else -> tr("свободен") }
       Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(cs.surfaceContainer).padding(14.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
           Dot(a.busy || a.coolingUntil == null)
@@ -586,21 +587,21 @@ private fun AdminYoutube() {
           Text(state, style = MaterialTheme.typography.labelMedium, color = if (a.coolingUntil != null) cs.error else cs.primary)
         }
         Text(
-          "${a.cookies} cookies" + (if (a.loggedIn) ", вход есть" else " — входа нет") + " · скачано ${a.ok}, ошибок ${a.failed}" +
+          "${a.cookies} cookies" + (if (a.loggedIn) tr(", вход есть") else tr(" — входа нет")) + tr(" · скачано {}, ошибок {}", a.ok, a.failed) +
             (a.lastUsedAt?.let { " · ${fmtAgo(it)}" } ?: ""),
           style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant,
         )
         a.lastError?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = cs.error, maxLines = 3, overflow = TextOverflow.Ellipsis) }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-          if (a.coolingUntil != null) TextButton(onClick = { act("Снова в работе", then = { tick++ }) { Api.wakeYtAccount(a.id) } }) { Text("Вернуть в работу") }
-          TextButton(onClick = { remove = a }) { Text("Удалить", color = cs.error) }
+          if (a.coolingUntil != null) TextButton(onClick = { act(tr("Снова в работе"), then = { tick++ }) { Api.wakeYtAccount(a.id) } }) { Text(tr("Вернуть в работу")) }
+          TextButton(onClick = { remove = a }) { Text(tr("Удалить"), color = cs.error) }
         }
       }
     }
   }
   remove?.let { a ->
-    ConfirmDialog("Удалить «${a.label}»?", "Cookies этого аккаунта удалятся с сервера.", "Удалить", { remove = null }) {
-      act("Аккаунт удалён", then = { tick++ }) { Api.deleteYtAccount(a.id) }
+    ConfirmDialog(tr("Удалить «{}»?", a.label), tr("Cookies этого аккаунта удалятся с сервера."), tr("Удалить"), { remove = null }) {
+      act(tr("Аккаунт удалён"), then = { tick++ }) { Api.deleteYtAccount(a.id) }
     }
   }
 }
@@ -616,8 +617,8 @@ private fun AdminTracks() {
   val loader = rememberLoad(query) { Api.adminTracks(query) }
   LazyColumn(Modifier.fillMaxSize().imePadding(), contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)) {
     item {
-      OutlinedTextField(q, { q = it }, Modifier.fillMaxWidth().padding(horizontal = 16.dp), label = { Text("Название, исполнитель или альбом") }, singleLine = true)
-      loader.data?.let { Text("Найдено: ${it.total}", Modifier.padding(horizontal = 20.dp, vertical = 6.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+      OutlinedTextField(q, { q = it }, Modifier.fillMaxWidth().padding(horizontal = 16.dp), label = { Text(tr("Название, исполнитель или альбом")) }, singleLine = true)
+      loader.data?.let { Text(tr("Найдено: {}", it.total), Modifier.padding(horizontal = 20.dp, vertical = 6.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
     items(loader.data?.items.orEmpty()) { t ->
       TrackRow(t, onClick = { nav.route("admin/track/${t.id}") }, subtitle = listOfNotNull(t.artists, t.album?.title).joinToString(" · "))
@@ -633,13 +634,13 @@ fun AdminTrackScreen(id: String) {
   val loader = rememberLoad(id, version) { Api.track(id) to Api.adminLyrics(id) }
   var confirmDelete by remember { mutableStateOf(false) }
   val pickCover = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-    if (uri != null) act("Обложка обновлена", then = { version++ }) { Api.adminTrackCover(context, id, uri) }
+    if (uri != null) act(tr("Обложка обновлена"), then = { version++ }) { Api.adminTrackCover(context, id, uri) }
   }
   val pickLyrics = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-    if (uri != null) act("Текст загружен", then = { version++ }) { Api.adminLyricsFile(context, id, uri) }
+    if (uri != null) act(tr("Текст загружен"), then = { version++ }) { Api.adminLyricsFile(context, id, uri) }
   }
   val pickCanvas = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-    if (uri != null) act("Канвас загружен", then = { version++ }) { Api.adminTrackCanvas(context, id, uri) }
+    if (uri != null) act(tr("Канвас загружен"), then = { version++ }) { Api.adminTrackCanvas(context, id, uri) }
   }
   Page {
     Loaded(loader) { (t, lyrics) ->
@@ -663,16 +664,16 @@ fun AdminTrackScreen(id: String) {
           Column(Modifier.weight(1f)) {
             Text(t.title, style = MaterialTheme.typography.titleLarge)
             Text(t.artists, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text("Нажмите на обложку, чтобы сменить её", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(tr("Нажмите на обложку, чтобы сменить её"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
           }
         }
-        OutlinedTextField(title, { title = it }, Modifier.fillMaxWidth(), label = { Text("Название") }, singleLine = true)
-        OutlinedTextField(artist, { artist = it }, Modifier.fillMaxWidth(), label = { Text("Исполнитель") }, singleLine = true)
-        OutlinedTextField(feat, { feat = it }, Modifier.fillMaxWidth(), label = { Text("При участии (через запятую)") }, singleLine = true)
-        OutlinedTextField(album, { album = it }, Modifier.fillMaxWidth(), label = { Text("Альбом") }, singleLine = true)
+        OutlinedTextField(title, { title = it }, Modifier.fillMaxWidth(), label = { Text(tr("Название")) }, singleLine = true)
+        OutlinedTextField(artist, { artist = it }, Modifier.fillMaxWidth(), label = { Text(tr("Исполнитель")) }, singleLine = true)
+        OutlinedTextField(feat, { feat = it }, Modifier.fillMaxWidth(), label = { Text(tr("При участии (через запятую)")) }, singleLine = true)
+        OutlinedTextField(album, { album = it }, Modifier.fillMaxWidth(), label = { Text(tr("Альбом")) }, singleLine = true)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-          OutlinedTextField(genre, { genre = it }, Modifier.weight(1f), label = { Text("Жанр") }, singleLine = true)
-          OutlinedTextField(year, { year = it }, Modifier.weight(1f), label = { Text("Год") }, singleLine = true)
+          OutlinedTextField(genre, { genre = it }, Modifier.weight(1f), label = { Text(tr("Жанр")) }, singleLine = true)
+          OutlinedTextField(year, { year = it }, Modifier.weight(1f), label = { Text(tr("Год")) }, singleLine = true)
           OutlinedTextField(trackNo, { trackNo = it }, Modifier.weight(1f), label = { Text("№") }, singleLine = true)
         }
         CheckRow("Explicit", explicit) { explicit = it }
@@ -686,37 +687,37 @@ fun AdminTrackScreen(id: String) {
             put("explicit", explicit)
             put("featuring", jsonStrings(feat.split(',').map { it.trim() }.filter { it.isNotEmpty() }))
           }
-          act("Сохранено", then = { version++ }) { Api.adminPatchTrack(id, body) }
-        }) { Text("Сохранить") }
+          act(tr("Сохранено"), then = { version++ }) { Api.adminPatchTrack(id, body) }
+        }) { Text(tr("Сохранить")) }
 
-        SectionTitleInline("Текст песни")
-        OutlinedTextField(synced, { synced = it }, Modifier.fillMaxWidth(), label = { Text("Синхронный (LRC: [01:23.45] строка)") }, minLines = 4, maxLines = 10)
-        OutlinedTextField(plain, { plain = it }, Modifier.fillMaxWidth(), label = { Text("Обычный текст") }, minLines = 4, maxLines = 10)
+        SectionTitleInline(tr("Текст песни"))
+        OutlinedTextField(synced, { synced = it }, Modifier.fillMaxWidth(), label = { Text(tr("Синхронный (LRC: [01:23.45] строка)")) }, minLines = 4, maxLines = 10)
+        OutlinedTextField(plain, { plain = it }, Modifier.fillMaxWidth(), label = { Text(tr("Обычный текст")) }, minLines = 4, maxLines = 10)
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
           Button(shapes = ButtonDefaults.shapes(), onClick = {
             val body = buildJsonObject {
               put("lyricsSynced", synced.trim().takeIf { it.isNotEmpty() }?.let { JsonPrimitive(it) } ?: JsonNull)
               put("lyricsPlain", plain.trim().takeIf { it.isNotEmpty() }?.let { JsonPrimitive(it) } ?: JsonNull)
             }
-            act("Текст сохранён", then = { version++ }) { Api.adminPatchTrack(id, body) }
-          }) { Text("Сохранить текст") }
-          FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { act("Ищу текст…", then = { version++ }) { Api.adminFetchLyrics(id) } }) { Text("Найти") }
+            act(tr("Текст сохранён"), then = { version++ }) { Api.adminPatchTrack(id, body) }
+          }) { Text(tr("Сохранить текст")) }
+          FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { act(tr("Ищу текст…"), then = { version++ }) { Api.adminFetchLyrics(id) } }) { Text(tr("Найти")) }
           FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { pickLyrics.launch(arrayOf("text/*", "application/octet-stream", "*/*")) }) { Text(".lrc / .txt") }
         }
 
-        SectionTitleInline("Канвас")
-        Text(if (t.hasCanvas) "Есть" else "Нет", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        SectionTitleInline(tr("Канвас"))
+        Text(if (t.hasCanvas) tr("Есть") else tr("Нет"), color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-          FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { act("Канвас в очереди — нарежется из клипа") { Api.adminFetchCanvas(id) } }) { Text("Из клипа") }
-          FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { pickCanvas.launch("video/*") }) { Text("Свой файл") }
-          if (t.hasCanvas) OutlinedButton(shapes = ButtonDefaults.shapes(), onClick = { act("Канвас убран", then = { version++ }) { Api.adminDeleteCanvas(id) } }) { Text("Убрать") }
+          FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { act(tr("Канвас в очереди — нарежется из клипа")) { Api.adminFetchCanvas(id) } }) { Text(tr("Из клипа")) }
+          FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { pickCanvas.launch("video/*") }) { Text(tr("Свой файл")) }
+          if (t.hasCanvas) OutlinedButton(shapes = ButtonDefaults.shapes(), onClick = { act(tr("Канвас убран"), then = { version++ }) { Api.adminDeleteCanvas(id) } }) { Text(tr("Убрать")) }
         }
 
         Spacer(Modifier.height(12.dp))
-        OutlinedButton(shapes = ButtonDefaults.shapes(), onClick = { confirmDelete = true }) { Text("Удалить трек", color = MaterialTheme.colorScheme.error) }
+        OutlinedButton(shapes = ButtonDefaults.shapes(), onClick = { confirmDelete = true }) { Text(tr("Удалить трек"), color = MaterialTheme.colorScheme.error) }
       }
-      if (confirmDelete) ConfirmDialog("Удалить «${t.title}»?", "Файл удалится с сервера, трек пропадёт из плейлистов и лайков.", "Удалить", { confirmDelete = false }) {
-        act("Трек удалён", then = { nav.back() }) { Api.adminDeleteTrack(id) }
+      if (confirmDelete) ConfirmDialog(tr("Удалить «{}»?", t.title), tr("Файл удалится с сервера, трек пропадёт из плейлистов и лайков."), tr("Удалить"), { confirmDelete = false }) {
+        act(tr("Трек удалён"), then = { nav.back() }) { Api.adminDeleteTrack(id) }
       }
     }
   }
@@ -735,7 +736,7 @@ private fun AdminErrors() {
   var open by remember { mutableStateOf<Long?>(null) }
   LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
     val list = loader.data.orEmpty()
-    if (loader.data != null && list.isEmpty()) item { Text("Ошибок нет 🎉", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+    if (loader.data != null && list.isEmpty()) item { Text(tr("Ошибок нет 🎉"), color = MaterialTheme.colorScheme.onSurfaceVariant) }
     items(list) { e ->
       val cs = MaterialTheme.colorScheme
       Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(cs.surfaceContainer).clickable { open = if (open == e.id) null else e.id }.padding(14.dp)) {

@@ -2,6 +2,7 @@
 // into memory.
 package space.avthsr.music.api
 
+import space.avthsr.music.tr
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
@@ -17,7 +18,7 @@ class UriBody(private val context: Context, private val uri: Uri) : RequestBody(
   override fun contentLength(): Long =
     runCatching { context.contentResolver.openAssetFileDescriptor(uri, "r")?.use { it.length } ?: -1L }.getOrDefault(-1L)
   override fun writeTo(sink: BufferedSink) {
-    val input = context.contentResolver.openInputStream(uri) ?: error("Не удалось открыть файл")
+    val input = context.contentResolver.openInputStream(uri) ?: error(tr("Не удалось открыть файл"))
     input.source().use { sink.writeAll(it) }
   }
 }
@@ -35,7 +36,7 @@ fun MultipartBody.Builder.addFile(context: Context, uri: Uri, field: String = "f
 
 /** Reads an image, crops the centre square and scales it to [size] px, as JPEG. */
 fun squareJpeg(context: Context, uri: Uri, size: Int): ByteArray {
-  val src = context.contentResolver.openInputStream(uri)?.use { android.graphics.BitmapFactory.decodeStream(it) } ?: error("Не удалось открыть фото")
+  val src = context.contentResolver.openInputStream(uri)?.use { android.graphics.BitmapFactory.decodeStream(it) } ?: error(tr("Не удалось открыть фото"))
   val side = minOf(src.width, src.height)
   val square = android.graphics.Bitmap.createBitmap(src, (src.width - side) / 2, (src.height - side) / 2, side, side)
   val scaled = android.graphics.Bitmap.createScaledBitmap(square, minOf(size, side), minOf(size, side), true)

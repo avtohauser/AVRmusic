@@ -3,6 +3,7 @@
 // (password changed, account blocked) signs the user out; a network error keeps the session.
 package space.avthsr.music.api
 
+import space.avthsr.music.tr
 import android.content.Context
 import android.content.SharedPreferences
 import kotlinx.coroutines.Dispatchers
@@ -127,7 +128,7 @@ object Api {
   private fun check(r: Pair<Int, String>): String {
     if (r.first !in 200..299) {
       val msg = runCatching { json.parseToJsonElement(r.second).jsonObject["message"]?.jsonPrimitive?.content }.getOrNull()
-      throw ApiException(r.first, msg ?: "Ошибка сервера (${r.first})")
+      throw ApiException(r.first, msg ?: tr("Ошибка сервера ({})", r.first))
     }
     return r.second
   }

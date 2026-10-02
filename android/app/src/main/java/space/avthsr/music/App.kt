@@ -26,6 +26,7 @@ class App : Application(), ImageLoaderFactory {
     super.onCreate()
     installCrashCatcher()
     Api.init(this)
+    Lang.init()
     Queue.init(this)
     Offline.init(this)
     space.avthsr.music.ui.Look.init()
@@ -73,7 +74,7 @@ class App : Application(), ImageLoaderFactory {
     /** an error in background work is reported and shown, never a crash */
     private val handler = CoroutineExceptionHandler { _, e ->
       report(Log.getStackTraceString(e))
-      say(e.message ?: "Что-то пошло не так")
+      say(e.message ?: tr("Что-то пошло не так"))
     }
 
     /** Work that must outlive a screen (likes, play reports, requests to the server). */

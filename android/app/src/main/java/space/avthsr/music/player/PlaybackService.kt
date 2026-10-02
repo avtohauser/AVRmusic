@@ -4,6 +4,7 @@
 // "My Wave" is topped up here as it plays, and every play is reported to the server for the stats.
 package space.avthsr.music.player
 
+import space.avthsr.music.tr
 import android.app.PendingIntent
 import android.content.Intent
 import android.os.Build
@@ -128,7 +129,7 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onPlayerError(error: PlaybackException) {
-      App.say("Не удалось воспроизвести трек (${error.errorCodeName})")
+      App.say(tr("Не удалось воспроизвести трек ({})", error.errorCodeName))
     }
   }
 
@@ -204,7 +205,7 @@ class PlaybackService : MediaSessionService() {
       if (customCommand.customAction != CMD_LIKE) return Futures.immediateFuture(SessionResult(SessionResult.RESULT_ERROR_NOT_SUPPORTED))
       val id = player.currentMediaItem?.mediaId
       if (id != null) App.scope.launch {
-        runCatching { Likes.toggle("track", id) }.onFailure { App.say(it.message ?: "Не получилось") }
+        runCatching { Likes.toggle("track", id) }.onFailure { App.say(it.message ?: tr("Не получилось")) }
       }
       return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
     }

@@ -2,6 +2,7 @@
 // media items, what is playing (an album, a playlist, "My Wave" …) and the wave's mode.
 package space.avthsr.music.player
 
+import space.avthsr.music.tr
 import android.content.Context
 import android.content.SharedPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,11 +15,11 @@ data class WaveMode(val id: String, val label: String, val hint: String, val ico
 object Queue {
   const val WAVE = "wave"
 
-  val modes = listOf(
-    WaveMode("mix", "Микс", "Любимое и новое вперемешку", R.drawable.ic_all_inclusive),
-    WaveMode("favorites", "Любимое", "То, что вы слушаете чаще всего", R.drawable.ic_heart_filled),
-    WaveMode("discover", "Незнакомое", "Новые для вас исполнители рядом с любимыми", R.drawable.ic_explore),
-    WaveMode("popular", "Популярное", "Что слушают друзья", R.drawable.ic_fire),
+  val modes get() = listOf(
+    WaveMode("mix", tr("Микс"), tr("Любимое и новое вперемешку"), R.drawable.ic_all_inclusive),
+    WaveMode("favorites", tr("Любимое"), tr("То, что вы слушаете чаще всего"), R.drawable.ic_heart_filled),
+    WaveMode("discover", tr("Незнакомое"), tr("Новые для вас исполнители рядом с любимыми"), R.drawable.ic_explore),
+    WaveMode("popular", tr("Популярное"), tr("Что слушают друзья"), R.drawable.ic_fire),
   )
 
   private val tracks = ConcurrentHashMap<String, Track>()

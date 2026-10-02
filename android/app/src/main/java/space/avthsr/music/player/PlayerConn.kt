@@ -2,6 +2,7 @@
 // flow, and the actions (play a list, next, like, start "My Wave" …).
 package space.avthsr.music.player
 
+import space.avthsr.music.tr
 import android.content.ComponentName
 import android.content.Context
 import androidx.core.content.ContextCompat
@@ -50,7 +51,7 @@ object PlayerConn {
       MediaController.Builder(app, SessionToken(app, ComponentName(app, PlaybackService::class.java))).buildAsync()
     } catch (e: Exception) {
       App.report(android.util.Log.getStackTraceString(e))
-      App.say("Плеер не запустился: ${e.message}")
+      App.say(tr("Плеер не запустился: {}", e.message))
       return
     }
     future = f
@@ -179,7 +180,7 @@ object PlayerConn {
       delay(minutes * 60_000L)
       withController { it.pause() }
       sleepAt.value = null
-      App.say("Таймер сна: музыка остановлена")
+      App.say(tr("Таймер сна: музыка остановлена"))
     }
   }
 
@@ -211,14 +212,14 @@ object PlayerConn {
     if (queue.isEmpty()) return play(listOf(t))
     Queue.remember(listOf(t))
     withController { it.addMediaItem(it.currentMediaItemIndex + 1, mediaItemOf(t)) }
-    App.say("Будет следующим")
+    App.say(tr("Будет следующим"))
   }
 
   fun enqueue(t: Track) {
     if (queue.isEmpty()) return play(listOf(t))
     Queue.remember(listOf(t))
     withController { it.addMediaItem(mediaItemOf(t)) }
-    App.say("Добавлено в очередь")
+    App.say(tr("Добавлено в очередь"))
   }
 
   /** Starts (or restarts in another mode) "My Wave". */
@@ -226,7 +227,7 @@ object PlayerConn {
     Queue.setWaveMode(mode)
     val recent = queue.map { it.id }.takeLast(30)
     val batch = Api.waveNext(mode, recent)
-    if (batch.tracks.isEmpty()) throw IllegalStateException("Пока нечего включить: в медиатеке мало треков")
+    if (batch.tracks.isEmpty()) throw IllegalStateException(tr("Пока нечего включить: в медиатеке мало треков"))
     play(batch.tracks, 0, Queue.WAVE)
   }
 

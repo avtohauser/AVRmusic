@@ -3,6 +3,7 @@
 // on a plane. Saving runs in the background, one track after another, with progress per track.
 package space.avthsr.music.player
 
+import space.avthsr.music.tr
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -58,7 +59,7 @@ object Offline {
     val todo = tracks.filter { !has(it.id) && it.id !in _progress.value }
     if (todo.isEmpty()) return
     _progress.value = _progress.value + todo.associate { it.id to 0f }
-    App.say(if (todo.size == 1) "Сохраняю офлайн: ${todo[0].title}" else "Сохраняю офлайн ${todo.size} треков")
+    App.say(if (todo.size == 1) tr("Сохраняю офлайн: {}", (todo[0].title)) else tr("Сохраняю офлайн {} треков", todo.size))
     App.scope.launch {
       var failed = 0
       for (t in todo) {
@@ -66,7 +67,7 @@ object Offline {
         if (!ok) failed++
         _progress.value = _progress.value - t.id
       }
-      App.say(if (failed == 0) "Сохранено офлайн" else "Сохранено офлайн, не получилось: $failed")
+      App.say(if (failed == 0) tr("Сохранено офлайн") else tr("Сохранено офлайн, не получилось: {}", failed))
     }
   }
 
@@ -74,7 +75,7 @@ object Offline {
     val req = Request.Builder().url(Api.streamUrl(t.id) + "&offline=1").build()
     val (name, size) = http.newCall(req).execute().use { r ->
       if (!r.isSuccessful) error("HTTP ${r.code}")
-      val body = r.body ?: error("пустой ответ")
+      val body = r.body ?: error(tr("пустой ответ"))
       val ext = when (body.contentType()?.subtype) {
         "mpeg" -> "mp3"; "flac", "x-flac" -> "flac"; "mp4", "x-m4a", "aac" -> "m4a"; "ogg" -> "ogg"; "opus" -> "opus"; "webm" -> "webm"; "wav", "x-wav" -> "wav"
         else -> "audio"
@@ -99,7 +100,7 @@ object Offline {
         }
       }
       val name = "${t.id}.$ext"
-      if (!part.renameTo(File(dir, name))) error("не удалось сохранить файл")
+      if (!part.renameTo(File(dir, name))) error(tr("не удалось сохранить файл"))
       name to done
     }
     val cover = Api.img(t.coverUrl)?.let { url ->

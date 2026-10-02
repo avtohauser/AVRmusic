@@ -143,6 +143,9 @@ export function enqueue(init: Pick<Job, 'kind' | 'url' | 'mode' | 'title' | 'req
 /** A user's job is waiting: a background job should wrap up and continue later. */
 export function userJobWaiting(): boolean { return userRunning > 0 || queue.some((j) => !BACKGROUND.includes(j.kind)); }
 
+/** A job of this kind is waiting in the queue. */
+export function kindWaiting(kind: JobKind): boolean { return queue.some((j) => j.kind === kind); }
+
 async function pump() {
   const next = nextUserJob();
   let job: Job | undefined;
@@ -154,9 +157,10 @@ async function pump() {
     }
     job = queue.splice(queue.indexOf(next), 1)[0];
   } else {
-    // background work waits until nothing else runs
+    // background work waits until nothing else runs; sound checks before canvases (a nicety)
     if (running > 0 || !queue.length) return;
-    job = queue.shift();
+    const first = queue.findIndex((j) => j.kind !== 'canvas');
+    job = queue.splice(first >= 0 ? first : 0, 1)[0];
   }
   if (!job) return;
   const user = isUser(job);

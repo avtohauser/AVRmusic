@@ -12,7 +12,16 @@ export default async function libraryRoutes(app: FastifyInstance) {
   const db = app.db;
   const guard = { preHandler: app.libraryAuth };
 
-  app.get('/api/home', guard, async (req) => homeFeed(db, req.userId));
+  // the feed is a dozen queries with random picks: kept per listener for 45 s, so reopening the app is instant
+  const feeds = new Map<string, { at: number; feed: ReturnType<typeof homeFeed> }>();
+  app.get('/api/home', guard, async (req) => {
+    const key = req.userId ?? '';
+    const hit = feeds.get(key);
+    if (hit && Date.now() - hit.at < 45_000) return hit.feed;
+    const feed = homeFeed(db, req.userId);
+    feeds.set(key, { at: Date.now(), feed });
+    return feed;
+  });
 
   app.get('/api/search', guard, async (req) => {
     const q = z.object({ q: z.string().default(''), type: z.enum(['all', 'track', 'album', 'artist', 'playlist']).default('all'), limit: z.string().optional() }).parse(req.query);

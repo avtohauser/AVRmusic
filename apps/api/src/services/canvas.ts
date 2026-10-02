@@ -2,6 +2,7 @@
 // Spotify-style: 9 s, 9:16, no audio, H.264 → plays behind the track in "Now playing".
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import mime from 'mime-types';
 import type { DB } from '../lib/db.js';
@@ -9,22 +10,30 @@ import { config } from '../config.js';
 import { moveFile, newId } from '../lib/util.js';
 import { notFound } from '../lib/errors.js';
 import { capabilities } from './ytdlp.js';
-import { enqueue, type Job, type JobApi } from './jobs.js';
+import { enqueue, kindWaiting, userJobWaiting, type Job, type JobApi } from './jobs.js';
+import { withLookupCookies } from './youtubeAccounts.js';
 
 export interface VideoCandidate { id: string; title: string; duration: number | null; channel: string | null; viewCount: number | null }
 export interface WantVideo { title: string; artist: string; durationSec: number }
 type Log = (s: string) => void;
 type CancelRef = { cancel?: () => void };
 
-/** Runs a tool; killed after `timeoutMs` (6 min by default) so a stuck clip download never holds the queue. */
-function run(bin: string, args: string[], onLine?: Log, cancel?: CancelRef, timeoutMs = 6 * 60_000): Promise<{ code: number; stdout: string }> {
+/**
+ * Runs a tool for canvases. Killed after `timeoutMs`, or after `idleMs` without a word (a download stuck
+ * behind YouTube's bot check), so one track never holds the queue for minutes. Canvases are a nicety: the
+ * tools run at the lowest CPU priority, after the API and the music downloads.
+ */
+function run(bin: string, args: string[], onLine?: Log, cancel?: CancelRef, timeoutMs = 3 * 60_000, idleMs = 60_000): Promise<{ code: number; stdout: string }> {
   return new Promise((resolve, reject) => {
     const child = spawn(bin, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    if (child.pid) { try { os.setPriority(child.pid, 19); } catch { /* not allowed: run as is */ } }
     const timer = setTimeout(() => child.kill('SIGKILL'), timeoutMs);
-    child.on('close', () => clearTimeout(timer));
+    let idle = setTimeout(() => child.kill('SIGKILL'), idleMs);
+    const alive = () => { clearTimeout(idle); idle = setTimeout(() => child.kill('SIGKILL'), idleMs); };
+    child.on('close', () => { clearTimeout(timer); clearTimeout(idle); });
     let out = '';
-    child.stdout.on('data', (d) => { const s = d.toString(); out += s; onLine && s.split(/\r?\n|\r/).forEach((l: string) => l.trim() && onLine(l.trim())); });
-    child.stderr.on('data', (d) => { onLine && d.toString().split(/\r?\n/).forEach((l: string) => l.trim() && onLine(l.trim())); });
+    child.stdout.on('data', (d) => { alive(); const s = d.toString(); out += s; onLine && s.split(/\r?\n|\r/).forEach((l: string) => l.trim() && onLine(l.trim())); });
+    child.stderr.on('data', (d) => { alive(); onLine && d.toString().split(/\r?\n/).forEach((l: string) => l.trim() && onLine(l.trim())); });
     child.on('error', (e) => reject(new Error(`Не удалось запустить ${bin}: ${e.message}`)));
     child.on('close', (code) => resolve({ code: code ?? -1, stdout: out }));
     if (cancel) cancel.cancel = () => child.kill('SIGTERM');
@@ -70,7 +79,7 @@ export async function searchOfficialVideo(want: WantVideo): Promise<Array<{ v: V
   const caps = await capabilities();
   if (!caps.ytdlp) throw new Error('yt-dlp не установлен на сервере');
   const q = `${want.artist} - ${want.title} official video`;
-  const r = await run(config.ytdlpPath, [`ytsearch10:${q}`, '--flat-playlist', '--dump-single-json', '--no-warnings', '--ignore-errors']);
+  const r = await withLookupCookies((ck) => run(config.ytdlpPath, [`ytsearch10:${q}`, '--flat-playlist', '--dump-single-json', '--no-warnings', '--ignore-errors', ...ck], undefined, undefined, 60_000, 45_000));
   const i = r.stdout.indexOf('{');
   if (i < 0) return [];
   let parsed: any;
@@ -94,14 +103,14 @@ export async function makeCanvasFromVideo(videoId: string, videoDuration: number
   const start = dur > len + 25 ? Math.min(Math.max(20, Math.round(dur * 0.38)), Math.floor(dur - len - 3)) : 0;
   const args = ['--no-playlist', '--no-warnings', '--newline', '-f', 'bv*[height<=1080][ext=mp4]/bv*[height<=1080]/bv*/b',
     '--download-sections', `*${start}-${start + len + 2}`, '-o', path.join(dir, '%(id)s.%(ext)s'), `https://www.youtube.com/watch?v=${videoId}`];
-  const r = await run(config.ytdlpPath, args, (l) => { if (!/\[download\]\s+\d/.test(l)) log(`   ${l}`); }, cancel);
+  const r = await withLookupCookies((ck) => run(config.ytdlpPath, [...ck, ...args], (l) => { if (!/\[download\]\s+\d/.test(l)) log(`   ${l}`); }, cancel));
   if (r.code !== 0) throw new Error(`yt-dlp завершился с кодом ${r.code}`);
   const raw = fs.readdirSync(dir).filter((f) => !f.endsWith('.part') && !f.endsWith('.json')).map((f) => path.join(dir, f))[0];
   if (!raw) throw new Error('видео не скачано');
   const out = path.join(dir, 'canvas.mp4');
   const ff = await run(config.ffmpegPath, ['-y', '-hide_banner', '-loglevel', 'error', '-i', raw, '-t', String(len), '-an',
     '-vf', "crop='min(iw,ih*9/16)':'min(ih,iw*16/9)',scale=720:1280:flags=lanczos,fps=30",
-    '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', out], (l) => log(`   ffmpeg: ${l}`), cancel);
+    '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', out], (l) => log(`   ffmpeg: ${l}`), cancel, 3 * 60_000, 3 * 60_000);
   if (ff.code !== 0 || !fs.existsSync(out) || fs.statSync(out).size < 1024) throw new Error(`ffmpeg не смог собрать канвас (код ${ff.code})`);
   return { file: out, mime: 'video/mp4', dir };
 }
@@ -166,12 +175,20 @@ export async function runCanvasJob(db: DB, job: Job, payload: { trackIds?: strin
     return r && r.codec !== 'video' && (payload.force || !r.canvas_path);
   });
   job.stats = { total: ids.length, found: 0, checked: 0 };
-  for (const id of ids) {
+  for (const [i, id] of ids.entries()) {
     if (cancelled) throw new Error('Отменено');
+    // canvases are a nicety: anyone's download or a sound check goes first, the rest continues later
+    if (userJobWaiting() || kindWaiting('heal')) {
+      const rest = ids.slice(i);
+      enqueue({ kind: 'canvas', title: job.title, requestedBy: job.requestedBy ?? null }, { trackIds: rest, force: !!payload.force });
+      api.log(`⏸ уступаю очередь — ещё ${rest.length}, продолжу позже`);
+      return;
+    }
     try { if (await fetchCanvasForTrack(db, id, api.log, cancelRef)) job.stats.found++; }
     catch (e: any) { if (/Отменено/.test(e?.message ?? '')) throw e; api.log(`   ! ${e?.message ?? e}`); }
     job.stats.checked++;
     api.progress((job.stats.checked / Math.max(1, ids.length)) * 100);
+    if (!cancelled) await new Promise((r) => setTimeout(r, 2000));
   }
 }
 

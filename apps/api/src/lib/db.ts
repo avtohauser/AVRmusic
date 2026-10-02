@@ -246,6 +246,11 @@ const MIGRATIONS: string[] = [
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
   );
   `,
+  // 10: the home feed's "new releases" and "popular now" without sorting whole tables
+  `
+  CREATE INDEX IF NOT EXISTS idx_albums_created ON albums(created_at);
+  CREATE INDEX IF NOT EXISTS idx_tracks_plays ON tracks(play_count, created_at);
+  `,
 ];
 
 export function openDatabase(dbPath = config.dbPath): DB {

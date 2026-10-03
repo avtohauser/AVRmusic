@@ -45,7 +45,7 @@ private class Loop(url: String) {
   init {
     player.muted = true
     val item = AVPlayerItem(uRL = NSURL(string = url))
-    looper = AVPlayerLooper(player = player, templateItem = item)
+    looper = AVPlayerLooper.playerLooperWithPlayer(player, templateItem = item)
   }
 
   fun release() {

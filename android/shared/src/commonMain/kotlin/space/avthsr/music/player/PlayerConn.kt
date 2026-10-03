@@ -216,6 +216,8 @@ object PlayerConn {
   fun prevTrack() = withController { it.previousTrack() }
   fun seek(ms: Long) = withController { it.seekTo(ms) }
   fun skipTo(index: Int) = withController { it.seekToDefault(index); it.play() }
+  /** to that queue item without starting playback (a card pulled back onto the deck) */
+  fun seekToTrack(index: Int) = withController { it.seekToDefault(index) }
   fun removeAt(index: Int) = withController { it.remove(index) }
   fun toggleShuffle() = withController { it.shuffle = !it.shuffle }
 

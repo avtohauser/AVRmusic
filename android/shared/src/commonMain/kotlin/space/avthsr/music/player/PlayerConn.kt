@@ -64,9 +64,6 @@ interface PlayerEngine {
   fun clear()
 }
 
-ce.avthsr.music.api.Track
-import kotlin.random.Random
-
 data class PlayerUi(
   val track: Track? = null,
   val playing: Boolean = false,

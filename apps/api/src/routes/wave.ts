@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { waveFeedback, waveNext } from '../services/wave.js';
 import { suggestionsFor } from '../services/suggest.js';
+import { kickDiscovery } from '../services/discover.js';
 
 export default async function waveRoutes(app: FastifyInstance) {
   const db = app.db;
@@ -15,7 +16,14 @@ export default async function waveRoutes(app: FastifyInstance) {
       exclude: z.array(z.string()).max(300).default([]),
       genre: z.string().max(80).nullish(),
     }).parse(req.body ?? {});
-    return { mode: body.mode, tracks: waveNext(db, req.userId!, body) };
+    const tracks = waveNext(db, req.userId!, body);
+    // new music running low (fewer than three found tracks not heard yet): look for more in the background
+    if (body.mode === 'mix' || body.mode === 'discover') {
+      const unheard = (db.prepare(`SELECT COUNT(*) n FROM wave_found f WHERE f.user_id = ? AND f.track_id IS NOT NULL AND f.status IN ('imported','exists')
+        AND NOT EXISTS (SELECT 1 FROM plays p WHERE p.user_id = f.user_id AND p.track_id = f.track_id)`).get(req.userId!) as any).n;
+      if (unheard < 3) kickDiscovery(db, req.userId!);
+    }
+    return { mode: body.mode, tracks };
   });
 
   /** 👍 1 / 👎 -1 / reset 0 for a track heard in the wave. */

@@ -18,7 +18,7 @@ object Queue {
   val modes get() = listOf(
     WaveMode("mix", tr("Микс"), tr("Любимое и новое вперемешку"), R.drawable.ic_all_inclusive),
     WaveMode("favorites", tr("Любимое"), tr("То, что вы слушаете чаще всего"), R.drawable.ic_heart_filled),
-    WaveMode("discover", tr("Незнакомое"), tr("Новые для вас исполнители рядом с любимыми"), R.drawable.ic_explore),
+    WaveMode("discover", tr("Незнакомое"), tr("Новая музыка рядом с любимой — волна сама находит и докачивает"), R.drawable.ic_explore),
     WaveMode("popular", tr("Популярное"), tr("Что слушают друзья"), R.drawable.ic_fire),
   )
 

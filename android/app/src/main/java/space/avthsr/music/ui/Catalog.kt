@@ -1,7 +1,7 @@
 @file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
 
 // The global catalogue (Deezer): find music that is not on the server yet and ask the server to fetch
-// it — a track, an album or a whole discography. Also "Предложка", new music picked for the listener.
+// it — a track, an album or a whole discography.
 package space.avthsr.music.ui
 
 import space.avthsr.music.tr
@@ -184,39 +184,6 @@ fun CatalogArtistScreen(id: Long) {
       confirmButton = { TextButton(onClick = { confirm = false; acquire("artist", a.id, tr("Дискография")) }) { Text(tr("Добавить")) } },
       dismissButton = { TextButton(onClick = { confirm = false }) { Text(tr("Отмена")) } },
     )
-  }
-  }
-}
-
-/** "Предложка": new releases of the listener's artists and tracks of artists like them. */
-@Composable
-fun DiscoverScreen() {
-  var fresh by remember { mutableIntStateOf(0) }
-  val loader = rememberLoad(fresh) { Api.suggestions(fresh > 0) }
-  Page { Column(Modifier.fillMaxSize()) {
-    Row(Modifier.fillMaxWidth().padding(start = 56.dp, end = 8.dp, top = 8.dp + LocalEdges.current.top), verticalAlignment = Alignment.CenterVertically) {
-      FlowText(tr("Предложка"), MaterialTheme.typography.headlineMedium, Modifier.weight(1f), maxLines = 1)
-      IconButton(onClick = { fresh++ }) { Ico(R.drawable.ic_refresh, tr("Обновить")) }
-    }
-    Box(Modifier.weight(1f)) {
-      Loaded(loader) { s ->
-        if (s.releases.isEmpty() && s.tracks.isEmpty()) {
-          Text(
-            tr("Послушайте и лайкните побольше треков — тогда здесь появятся новинки для вас."),
-            Modifier.fillMaxWidth().padding(32.dp), textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
-        } else LazyColumn(Modifier.fillMaxSize(), contentPadding = screenPadding(bottom = 24.dp, hero = true)) {
-          if (s.releases.isNotEmpty()) item {
-            SectionTitle(tr("Новые релизы"), tr("Свежее от исполнителей, которых вы слушаете"))
-            CardRow(s.releases) { a -> CatalogAlbumCard(a, a.reason ?: a.artist.name) }
-          }
-          if (s.tracks.isNotEmpty()) {
-            item { SectionTitle(tr("Может понравиться"), tr("Нажмите ⤓, чтобы добавить трек на сервер")) }
-            items(s.tracks) { CatalogTrackRow(it, reason = true) }
-          }
-        }
-      }
-    }
   }
   }
 }

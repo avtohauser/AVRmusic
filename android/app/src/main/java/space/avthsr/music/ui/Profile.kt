@@ -116,7 +116,6 @@ fun ProfileScreen() {
           ProfileItem(R.drawable.ic_campaign, tr("Новости"), if (unread > 0) tr("Новых: {}", unread) else tr("Что пишет администратор")) { nav.route("news") }
           ProfileItem(R.drawable.ic_queue, tr("История прослушиваний"), tr("Что и когда вы слушали")) { nav.route("history") }
           ProfileItem(R.drawable.ic_download, tr("Загрузки на сервер"), tr("Что сейчас качается и кто в очереди")) { nav.jobs() }
-          ProfileItem(R.drawable.ic_sparkle, tr("Предложка"), tr("Новая музыка для вас")) { nav.discover() }
           ProfileItem(R.drawable.ic_palette, tr("Оформление"), tr("Язык, тема, цвета, палитра, контраст, скорость")) { nav.route("settings") }
           ProfileItem(R.drawable.ic_offline, tr("Скачанные"), tr("Треки, сохранённые в приложении")) { nav.downloads() }
           ProfileItem(R.drawable.ic_person, tr("Имя и email"), u.displayName.ifBlank { u.username }) { editName = true }

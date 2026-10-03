@@ -225,7 +225,13 @@ export function listGenres(db: DB): Genre[] {
   const rows = db
     .prepare(`SELECT t.genre AS name, COUNT(*) c, (SELECT COALESCE(t2.cover_path, al2.cover_path) FROM tracks t2 LEFT JOIN albums al2 ON al2.id=t2.album_id WHERE t2.genre = t.genre AND COALESCE(t2.cover_path, al2.cover_path) IS NOT NULL ORDER BY t2.play_count DESC LIMIT 1) cover FROM tracks t WHERE t.genre IS NOT NULL AND t.genre <> '' GROUP BY t.genre ORDER BY c DESC`)
     .all() as any[];
-  return rows.map((r) => ({ slug: slugify(r.name), name: r.name, color: colorFor(r.name), trackCount: r.c, coverUrl: coverUrl(r.cover) }));
+  // up to three different covers per genre (most played first), for the tiles' fanned artwork
+  const covers = db.prepare(`SELECT COALESCE(al.cover_path, t.cover_path) c FROM tracks t LEFT JOIN albums al ON al.id = t.album_id
+    WHERE t.genre = ? AND COALESCE(al.cover_path, t.cover_path) IS NOT NULL GROUP BY c ORDER BY MAX(t.play_count) DESC, MAX(t.created_at) DESC LIMIT 3`);
+  return rows.map((r) => ({
+    slug: slugify(r.name), name: r.name, color: colorFor(r.name), trackCount: r.c, coverUrl: coverUrl(r.cover),
+    covers: (covers.all(r.name) as any[]).map((x) => coverUrl(x.c)).filter((u): u is string => !!u),
+  }));
 }
 
 export function getGenre(db: DB, slug: string, userId?: string | null): { genre: Genre; tracks: Track[]; albums: AlbumSummary[]; artists: ArtistSummary[] } | null {

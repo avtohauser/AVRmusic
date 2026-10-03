@@ -491,4 +491,5 @@ internal val EN: Map<String, String> = hashMapOf(
   "Текст (необязательно)" to "Text (optional)",
   "Что пишет администратор" to "What the admin writes",
   "и ещё {}" to "and {} more",
+  "Новая музыка рядом с любимой — волна сама находит и докачивает" to "New music next to what you love — the wave finds and fetches it by itself",
 )

@@ -114,7 +114,6 @@ fun HomeScreen() {
     }
     item { NewsBanner { nav.route("news") } }
     item { WaveCard() }
-    item { DiscoverEntry { nav.discover() } }
     when (val s = loader.state) {
       is Load.Ok -> {
         val picks = s.data.quickPicks
@@ -210,24 +209,6 @@ fun WaveCard() {
   }
 }
 
-@Composable
-private fun DiscoverEntry(onClick: () -> Unit) {
-  val cs = MaterialTheme.colorScheme
-  Row(
-    Modifier.padding(horizontal = 16.dp, vertical = 4.dp).fillMaxWidth().clip(RoundedCornerShape(24.dp))
-      .background(cs.surfaceContainerHigh).clickable(onClick = onClick).padding(16.dp),
-    verticalAlignment = Alignment.CenterVertically,
-  ) {
-    Box(Modifier.size(48.dp).clip(RoundedCornerShape(16.dp)).background(cs.tertiaryContainer), contentAlignment = Alignment.Center) {
-      Ico(R.drawable.ic_sparkle, null, tint = cs.onTertiaryContainer)
-    }
-    Spacer(Modifier.width(14.dp))
-    Column(Modifier.weight(1f)) {
-      Text(tr("Предложка"), style = MaterialTheme.typography.titleLarge)
-      Text(tr("Новая музыка для вас — добавьте на сервер в одно касание"), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
-    }
-  }
-}
 
 @Composable
 private fun QuickPicks(picks: List<JsonObject>) {
@@ -305,18 +286,7 @@ private fun LazyListScope.section(s: HomeSection) {
 fun GenreRow(list: List<Genre>) {
   val nav = LocalNav.current
   LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-    items(list) { g -> GenreTile(g, Modifier.width(150.dp)) { nav.genre(g.slug) } }
+    items(list) { g -> GenreTile(g, Modifier.width(176.dp)) { nav.genre(g.slug) } }
   }
 }
 
-@Composable
-fun GenreTile(g: Genre, modifier: Modifier = Modifier, onClick: () -> Unit) {
-  val color = parseColor(g.color, MaterialTheme.colorScheme.primaryContainer)
-  Box(
-    modifier.height(84.dp).clip(RoundedCornerShape(20.dp))
-      .background(Brush.linearGradient(listOf(color, color.copy(alpha = 0.55f))))
-      .clickable(onClick = onClick).padding(14.dp),
-  ) {
-    Text(g.name, style = MaterialTheme.typography.titleMedium, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
-  }
-}

@@ -223,7 +223,6 @@ private fun Main() {
           screen("search") { SearchScreen() }
           screen("library") { LibraryScreen() }
           screen("liked") { LikedScreen() }
-          screen("discover") { DiscoverScreen() }
           screen("profile") { ProfileScreen() }
           screen("jobs") { JobsScreen() }
           screen("album/{id}") { AlbumScreen(it.arguments?.getString("id").orEmpty()) }

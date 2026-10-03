@@ -8,6 +8,7 @@ process.env.DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'avrmusic-test-'));
 process.env.JWT_SECRET = 'test-secret';
 process.env.PUBLIC_LIBRARY = 'false';
 process.env.AUTO_HEAL = 'false';
+process.env.WAVE_DISCOVERY = 'false';
 
 const { buildApp } = await import('../src/app.js');
 const { openDatabase } = await import('../src/lib/db.js');

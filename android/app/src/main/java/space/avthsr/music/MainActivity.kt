@@ -83,7 +83,7 @@ class MainActivity : ComponentActivity() {
       s.size >= 2 && s[0] in setOf("album", "artist", "playlist", "genre") -> "${s[0]}/${Uri.encode(s[1])}"
       s.size >= 3 && s[0] == "catalog" && s[1] == "album" -> "calbum/${s[2]}"
       s.size >= 3 && s[0] == "catalog" && s[1] == "artist" -> "cartist/${s[2]}"
-      s[0] in setOf("search", "library", "liked", "discover", "profile") -> s[0]
+      s[0] in setOf("search", "library", "liked", "profile") -> s[0]
       s[0] == "admin" -> "admin"
       s[0] == "history" -> "history"
       s[0] == "downloads" -> "downloads"

@@ -239,7 +239,7 @@ object Api {
     }.toString())
   }
 
-  /* ---------- My Wave / Предложка ---------- */
+  /* ---------- My Wave ---------- */
 
   suspend fun waveNext(mode: String, exclude: List<String>): WaveBatch = post("/api/wave/next", buildJsonObject {
     put("mode", mode); put("count", 10)

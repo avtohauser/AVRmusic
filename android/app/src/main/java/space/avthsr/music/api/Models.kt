@@ -124,7 +124,7 @@ data class Playlist(
 )
 
 @Serializable
-data class Genre(val slug: String, val name: String, val color: String = "#6750A4", val trackCount: Int = 0, val coverUrl: String? = null)
+data class Genre(val slug: String, val name: String, val color: String = "#6750A4", val trackCount: Int = 0, val coverUrl: String? = null, val covers: List<String> = emptyList())
 
 @Serializable
 data class GenrePage(val genre: Genre, val tracks: List<Track> = emptyList(), val albums: List<AlbumSummary> = emptyList(), val artists: List<ArtistSummary> = emptyList())

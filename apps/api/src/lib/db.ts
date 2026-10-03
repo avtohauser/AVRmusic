@@ -262,6 +262,18 @@ const MIGRATIONS: string[] = [
   );
   CREATE INDEX idx_news_created ON news(created_at);
   `,
+  // 12: new tracks My Wave fetched for a listener (and the ones it tried), with the reason
+  `
+  CREATE TABLE wave_found (
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    deezer_id INTEGER NOT NULL,
+    track_id TEXT,
+    reason TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    PRIMARY KEY (user_id, deezer_id)
+  );
+  `,
 ];
 
 export function openDatabase(dbPath = config.dbPath): DB {

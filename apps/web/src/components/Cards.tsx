@@ -102,12 +102,21 @@ export function TrackCard({ track, list, index }: { track: Track; list?: Track[]
   );
 }
 
+/** A genre: its colour, its name, and covers of its most played music fanned out in the corner. */
+const FAN = [
+  { cls: 'w-24 h-24 -right-3 -bottom-4 rounded-[30%] rotate-[-12deg] group-hover:rotate-[-20deg]', z: 'z-[3]' },
+  { cls: 'w-20 h-20 right-14 -bottom-6 rounded-full rotate-[10deg] group-hover:rotate-[20deg] group-hover:-translate-x-1', z: 'z-[2]' },
+  { cls: 'w-16 h-16 -right-5 bottom-14 rounded-[38%_62%_55%_45%] rotate-[24deg] group-hover:rotate-[34deg]', z: 'z-[1]' },
+];
 export function GenreCard({ genre, wide = false }: { genre: Genre; wide?: boolean }) {
+  const covers = (genre.covers?.length ? genre.covers : genre.coverUrl ? [genre.coverUrl] : []).slice(0, FAN.length);
   return (
-    <Link to={`/genre/${genre.slug}`} className={`relative shrink-0 snap-start overflow-hidden rounded-[24px] spring hover:rounded-[36px] ${wide ? 'w-full aspect-[16/9]' : 'w-44 h-28'} p-4 md-title-lg emph text-white`} style={{ background: genre.color }}>
-      <span className="relative z-10 drop-shadow">{genre.name}</span>
-      {genre.coverUrl && <img src={genre.coverUrl} alt="" className="absolute -right-4 -bottom-4 w-24 h-24 rounded-[14px] rotate-[25deg] elev-2 object-cover opacity-90" loading="lazy" />}
-      <span className="absolute inset-0 bg-gradient-to-br from-black/0 to-black/35" />
+    <Link to={`/genre/${genre.slug}`} className={`group relative shrink-0 snap-start overflow-hidden rounded-[28px] spring hover:rounded-[36px] ${wide ? 'w-full aspect-[16/9]' : 'w-48 h-32'} p-4 md-title-lg emph text-white`} style={{ background: `linear-gradient(135deg, ${genre.color}, color-mix(in srgb, ${genre.color} 62%, black))` }}>
+      <span className="relative z-10 drop-shadow line-2 pr-14 block">{genre.name}</span>
+      <span className="absolute z-10 left-4 bottom-3 md-label-md text-white/80">♪ {genre.trackCount}</span>
+      {covers.map((c, i) => (
+        <img key={c} src={c} alt="" loading="lazy" className={`absolute ${FAN[i].z} ${FAN[i].cls} object-cover elev-2 spring`} />
+      )).reverse()}
     </Link>
   );
 }

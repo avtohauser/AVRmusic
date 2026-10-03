@@ -70,13 +70,6 @@ export default function Home() {
           })}
         </div>
       )}
-      {user && !empty && (
-        <Link to="/discover" className="discover-link mb-8 fade-in">
-          <m3e-icon variant="rounded" name="explore" filled />
-          <span className="min-w-0 flex-1"><span className="md-title-md emph block">Предложка</span><span className="md-body-sm muted block line-1">Новое по вашему вкусу: свежие релизы и похожие исполнители</span></span>
-          <m3e-icon variant="rounded" name="chevron_right" />
-        </Link>
-      )}
       {data.sections.map((s) => (
         <Shelf key={s.id} title={s.title} subtitle={s.subtitle} to={s.kind === 'genres' ? '/library?tab=genres' : s.kind === 'artists' ? '/library?tab=artists' : s.kind === 'albums' ? '/library?tab=albums' : undefined}>
           {s.kind === 'tracks' && (s.items as Track[]).map((tr, i) => <TrackCard key={tr.id} track={tr} list={s.items as Track[]} index={i} />)}

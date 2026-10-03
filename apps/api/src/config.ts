@@ -60,6 +60,8 @@ export const config = {
   canvasSeconds: Math.max(4, Math.min(20, Number(process.env.CANVAS_SECONDS || 9))),
   /** Keep checking that every catalogue track plays its own recording; re-fetch the ones that don't. */
   autoHeal: bool(process.env.AUTO_HEAL, true),
+  /** My Wave fetches a few new tracks a day for each listener (related artists, new releases) */
+  waveDiscovery: bool(process.env.WAVE_DISCOVERY, true),
   /** Pause between two upload lookups of the self-healing check. */
   healPauseMs: Math.max(0, Number(process.env.HEAL_PAUSE_MS ?? 4000)),
   /** chromaprint's fpcalc: downloads are checked against the catalogue's 30-second preview of the recording. */

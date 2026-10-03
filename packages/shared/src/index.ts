@@ -123,6 +123,8 @@ export interface Genre {
   color: string;
   trackCount: number;
   coverUrl: string | null;
+  /** up to three covers of the genre, most played first */
+  covers?: string[];
 }
 
 export interface SearchResult {

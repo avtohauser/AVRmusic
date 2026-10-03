@@ -50,6 +50,9 @@ dz.get('/artist/100', async () => ART);
 dz.get('/artist/100/top', async () => ({ data: [T1, T2] }));
 dz.get('/artist/100/albums', async () => ({ data: [{ id: 501, title: 'Fake Single', cover_xl: null, record_type: 'single', release_date: '2022-01-01', nb_tracks: 1 }, { ...COMP, nb_tracks: 2 }, { ...ALB, tracks: undefined }] }));
 dz.get('/artist/100/related', async () => ({ data: [ART2] }));
+// a related artist's hit that is not in the library: what My Wave should go and fetch
+const T10 = TRK(1010, 'Guest Star Solo', { artist: ART2 });
+dz.get('/artist/200/top', async () => ({ data: [T10] }));
 dz.get('/album/500', async () => ALB);
 dz.get('/album/501', async () => ({ id: 501, title: 'Fake Single', record_type: 'single', release_date: '2022-01-01', artist: ART, tracks: { data: [T1] } }));
 dz.get('/track/1001', async () => T1);
@@ -496,6 +499,28 @@ test('My Wave: personal batches with reasons, dislikes stay out; admin sees user
   }
   const act = (await app.inject({ method: 'GET', url: '/api/admin/activity', headers: h })).json();
   assert.ok(Array.isArray(act.daily) && act.topTracks.length >= 1 && act.sources.length >= 1, JSON.stringify(act));
+});
+
+test('My Wave finds new music next to the favourites and mixes it in, saying why', async () => {
+  const { discoveryCandidates } = await import('../src/services/discover.js');
+  const me = app.db.prepare(`SELECT user_id id FROM plays WHERE user_id IS NOT NULL GROUP BY user_id ORDER BY COUNT(*) DESC LIMIT 1`).get() as any;
+  const cands = await discoveryCandidates(app.db, me.id);
+  const solo = cands.find((c) => c.deezerId === 1010);
+  assert.ok(solo, JSON.stringify(cands));
+  assert.match(solo!.reason, /Похоже на Fake Artist/);
+  assert.ok(!cands.some((c) => [1001, 1002].includes(c.deezerId)), 'tracks already on the server are not fetched again');
+  // a found track by a familiar artist the listener has not heard yet comes with its reason
+  const played = app.db.prepare(`SELECT p.track_id id, t.artist_id a FROM plays p JOIN tracks t ON t.id = p.track_id
+    WHERE p.user_id = ? AND p.track_id NOT IN (SELECT track_id FROM wave_feedback WHERE user_id = ?) GROUP BY p.track_id`).all(me.id, me.id) as any[];
+  const byArtist = played.filter((x) => played.filter((y) => y.a === x.a).length >= 2);
+  assert.ok(byArtist.length >= 2, 'the listener played at least two tracks of one artist');
+  const fresh = byArtist[0].id;
+  app.db.prepare('DELETE FROM plays WHERE user_id = ? AND track_id = ?').run(me.id, fresh); // not heard yet, its artist still familiar
+  app.db.prepare(`INSERT OR REPLACE INTO wave_found(user_id, deezer_id, track_id, reason, status) VALUES (?, 424242, ?, 'Похоже на Fake Artist', 'imported')`).run(me.id, fresh);
+  const { waveNext } = await import('../src/services/wave.js');
+  const batch = waveNext(app.db, me.id, { mode: 'discover', count: 20 });
+  const t = batch.find((x) => x.id === fresh);
+  assert.ok(t && /^Новое для вас/.test(t.reason ?? ''), JSON.stringify(batch.map((x) => [x.id === fresh, x.reason])));
 });
 
 test('acquire respects ACQUIRE_ROLE=admin', async () => {

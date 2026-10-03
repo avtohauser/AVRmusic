@@ -4,7 +4,7 @@ import type { Track } from '@avrmusic/shared';
 import type { DB } from '../lib/db.js';
 import { newId } from '../lib/util.js';
 
-export type JobKind = 'url' | 'lyrics' | 'acquire' | 'canvas' | 'heal';
+export type JobKind = 'url' | 'lyrics' | 'acquire' | 'canvas' | 'heal' | 'discover';
 
 export interface Job {
   id: string;
@@ -48,7 +48,7 @@ const MAX_USER = 2;
 let expressRunning = 0;
 
 /** Background upkeep (self-healing, canvases) that always lets the users' own downloads go first. */
-const BACKGROUND: JobKind[] = ['heal', 'canvas'];
+const BACKGROUND: JobKind[] = ['heal', 'canvas', 'discover'];
 const isSmall = (j: Job) => j.kind === 'acquire' && ['track', 'album'].includes((j.payload as any)?.kind);
 const isUser = (j: Job) => !BACKGROUND.includes(j.kind);
 

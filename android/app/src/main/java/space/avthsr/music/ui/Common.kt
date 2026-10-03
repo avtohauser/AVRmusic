@@ -102,7 +102,6 @@ class Nav(private val c: NavController, val openPlayer: () -> Unit) {
   fun catalogAlbum(id: Long) = go("calbum/$id")
   fun catalogArtist(id: Long) = go("cartist/$id")
   fun liked() = go("liked")
-  fun discover() = go("discover")
   fun profile() = c.navigate("profile") {
     popUpTo(c.graph.findStartDestination().id) { saveState = true }
     launchSingleTop = true

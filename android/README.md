@@ -1,4 +1,4 @@
-# AVRmusic для Android
+# AVRmusic для Android и iOS
 
 **Нативное приложение** на Kotlin + Jetpack Compose с **Material 3 Expressive** (material3 1.5 alpha: `MaterialExpressiveTheme`,
 `MotionScheme.expressive()`, `LoadingIndicator`, волнистые индикаторы и полоса перемотки, `MaterialShapes` и морфинг формы
@@ -23,9 +23,22 @@ YouTube, треки с редактированием тегов/текста/к
 - «Моя волна» сама подгружает следующие треки, каждое прослушивание отправляется в статистику;
 - прослушанное кэшируется на телефоне (до 1 ГБ), повторы не тратят трафик.
 
-Код (`app/src/main/java/space/avthsr/music/`): `api/` — API, модели, лайки; `player/` — `PlaybackService`
-(плеер, ♥, волна, отчёты о прослушиваниях), `PlayerConn` (MediaController для экранов), `Queue` (общее состояние);
-`ui/` — экраны Compose.
+Код — **Kotlin Multiplatform + Compose Multiplatform**: одно приложение для Android и iOS.
+- `shared/src/commonMain/` — всё приложение: экраны (`ui/`), API и модели (`api/`), очередь, «Моя волна», офлайн
+  (`player/`), настройки, язык. Сетевой слой — Ktor, картинки — Coil 3, иконки — Compose Resources.
+- `shared/src/androidMain/`, `shared/src/iosMain/` — то, что у платформ своё (за `expect`/`actual`): хранение настроек,
+  выбор файлов, «поделиться»/скачивание, шрифты и цвета системы, размытие обложек, видео-канвасы, превью, сеть,
+  уведомления о новостях. На iOS там же движок плеера (`IosEngine`: AVPlayer, экран блокировки с ♥, фон).
+- `app/` — Android-оболочка: `MainActivity`, `PlaybackService` (Media3) и `AndroidEngine` — мост к нему.
+- `iosApp/` — iOS-оболочка на SwiftUI (проект XcodeGen: `project.yml`).
+
+## Готовый IPA (iOS)
+
+Workflow `.github/workflows/ios.yml`: при каждом изменении iOS-код компилируется на Linux (быстро и бесплатно), а сам
+IPA собирается на macOS-раннере **по запросу** (Actions → ios → Run workflow) — macOS-минуты в приватном репозитории
+считаются ×10. IPA публикуется в Releases как `ios-v<версия>`. Он не подписан: ставится через
+[AltStore](https://altstore.io) или [Sideloadly](https://sideloadly.io) с вашим Apple ID (бесплатный — подпись на 7 дней,
+AltStore продлевает её сам; платный Apple Developer — на год). iOS 16+.
 
 ## Готовый APK
 
@@ -37,7 +50,7 @@ YouTube, треки с редактированием тегов/текста/к
 
 1. Берёт ключ подписи с сервера (`/srv/avrmusic/android-keystore/`), а при первом запуске создаёт его и кладёт туда.
    **Сделайте копию этой папки**: без ключа нельзя выпустить обновление, которое встанет поверх установленного.
-2. Собирает `assembleRelease` (Gradle 8.7, AGP 8.5, compileSdk 34, minSdk 21), версия = `package.json` + номер сборки.
+2. Собирает `assembleRelease` (Gradle 8.13, AGP 8.13, Kotlin 2.3, compileSdk 36, minSdk 23), версия = `package.json` + номер сборки.
 3. Прописывает SHA-256 отпечаток ключа в `.env` сервера (`ANDROID_PACKAGE`, `ANDROID_SHA256`) и проверяет, что сайт
    отдаёт `/.well-known/assetlinks.json` с этим отпечатком — так ссылки на сайт открываются сразу в приложении.
 4. Создаёт релиз `android-v<версия>` с APK.

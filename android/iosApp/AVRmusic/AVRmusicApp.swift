@@ -4,7 +4,7 @@ import UIKit
 import Shared
 
 @main
-struct AVRmusicApp: App {
+struct AVRmusicApp: SwiftUI.App {
   init() {
     MainViewControllerKt.start()
   }

@@ -1,6 +1,6 @@
 // A genre as an expressive tile: its colour, its name in the heavy flexible face, and covers of its
-// most played music fanned out in the corner in Material shapes. Pressing squashes the tile and fans
-// the covers a little further, on the expressive spring.
+// most played music as a little pile of cards in the corner. Pressing squashes the tile and slides the
+// top card off the pile a little, as if starting to flip through it, on the expressive spring.
 @file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
 
 package space.avthsr.music.ui
@@ -29,6 +29,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -44,13 +45,14 @@ import space.avthsr.music.R
 import space.avthsr.music.api.Api
 import space.avthsr.music.api.Genre
 
-/** Where each cover sits in the fan (front first): size, offset from the bottom-right corner, tilt, extra tilt when pressed. */
-private data class Leaf(val size: Dp, val x: Dp, val y: Dp, val tilt: Float, val spread: Float)
+/** Where each card lies in the pile (top first): offset from the bottom-right corner, tilt, and how it moves when pressed. */
+private data class Leaf(val x: Dp, val y: Dp, val tilt: Float, val dx: Dp, val dy: Dp, val dTilt: Float)
 
+private val CARD = 76.dp
 private val leaves = listOf(
-  Leaf(74.dp, 12.dp, 14.dp, -12f, -8f),
-  Leaf(62.dp, (-40).dp, 22.dp, 10f, 9f),
-  Leaf(54.dp, 20.dp, (-30).dp, 24f, 10f),
+  Leaf(4.dp, 10.dp, 7f, 12.dp, (-6).dp, 12f),
+  Leaf((-8).dp, 2.dp, -3f, 2.dp, (-3).dp, -1f),
+  Leaf((-18).dp, (-7).dp, -11f, (-3).dp, 0.dp, -3f),
 )
 
 @Composable
@@ -62,7 +64,6 @@ fun GenreTile(g: Genre, modifier: Modifier = Modifier, onClick: () -> Unit) {
   val interaction = remember { MutableInteractionSource() }
   val pressed by interaction.collectIsPressedAsState()
   val fan by animateFloatAsState(if (pressed) 1f else 0f, Motion.expressive.fastSpatialSpec(), label = "fan")
-  val shapes = listOf(MaterialShapes.Cookie9Sided.toShape(), MaterialShapes.Clover4Leaf.toShape(), MaterialShapes.Sunny.toShape())
   val covers = g.covers.ifEmpty { listOfNotNull(g.coverUrl) }.take(leaves.size)
   Box(
     modifier.height(124.dp).pressSquash(interaction, 0.95f).clip(RoundedCornerShape(28.dp))
@@ -72,8 +73,8 @@ fun GenreTile(g: Genre, modifier: Modifier = Modifier, onClick: () -> Unit) {
     if (covers.isEmpty()) {
       Ico(R.drawable.ic_album, null, Modifier.align(Alignment.BottomEnd).offset(14.dp, 14.dp).size(78.dp).graphicsLayer { rotationZ = -16f + fan * -8f }, Color.White.copy(alpha = 0.28f))
     }
-    // back to front, so the most played cover lies on top
-    for (i in covers.indices.reversed()) FanCover(covers[i], leaves[i], shapes[i], fan)
+    // bottom of the pile first, so the most played cover lies on top
+    for (i in covers.indices.reversed()) PileCard(covers[i], leaves[i], i, fan)
     Text(
       g.name, Modifier.padding(start = 16.dp, top = 14.dp, end = 70.dp),
       style = MaterialTheme.typography.titleLarge, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis,
@@ -85,12 +86,22 @@ fun GenreTile(g: Genre, modifier: Modifier = Modifier, onClick: () -> Unit) {
   }
 }
 
+private val CardShape = RoundedCornerShape(16.dp)
+
 @Composable
-private fun BoxScope.FanCover(url: String, leaf: Leaf, shape: Shape, fan: Float) {
+private fun BoxScope.PileCard(url: String, leaf: Leaf, depth: Int, press: Float) {
   AsyncImage(
     model = Api.img(url), contentDescription = null, contentScale = ContentScale.Crop,
-    modifier = Modifier.align(Alignment.BottomEnd).offset(leaf.x, leaf.y).size(leaf.size)
-      .graphicsLayer { rotationZ = leaf.tilt + fan * leaf.spread }
-      .shadow(8.dp, shape).clip(shape),
+    modifier = Modifier.align(Alignment.BottomEnd).offset(leaf.x, leaf.y).size(CARD)
+      .graphicsLayer {
+        translationX = press * leaf.dx.toPx()
+        translationY = press * leaf.dy.toPx()
+        rotationZ = leaf.tilt + press * leaf.dTilt
+        shadowElevation = (8 - depth * 2).dp.toPx()
+        shape = CardShape
+        clip = true
+      }
+      // cards lower in the pile are a touch darker
+      .drawWithContent { drawContent(); if (depth > 0) drawRect(Color.Black, alpha = 0.16f * depth) },
   )
 }

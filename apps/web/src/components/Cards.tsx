@@ -102,11 +102,11 @@ export function TrackCard({ track, list, index }: { track: Track; list?: Track[]
   );
 }
 
-/** A genre: its colour, its name, and covers of its most played music fanned out in the corner. */
+/** A genre: its colour, its name, and covers of its most played music as a little pile of cards. */
 const FAN = [
-  { cls: 'w-24 h-24 -right-3 -bottom-4 rounded-[30%] rotate-[-12deg] group-hover:rotate-[-20deg]', z: 'z-[3]' },
-  { cls: 'w-20 h-20 right-14 -bottom-6 rounded-full rotate-[10deg] group-hover:rotate-[20deg] group-hover:-translate-x-1', z: 'z-[2]' },
-  { cls: 'w-16 h-16 -right-5 bottom-14 rounded-[38%_62%_55%_45%] rotate-[24deg] group-hover:rotate-[34deg]', z: 'z-[1]' },
+  { cls: 'right-2 -bottom-2 rotate-[7deg] group-hover:translate-x-3 group-hover:-translate-y-1 group-hover:rotate-[19deg]', z: 'z-[3]' },
+  { cls: 'right-5 bottom-0 -rotate-3 brightness-90 group-hover:-translate-y-0.5', z: 'z-[2]' },
+  { cls: 'right-8 bottom-2 -rotate-[11deg] brightness-75 group-hover:-rotate-[14deg] group-hover:-translate-x-0.5', z: 'z-[1]' },
 ];
 export function GenreCard({ genre, wide = false }: { genre: Genre; wide?: boolean }) {
   const covers = (genre.covers?.length ? genre.covers : genre.coverUrl ? [genre.coverUrl] : []).slice(0, FAN.length);
@@ -115,7 +115,7 @@ export function GenreCard({ genre, wide = false }: { genre: Genre; wide?: boolea
       <span className="relative z-10 drop-shadow line-2 pr-14 block">{genre.name}</span>
       <span className="absolute z-10 left-4 bottom-3 md-label-md text-white/80">♪ {genre.trackCount}</span>
       {covers.map((c, i) => (
-        <img key={c} src={c} alt="" loading="lazy" className={`absolute ${FAN[i].z} ${FAN[i].cls} object-cover elev-2 spring`} />
+        <img key={c} src={c} alt="" loading="lazy" className={`absolute w-20 h-20 rounded-[16px] ${FAN[i].z} ${FAN[i].cls} object-cover elev-2 spring`} />
       )).reverse()}
     </Link>
   );

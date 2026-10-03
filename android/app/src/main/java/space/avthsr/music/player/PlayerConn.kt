@@ -33,6 +33,8 @@ data class PlayerUi(
   val shuffle: Boolean = false,
   val repeat: Int = Player.REPEAT_MODE_OFF,
   val durationMs: Long = 0,
+  /** the queue's indices in the order they play (shuffle included), for the cover deck */
+  val order: List<Int> = emptyList(),
 )
 
 object PlayerConn {
@@ -106,6 +108,11 @@ object PlayerConn {
     }
     val idx = c.currentMediaItemIndex
     val track = queue.getOrNull(idx)
+    val tl = c.currentTimeline
+    val order = if (tl.isEmpty) emptyList() else buildList {
+      var i = tl.getFirstWindowIndex(c.shuffleModeEnabled)
+      while (i != C.INDEX_UNSET && size < tl.windowCount) { add(i); i = tl.getNextWindowIndex(i, Player.REPEAT_MODE_OFF, c.shuffleModeEnabled) }
+    }
     _currentId.value = track?.id
     _state.value = PlayerUi(
       track = track,
@@ -116,6 +123,7 @@ object PlayerConn {
       shuffle = c.shuffleModeEnabled,
       repeat = c.repeatMode,
       durationMs = c.duration.takeIf { it != C.TIME_UNSET && it > 0 } ?: track?.durationMs ?: 0,
+      order = order,
     )
   }
 

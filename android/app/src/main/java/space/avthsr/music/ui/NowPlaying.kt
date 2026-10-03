@@ -174,9 +174,9 @@ fun NowPlayingScreen(onClose: () -> Unit) {
       }
 
       // the cover, or the lyrics in its place
-      // swipe the cover (or the canvas) to the next / previous track; not the lyrics, they scroll
+      // over a canvas the empty area swipes between tracks (the cover deck has its own flip); not the lyrics, they scroll
       val swipe = rememberTrackSwipe()
-      Box(Modifier.weight(1f).fillMaxWidth().trackSwipe(swipe, scope, enabled = !lyricsShown).padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
+      Box(Modifier.weight(1f).fillMaxWidth().trackSwipe(swipe, scope, enabled = canvas && !lyricsShown).padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
         val motion = MaterialTheme.motionScheme
         AnimatedContent(
           targetState = lyricsShown,
@@ -191,31 +191,9 @@ fun NowPlayingScreen(onClose: () -> Unit) {
           when {
             lyrics && t != null -> LyricsPane(t, Modifier.fillMaxSize())
             canvas -> Spacer(Modifier.fillMaxSize())
-            // a new track's cover grows in as the old one swells and fades; the cover itself flows
-            // from the mini player when the player opens and back when it closes
-            else -> AnimatedContent(
-              targetState = t?.let { it to s.index },
-              contentKey = { it?.first?.id },
-              transitionSpec = {
-                // the next track comes from the right, the previous one from the left
-                val ahead = (targetState?.second ?: 0) >= (initialState?.second ?: 0)
-                (slideInHorizontally(motion.defaultSpatialSpec()) { w -> if (ahead) w / 3 else -w / 3 } + fadeIn(motion.defaultEffectsSpec()) + scaleIn(motion.defaultSpatialSpec(), initialScale = 0.88f))
-                  .togetherWith(slideOutHorizontally(motion.fastSpatialSpec()) { w -> if (ahead) -w / 3 else w / 3 } + fadeOut(motion.fastEffectsSpec()) + scaleOut(motion.fastSpatialSpec(), targetScale = 0.92f))
-              },
-              modifier = Modifier.fillMaxSize(),
-              contentAlignment = Alignment.Center,
-              label = "cover",
-            ) { pair ->
-              val x = pair?.first
-              Cover(
-                x?.coverUrl,
-                Modifier.widthIn(max = 420.dp).fillMaxWidth().aspectRatio(1f)
-                  .sharedCover(x?.let { "np:${it.id}" })
-                  .graphicsLayer { scaleX = coverScale; scaleY = coverScale }
-                  .shadow(28.dp, RoundedCornerShape(32.dp)),
-                RoundedCornerShape(32.dp),
-              )
-            }
+            // the covers as a deck you flip through (see CoverStack); the top card flows from the
+            // mini player when the player opens and back when it closes
+            else -> CoverStack(s, Modifier.fillMaxSize(), pauseScale = { coverScale })
           }
         }
       }

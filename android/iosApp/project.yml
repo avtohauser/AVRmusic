@@ -25,6 +25,8 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSRequiresIPhoneOS: true
+        # Compose Multiplatform draws at the display's full rate (120 Hz on ProMotion) and checks this key
+        CADisableMinimumFrameDurationOnPhone: true
         UILaunchScreen:
           UIColorName: LaunchBackground
         UIStatusBarHidden: true

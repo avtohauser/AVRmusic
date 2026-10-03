@@ -42,6 +42,13 @@ jobs:
         with:
           path: ~/.konan
           key: konan-${{ runner.os }}-2.3.20
+      - name: Xcode 26 (Compose Multiplatform 1.11 links against the iOS 26 SDK)
+        run: |
+          ls -d /Applications/Xcode*.app
+          x="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -n1)"
+          [ -n "$x" ] || { echo "::error::no Xcode 26 on this runner"; exit 1; }
+          sudo xcode-select -s "$x"
+          xcodebuild -version
       - name: Build the app
         run: |
           set -e

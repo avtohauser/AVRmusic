@@ -41,7 +41,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.konan
-          key: konan-${{ runner.os }}-2.2.21
+          key: konan-${{ runner.os }}-2.3.20
       - name: Build the app
         run: |
           set -e

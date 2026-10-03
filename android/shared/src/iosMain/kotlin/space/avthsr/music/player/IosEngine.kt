@@ -11,18 +11,15 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.useContents
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import platform.AVFAudio.AVAudioSession
-import platform.AVFAudio.AVAudioSessionCategoryPlayback
-import platform.AVFAudio.setActive
+import platform.AVFAudio.*
 import platform.AVFoundation.*
 import platform.CoreMedia.CMTimeGetSeconds
 import platform.CoreMedia.CMTimeMakeWithSeconds
-import platform.Foundation.NSData
+import platform.Foundation.NSFileManager
 import platform.Foundation.NSNotificationCenter
 import platform.Foundation.NSNumber
 import platform.Foundation.NSOperationQueue
 import platform.Foundation.NSURL
-import platform.Foundation.dataWithContentsOfFile
 import platform.MediaPlayer.*
 import platform.UIKit.UIImage
 import space.avthsr.music.App
@@ -390,7 +387,7 @@ class IosEngine : PlayerEngine {
     artworkFor = t.id
     App.scope.launch {
       val bytes = runCatching {
-        Offline.cover(t.id)?.let { NSData.dataWithContentsOfFile(it)?.toByteArray() }
+        Offline.cover(t.id)?.let { NSFileManager.defaultManager.contentsAtPath(it)?.toByteArray() }
           ?: Api.img(t.coverUrl)?.let { Api.http.get(it).readRawBytes() }
       }.getOrNull() ?: return@launch
       val image = UIImage(data = bytes.toNSData())

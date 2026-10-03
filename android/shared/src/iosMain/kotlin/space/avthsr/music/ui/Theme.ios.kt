@@ -17,13 +17,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.platform.Font
 import kotlinx.cinterop.ExperimentalForeignApi
 import platform.Foundation.NSBundle
-import platform.Foundation.NSData
-import platform.Foundation.dataWithContentsOfFile
+import platform.Foundation.NSFileManager
 import space.avthsr.music.toByteArray
 
 private object Fonts {
   private fun load(name: String): ByteArray? =
-    NSBundle.mainBundle.pathForResource(name, ofType = "ttf")?.let { NSData.dataWithContentsOfFile(it)?.toByteArray() }
+    NSBundle.mainBundle.pathForResource(name, ofType = "ttf")?.let { NSFileManager.defaultManager.contentsAtPath(it)?.toByteArray() }
 
   val googleSans: ByteArray? by lazy { load("google_sans_flex") }
   val robotoFlex: ByteArray? by lazy { load("roboto_flex") }

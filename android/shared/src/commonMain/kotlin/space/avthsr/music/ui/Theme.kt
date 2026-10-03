@@ -53,6 +53,10 @@ expect fun flowFamilies(): List<FontFamily>?
 /** Material You colours from the wallpaper, where the system has them. */
 expect fun systemScheme(dark: Boolean): ColorScheme?
 
+/** Whatever the platform's text needs before the first line is drawn (iOS: the Cyrillic fallback faces). */
+@Composable
+expect fun PlatformFonts()
+
 private fun TextStyle.with(face: Face) = copy(fontFamily = faceFamily(face), fontWeight = FontWeight(face.weight))
 
 private fun typography(): Typography {
@@ -131,8 +135,10 @@ fun AvrTheme(content: @Composable () -> Unit) {
     motionScheme = remember { MotionScheme.expressive() },
     shapes = AvrShapes,
     typography = type,
-    content = content,
-  )
+  ) {
+    PlatformFonts()
+    content()
+  }
 }
 
 /** The edges the content must keep clear of: system bars when shown, the camera cutout always. */

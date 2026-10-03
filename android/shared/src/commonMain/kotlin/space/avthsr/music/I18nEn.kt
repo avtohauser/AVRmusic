@@ -347,6 +347,7 @@ internal val EN: Map<String, String> = hashMapOf(
   "Создать код" to "Create code",
   "Сообщество" to "Community",
   "Сохранено" to "Saved",
+  "Сохранено в «Файлы» → AVRmusic: {}" to "Saved to Files → AVRmusic: {}",
   "Сохранено офлайн" to "Saved offline",
   "Сохранено офлайн, не получилось: {}" to "Saved offline, failed: {}",
   "Сохранить" to "Save",

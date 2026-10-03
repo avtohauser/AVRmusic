@@ -7,6 +7,7 @@ package space.avthsr.music.ui
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.material3.ColorScheme
+import androidx.compose.runtime.Composable
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.ui.text.ExperimentalTextApi
@@ -63,3 +64,7 @@ actual fun flowFamilies(): List<FontFamily>? {
 
 actual fun systemScheme(dark: Boolean): ColorScheme? =
   if (Build.VERSION.SDK_INT >= 31) (if (dark) dynamicDarkColorScheme(Platform.context) else dynamicLightColorScheme(Platform.context)) else null
+
+/** Android chains the faces itself (CustomFallbackBuilder). */
+@Composable
+actual fun PlatformFonts() = Unit

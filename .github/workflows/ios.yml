@@ -1,0 +1,80 @@
+# The iOS app: the same shared Compose app as Android (android/shared) in a small Swift shell
+# (android/iosApp). Every push compiles the iOS code on Linux (Kotlin/Native klib cross-compilation:
+# quick and free). The IPA itself needs a macOS runner (billed 10× for private repos), so it is built
+# only on request: Actions → ios → Run workflow. It is unsigned: install it with AltStore or Sideloadly
+# (they sign it with your Apple ID).
+name: ios
+on:
+  push:
+    branches: [claude/music-service-streaming-nfpgvx, main]
+    paths: ['android/shared/**', 'android/iosApp/**', 'android/*.gradle', 'android/gradle.properties', '.github/workflows/ios.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency: ios-${{ github.event_name }}
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: '8.13' }
+      - name: Compile the iOS code (klibs, on Linux)
+        run: |
+          cd android
+          gradle :shared:compileKotlinIosArm64 -Pkotlin.native.enableKlibsCrossCompilation=true --no-daemon --console=plain -q
+
+  ipa:
+    needs: check
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: '8.13' }
+      - name: Kotlin/Native toolchain cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.konan
+          key: konan-${{ runner.os }}-2.2.21
+      - name: Build the app
+        run: |
+          set -e
+          ver="$(node -p "require('./package.json').version")"
+          echo "APP_VERSION=$ver.${{ github.run_number }}" >> "$GITHUB_ENV"
+          brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+          cd android/iosApp
+          xcodegen generate
+          xcodebuild -project AVRmusic.xcodeproj -scheme AVRmusic -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build \
+            MARKETING_VERSION="$ver" CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            GRADLE_BIN="$(command -v gradle)" build | tail -n 80
+          test "${PIPESTATUS[0]}" = 0
+      - name: Package the IPA
+        run: |
+          set -e
+          app=android/iosApp/build/Build/Products/Release-iphoneos/AVRmusic.app
+          test -d "$app" || { echo "::error::AVRmusic.app not produced"; exit 1; }
+          rm -rf Payload out && mkdir -p Payload out
+          cp -R "$app" Payload/
+          zip -qry "out/AVRmusic-$APP_VERSION.ipa" Payload
+          (cd out && shasum -a 256 *.ipa > SHA256SUMS.txt && cat SHA256SUMS.txt)
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ios-v${{ env.APP_VERSION }}
+          name: AVRmusic для iOS ${{ env.APP_VERSION }}
+          make_latest: false
+          body: |
+            AVRmusic для iPhone и iPad (iOS 16+): то же приложение, что и для Android — общий код на Compose Multiplatform, Material 3 Expressive, Google Sans Flex. Музыка играет в фоне и с экрана блокировки (⏮ ⏯ ⏭, ♥), офлайн-треки, «Моя волна», канвасы, админка.
+
+            **Установка (без App Store):** IPA не подписан. Поставьте [AltStore](https://altstore.io) или [Sideloadly](https://sideloadly.io) на компьютер, подключите iPhone и установите `AVRmusic-${{ env.APP_VERSION }}.ipa` — они подпишут его вашим Apple ID. С бесплатным Apple ID подпись живёт 7 дней (AltStore продлевает сама), с платным аккаунтом разработчика — год.
+          files: |
+            out/*.ipa
+            out/SHA256SUMS.txt

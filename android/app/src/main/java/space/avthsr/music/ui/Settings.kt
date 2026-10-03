@@ -2,6 +2,10 @@
 
 package space.avthsr.music.ui
 
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Row
+import androidx.compose.material3.Switch
 import space.avthsr.music.tr
 import space.avthsr.music.Lang
 import androidx.compose.foundation.background
@@ -71,6 +75,18 @@ fun SettingsScreen() {
       Text(tr("Воспроизведение"), style = MaterialTheme.typography.headlineSmall)
       Group(tr("Скорость")) {
         Choices(PlayerConn.speeds.map { Choice(it.toString(), "${if (it % 1f == 0f) it.toInt() else it}×") }, speed.toString()) { PlayerConn.setSpeed(it.toFloat()) }
+      }
+      val canvasOn by Look.canvas.collectAsStateWithLifecycle()
+      Row(
+        Modifier.fillMaxWidth().padding(top = 16.dp).clip(RoundedCornerShape(20.dp)).background(MaterialTheme.colorScheme.surfaceContainer)
+          .clickable { Look.setCanvas(!canvasOn) }.padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        Column(Modifier.weight(1f)) {
+          Text(tr("Канвасы"), style = MaterialTheme.typography.titleMedium)
+          Text(tr("Короткие видео за плеером вместо обложки"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Switch(checked = canvasOn, onCheckedChange = { Look.setCanvas(it) })
       }
     }
   }

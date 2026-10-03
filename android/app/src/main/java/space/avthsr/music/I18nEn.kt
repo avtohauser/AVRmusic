@@ -492,4 +492,8 @@ internal val EN: Map<String, String> = hashMapOf(
   "Что пишет администратор" to "What the admin writes",
   "и ещё {}" to "and {} more",
   "Новая музыка рядом с любимой — волна сама находит и докачивает" to "New music next to what you love — the wave finds and fetches it by itself",
+  "Короткие видео за плеером вместо обложки" to "Short looping videos behind the player instead of the cover",
+  "Выключить канвасы" to "Turn canvases off",
+  "Включить канвасы" to "Turn canvases on",
+  "Язык, тема, цвета, скорость, канвасы" to "Language, theme, colors, speed, canvases",
 )

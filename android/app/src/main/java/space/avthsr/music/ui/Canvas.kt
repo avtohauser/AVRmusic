@@ -10,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -70,9 +71,12 @@ private fun CanvasVideo(url: String, playing: Boolean, modifier: Modifier) {
     // crop to fill: the video is at least as big as the box both ways
     val w = maxOf(maxWidth, maxHeight * ratio)
     val h = w / ratio
-    AndroidView(
-      factory = { ctx -> TextureView(ctx).also { player.setVideoTextureView(it) } },
-      modifier = Modifier.requiredSize(w, h),
-    )
+    // one surface per player: a new track's video gets its own (the old one goes with its player)
+    key(player) {
+      AndroidView(
+        factory = { ctx -> TextureView(ctx).also { player.setVideoTextureView(it) } },
+        modifier = Modifier.requiredSize(w, h),
+      )
+    }
   }
 }

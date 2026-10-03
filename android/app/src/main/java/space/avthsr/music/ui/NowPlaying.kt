@@ -159,9 +159,12 @@ private fun NowPlayingContent(deck: Deck, onClose: () -> Unit) {
         ) { change, dy -> change.consume(); pull = max(0f, pull + dy) }
       },
   ) {
-    val canvas = t?.hasCanvas == true
+    val canvasOn by Look.canvas.collectAsStateWithLifecycle()
+    val canvas = canvasOn && t?.hasCanvas == true
     if (t != null && canvas) {
-      TrackCanvas(t, s.playing, Modifier.fillMaxSize())
+      Crossfade(targetState = t, modifier = Modifier.fillMaxSize(), animationSpec = Motion.expressive.slowEffectsSpec(), label = "canvas") { x ->
+        TrackCanvas(x, s.playing, Modifier.fillMaxSize())
+      }
     } else if (t != null) {
       // flipping the deck slides the background toward the next (or previous) cover as far as the card has come
       val pos = s.deckPos()
@@ -186,7 +189,14 @@ private fun NowPlayingContent(deck: Deck, onClose: () -> Unit) {
         }
         Box {
           IconButton(onClick = { menu = true }, enabled = t != null) { Ico(R.drawable.ic_more, tr("Ещё")) }
-          if (t != null) TrackMenu(t, menu, { menu = false })
+          if (t != null) TrackMenu(t, menu, { menu = false }) { close ->
+            // canvases on / off right from the player
+            DropdownMenuItem(
+              text = { Text(if (canvasOn) tr("Выключить канвасы") else tr("Включить канвасы")) },
+              leadingIcon = { Ico(R.drawable.ic_movie) },
+              onClick = { close(); Look.setCanvas(!canvasOn) },
+            )
+          }
         }
       }
 

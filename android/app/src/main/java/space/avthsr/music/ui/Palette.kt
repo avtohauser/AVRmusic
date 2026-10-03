@@ -68,6 +68,8 @@ object Look {
   val contrast = MutableStateFlow("standard")
   /** seed taken from the playing track's cover */
   val coverSeed = MutableStateFlow<Int?>(null)
+  /** short looping videos (canvases) behind the player instead of the cover */
+  val canvas = MutableStateFlow(true)
 
   fun init() {
     val p = Api.prefs
@@ -76,6 +78,12 @@ object Look {
     seed.value = p.getInt("look.seed", seed.value)
     variant.value = p.getString("look.variant", variant.value) ?: variant.value
     contrast.value = p.getString("look.contrast", contrast.value) ?: contrast.value
+    canvas.value = p.getBoolean("look.canvas", true)
+  }
+
+  fun setCanvas(on: Boolean) {
+    canvas.value = on
+    Api.prefs.edit().putBoolean("look.canvas", on).apply()
   }
 
   fun set(mode: String? = null, source: String? = null, seed: Int? = null, variant: String? = null, contrast: String? = null) {

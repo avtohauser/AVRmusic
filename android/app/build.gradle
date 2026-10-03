@@ -58,29 +58,17 @@ kotlin {
 }
 
 dependencies {
-  // native UI: Jetpack Compose + Material 3 Expressive (1.5 alphas carry the expressive components);
-  // music: ExoPlayer in a Media3 session service (shade player with ♥)
-  def compose = '1.11.0'
-  implementation "androidx.compose.ui:ui:$compose"
-  implementation "androidx.compose.foundation:foundation:$compose"
-  implementation "androidx.compose.animation:animation:$compose"
-  implementation 'androidx.compose.material3:material3:1.5.0-alpha17'
-  implementation 'androidx.graphics:graphics-shapes:1.0.1'
+  // the app itself (screens, API, queue, offline …) lives in :shared, with Compose Multiplatform;
+  // here: the Media3 player service (ExoPlayer in a media session: shade player with ♥) and the activity
+  implementation project(':shared')
   implementation 'androidx.activity:activity-compose:1.9.3'
-  implementation 'androidx.navigation:navigation-compose:2.8.3'
-  implementation 'androidx.lifecycle:lifecycle-runtime-compose:2.8.7'
   implementation 'androidx.core:core-ktx:1.13.1'
-  implementation 'androidx.work:work-runtime-ktx:2.10.1'
   implementation 'androidx.media3:media3-exoplayer:1.4.1'
   implementation 'androidx.media3:media3-session:1.4.1'
   implementation 'androidx.media3:media3-datasource:1.4.1'
   implementation 'androidx.media3:media3-database:1.4.1'
-  implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0'
   implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2'
   implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.10.2'
-  implementation 'com.squareup.okhttp3:okhttp:4.12.0'
-  implementation 'io.coil-kt:coil-compose:2.7.0'
-  implementation 'io.coil-kt:coil-gif:2.7.0'
-  // Material colour science (seed / cover-art schemes, palette variants, contrast)
-  implementation 'com.materialkolor:material-color-utilities:4.0.2'
+  // animated canvases (GIF / animated WebP)
+  implementation 'io.coil-kt.coil3:coil-gif:3.3.0'
 }

@@ -1,7 +1,6 @@
 package space.avthsr.music
 
 import android.content.Intent
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
@@ -12,8 +11,8 @@ import androidx.activity.enableEdgeToEdge
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import kotlinx.coroutines.flow.MutableStateFlow
-import space.avthsr.music.player.PlayerConn
+import space.avthsr.music.api.NewsAlerts
+import space.avthsr.music.player.AndroidEngine
 import space.avthsr.music.ui.AvrTheme
 import space.avthsr.music.ui.Root
 
@@ -21,16 +20,6 @@ import space.avthsr.music.ui.Root
 class MainActivity : ComponentActivity() {
   companion object {
     const val ACTION_OPEN_PLAYER = "space.avthsr.music.OPEN_PLAYER"
-    const val ACTION_OPEN_NEWS = "space.avthsr.music.OPEN_NEWS"
-
-    /** the shade player was tapped */
-    val openPlayer = MutableStateFlow(false)
-
-    /** a link to the site (or a launcher shortcut) asks for this screen */
-    val deepLink = MutableStateFlow<String?>(null)
-
-    /** an invite link was opened: registration with this code */
-    val invite = MutableStateFlow<String?>(null)
   }
 
   override fun onCreate(savedInstanceState: Bundle?) {
@@ -54,12 +43,12 @@ class MainActivity : ComponentActivity() {
 
   override fun onStart() {
     super.onStart()
-    PlayerConn.connect(this)
+    AndroidEngine.connect(this)
   }
 
   override fun onStop() {
     super.onStop()
-    PlayerConn.release()
+    AndroidEngine.release()
   }
 
   override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -75,21 +64,11 @@ class MainActivity : ComponentActivity() {
 
   private fun handle(intent: Intent?) {
     if (intent == null) return
-    if (intent.action == ACTION_OPEN_PLAYER) openPlayer.value = true
-    if (intent.action == ACTION_OPEN_NEWS) { deepLink.value = "news"; return }
-    val path = intent.data?.path ?: return
-    val s = path.trim('/').split('/')
-    deepLink.value = when {
-      s.size >= 2 && s[0] in setOf("album", "artist", "playlist", "genre") -> "${s[0]}/${Uri.encode(s[1])}"
-      s.size >= 3 && s[0] == "catalog" && s[1] == "album" -> "calbum/${s[2]}"
-      s.size >= 3 && s[0] == "catalog" && s[1] == "artist" -> "cartist/${s[2]}"
-      s[0] in setOf("search", "library", "liked", "profile") -> s[0]
-      s[0] == "admin" -> "admin"
-      s[0] == "history" -> "history"
-      s[0] == "downloads" -> "downloads"
-      s[0] == "news" -> "news"
-      s[0] == "register" -> { intent.data?.getQueryParameter("invite")?.let { invite.value = it }; null }
-      else -> null
-    }
+    if (intent.action == ACTION_OPEN_PLAYER) Links.openPlayer.value = true
+    if (intent.action == NewsAlerts.ACTION_OPEN_NEWS) { Links.deepLink.value = "news"; return }
+    val data = intent.data ?: return
+    val path = data.path ?: return
+    val query = runCatching { data.queryParameterNames.associateWith { data.getQueryParameter(it).orEmpty() } }.getOrDefault(emptyMap())
+    Links.open(path, query)
   }
 }

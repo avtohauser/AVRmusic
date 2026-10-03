@@ -1,0 +1,390 @@
+@file:OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3ExpressiveApi::class)
+
+package space.avthsr.music.ui
+
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideInHorizontally
+import space.avthsr.music.api.News
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material3.LocalContentColor
+import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NavGraphBuilder
+import androidx.savedstate.read
+import kotlin.coroutines.cancellation.CancellationException
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.animate
+import androidx.compose.ui.unit.Velocity
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.material3.Surface
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.Arrangement
+import space.avthsr.music.tr
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ShortNavigationBar
+import androidx.compose.material3.ShortNavigationBarItem
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LinearWavyProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavController
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import space.avthsr.music.App
+import space.avthsr.music.Links
+import org.jetbrains.compose.resources.DrawableResource
+import space.avthsr.music.res.*
+import space.avthsr.music.api.Api
+import space.avthsr.music.player.Net
+import space.avthsr.music.player.PlayerConn
+
+@Composable
+fun Root() {
+  val session by Api.session.collectAsStateWithLifecycle()
+  // another account must not see what the previous one loaded
+  val signedOut = session == null
+  LaunchedEffect(signedOut) { if (signedOut) LoadCache.clear() }
+  // the default colour of text and icons: the theme's "on background" (light text in the dark theme);
+  // without a Scaffold or Surface above, Compose would fall back to black
+  CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onBackground) {
+    if (session == null) LoginScreen() else Main()
+  }
+  val crash by App.lastCrash.collectAsStateWithLifecycle()
+  crash?.let { text ->
+    AlertDialog(
+      onDismissRequest = { App.lastCrash.value = null },
+      title = { Text(tr("Приложение закрылось с ошибкой")) },
+      text = {
+        Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) {
+          Text(tr("Отчёт уже отправлен на сервер. Вот что случилось:"), style = MaterialTheme.typography.bodyMedium)
+          Spacer(Modifier.height(8.dp))
+          SelectionContainer { Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        }
+      },
+      confirmButton = { TextButton(onClick = { App.lastCrash.value = null }) { Text(tr("Понятно")) } },
+    )
+  }
+}
+
+@Composable
+private fun Main() {
+  val controller = rememberNavController()
+  var playerOpen by rememberSaveable { mutableStateOf(false) }
+  val nav = remember(controller) { Nav(controller) { playerOpen = true } }
+  val snack = remember { SnackbarHostState() }
+
+  LaunchedEffect(Unit) {
+    App.messages.collect { text ->
+      snack.currentSnackbarData?.dismiss()
+      launch { snack.showSnackbar(text) }
+    }
+  }
+  // news: checked while the app is open (the background check notifies when it is not)
+  LaunchedEffect(Unit) { while (true) { News.refresh(); delay(5 * 60_000L) } }
+  // notifications need the listener's yes, asked once
+  AskNotificationsOnce()
+  val open by Links.openPlayer.collectAsStateWithLifecycle()
+  LaunchedEffect(open) {
+    if (open) { playerOpen = true; Links.openPlayer.value = false }
+  }
+  val link by Links.deepLink.collectAsStateWithLifecycle()
+  LaunchedEffect(link) {
+    link?.let { Links.deepLink.value = null; playerOpen = false; nav.route(it) }
+  }
+
+  // edge to edge: the content runs under the camera cutout and under the floating bars; screens pad by LocalEdges
+  val density = LocalDensity.current
+  val cutout = with(density) { SafeBars.getTop(density).toDp() }
+  var barsPx by remember { mutableIntStateOf(0) }
+  var islandPx by remember { mutableIntStateOf(0) }
+  val edges = Edges(top = cutout, bottom = with(density) { barsPx.toDp() } + 8.dp)
+
+  // like an M3 Expressive floating toolbar: the island slides away while the content scrolls down and comes
+  // back on the way up; the mini player drops into its place
+  val hide = remember { mutableFloatStateOf(0f) }
+  val hideOnScroll = remember {
+    object : NestedScrollConnection {
+      override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+        hide.floatValue = (hide.floatValue - consumed.y).coerceIn(0f, islandPx.toFloat())
+        return Offset.Zero
+      }
+
+      override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+        val from = hide.floatValue
+        val to = if (from > islandPx / 2f) islandPx.toFloat() else 0f
+        if (from != to) animate(from, to, animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) { v, _ -> hide.floatValue = v }
+        return Velocity.Zero
+      }
+    }
+  }
+  val entry by controller.currentBackStackEntryAsState()
+  LaunchedEffect(entry?.destination?.route) { hide.floatValue = 0f }
+
+  // a back swipe on the open player shrinks it toward the edge before it goes (predictive back)
+  var backTarget by remember { mutableFloatStateOf(0f) }
+  val back by animateFloatAsState(backTarget, Motion.expressive.fastSpatialSpec(), label = "back")
+  LaunchedEffect(playerOpen) { if (playerOpen) backTarget = 0f }
+
+  SharedTransitionLayout {
+  CompositionLocalProvider(LocalNav provides nav, LocalEdges provides edges, LocalShared provides this) {
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+      NavHost(
+        controller,
+        startDestination = "home",
+        modifier = Modifier.fillMaxSize().nestedScroll(hideOnScroll).windowInsetsPadding(SafeBars.only(WindowInsetsSides.Horizontal)),
+        enterTransition = Motion.enter,
+        exitTransition = Motion.exit,
+        popEnterTransition = Motion.popEnter,
+        popExitTransition = Motion.popExit,
+      ) {
+          screen("home") { HomeScreen() }
+          screen("search") { SearchScreen() }
+          screen("library") { LibraryScreen() }
+          screen("liked") { LikedScreen() }
+          screen("profile") { ProfileScreen() }
+          screen("jobs") { JobsScreen() }
+          screen("album/{id}") { AlbumScreen(it.arg("id")) }
+          screen("artist/{id}") { ArtistScreen(it.arg("id")) }
+          screen("playlist/{id}") { PlaylistScreen(it.arg("id")) }
+          screen("genre/{id}") { GenreScreen(it.arg("id")) }
+          screen("calbum/{id}") { CatalogAlbumScreen(it.arg("id").toLongOrNull() ?: 0L) }
+          screen("cartist/{id}") { CatalogArtistScreen(it.arg("id").toLongOrNull() ?: 0L) }
+          screen("history") { HistoryScreen() }
+          screen("downloads") { DownloadsScreen() }
+          screen("news") { NewsScreen() }
+          screen("settings") { SettingsScreen() }
+          screen("admin") { AdminScreen() }
+          screen("admin/user/{id}") { AdminUserScreen(it.arg("id")) }
+          screen("admin/track/{id}") { AdminTrackScreen(it.arg("id")) }
+      }
+      // a soft protection under the camera: text scrolling up there fades out instead of running into it
+      if (cutout > 0.dp) {
+        val bg = MaterialTheme.colorScheme.background
+        Box(Modifier.fillMaxWidth().height(cutout).background(Brush.verticalGradient(listOf(bg.copy(alpha = 0.9f), bg.copy(alpha = 0f)))))
+      }
+
+      // the floating stack: offline note, mini player, navigation island
+      Column(
+        Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+          .onSizeChanged { barsPx = it.height }
+          .graphicsLayer { translationY = hide.floatValue }
+          .windowInsetsPadding(SafeBars.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
+          .padding(bottom = 12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+      ) {
+        val online by Net.online.collectAsStateWithLifecycle()
+        if (!online) OfflineBanner { nav.downloads() }
+        MiniPlayer(playerOpen, onOpen = { playerOpen = true })
+        NavIsland(controller, Modifier.onSizeChanged { islandPx = it.height + with(density) { 12.dp.roundToPx() } })
+      }
+
+      // the player rises on the standard spatial spring (a full screen must not bounce past the edge)
+      AnimatedVisibility(
+        visible = playerOpen,
+        enter = slideInVertically(Motion.standard.slowSpatialSpec()) { it } + fadeIn(Motion.standard.fastEffectsSpec()),
+        exit = slideOutVertically(Motion.standard.defaultSpatialSpec()) { it } + fadeOut(Motion.standard.slowEffectsSpec()),
+      ) {
+        CompositionLocalProvider(LocalAnimScope provides this) {
+          Box(
+            Modifier.fillMaxSize().graphicsLayer {
+              val p = back
+              scaleX = 1f - 0.1f * p
+              scaleY = 1f - 0.1f * p
+              translationY = 40.dp.toPx() * p
+              shape = RoundedCornerShape(36.dp * p)
+              clip = p > 0f
+            },
+          ) {
+            NowPlayingScreen(onClose = { playerOpen = false })
+          }
+        }
+      }
+      SnackbarHost(snack, Modifier.align(Alignment.BottomCenter).padding(bottom = if (playerOpen) 104.dp else edges.bottom))
+    }
+    // after the NavHost, so that with the player open a back closes the player, not the page under it
+    PlayerBackHandler(playerOpen, onProgress = { backTarget = it }, onBack = { playerOpen = false }, onCancel = { backTarget = 0f })
+  }
+  }
+}
+
+/** A destination that lets its content know the screen's own enter / exit animation (for shared covers). */
+private fun NavBackStackEntry.arg(name: String): String = arguments?.read { getStringOrNull(name) }.orEmpty()
+
+private fun NavGraphBuilder.screen(route: String, content: @Composable (NavBackStackEntry) -> Unit) =
+  composable(route) { entry -> CompositionLocalProvider(LocalAnimScope provides this) { content(entry) } }
+
+private data class Tab(val route: String, val label: String, val icon: DrawableResource)
+
+private val tabs get() = listOf(
+  Tab("home", tr("Главная"), Res.drawable.ic_home),
+  Tab("search", tr("Поиск"), Res.drawable.ic_search),
+  Tab("library", tr("Медиатека"), Res.drawable.ic_library),
+  Tab("profile", tr("Профиль"), Res.drawable.ic_person),
+)
+
+/** Navigation as a floating island (a full-rounded M3 Expressive container), not a bar across the screen. */
+@Composable
+private fun NavIsland(c: NavController, modifier: Modifier = Modifier) {
+  val entry by c.currentBackStackEntryAsState()
+  val route = entry?.destination?.route
+  val session by Api.session.collectAsStateWithLifecycle()
+  val avatar = session?.user?.avatarUrl
+  Surface(modifier.padding(horizontal = 16.dp).widthIn(max = 440.dp), shape = CircleShape, color = MaterialTheme.colorScheme.surfaceContainer, shadowElevation = 6.dp) {
+    Row(Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+      tabs.forEach { tab ->
+        ShortNavigationBarItem(
+          selected = route == tab.route,
+          onClick = {
+            c.navigate(tab.route) {
+              popUpTo(c.graph.findStartDestination().id) { saveState = true }
+              launchSingleTop = true
+              restoreState = true
+            }
+          },
+          // the profile tab wears the listener's photo when there is one
+          icon = {
+            if (tab.route == "profile" && avatar != null) Cover(avatar, Modifier.size(26.dp), CircleShape, Res.drawable.ic_person)
+            else Ico(tab.icon, tab.label)
+          },
+          label = { Text(tab.label, maxLines = 1) },
+          modifier = Modifier.weight(1f),
+        )
+      }
+    }
+  }
+}
+
+/** The mini player: wavy progress while playing (flat when paused), a morphing play button. */
+@Composable
+private fun MiniPlayer(playerOpen: Boolean, onOpen: () -> Unit) {
+  val s by PlayerConn.state.collectAsStateWithLifecycle()
+  val t = s.track ?: return
+  // the position is read while drawing: the bar moves without recomposing the row
+  val pos = remember { mutableLongStateOf(0L) }
+  LaunchedEffect(t.id, s.playing) {
+    while (true) { pos.longValue = PlayerConn.position(); delay(if (s.playing) 250 else 1000) }
+  }
+  val dur = s.durationMs
+  val interaction = remember { MutableInteractionSource() }
+  Column(
+    Modifier.fillMaxWidth().padding(horizontal = 12.dp).pressSquash(interaction, 0.97f)
+      .shadow(6.dp, RoundedCornerShape(28.dp)).clip(RoundedCornerShape(28.dp))
+      .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+      .clickable(interactionSource = interaction, indication = LocalIndication.current, onClick = onOpen),
+  ) {
+    Row(Modifier.padding(start = 8.dp, top = 8.dp, bottom = 6.dp, end = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+      // cover and title swipe to the next / previous track; the like and play buttons stay
+      val swipe = rememberTrackSwipe()
+      val scope = rememberCoroutineScope()
+      Row(Modifier.weight(1f).trackSwipe(swipe, scope), verticalAlignment = Alignment.CenterVertically) {
+      val shared = LocalShared.current
+      Cover(
+        t.coverUrl,
+        Modifier.size(48.dp).then(
+          if (shared == null) Modifier
+          else with(shared) { Modifier.sharedElementWithCallerManagedVisibility(rememberSharedContentState("np:${t.id}"), !playerOpen, Motion.coverBounds) },
+        ),
+        RoundedCornerShape(16.dp),
+      )
+      Spacer(Modifier.width(12.dp))
+      // a new track slides in from the side it comes from: ahead in the queue from the right, back from the left
+      AnimatedContent(
+        targetState = t to s.index,
+        contentKey = { it.first.id },
+        transitionSpec = {
+          val ahead = targetState.second >= initialState.second
+          (slideInHorizontally(Motion.expressive.defaultSpatialSpec()) { w -> if (ahead) w / 2 else -w / 2 } + fadeIn(Motion.expressive.defaultEffectsSpec()))
+            .togetherWith(slideOutHorizontally(Motion.expressive.fastSpatialSpec()) { w -> if (ahead) -w / 2 else w / 2 } + fadeOut(Motion.expressive.fastEffectsSpec()))
+        },
+        modifier = Modifier.weight(1f),
+        label = "mini-track",
+      ) { (x, _) ->
+        Column {
+          Text(x.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, modifier = Modifier.basicMarquee())
+          Text(x.artists, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+      }
+      }
+      LikeButton("track", t.id)
+      MorphPlayButton(s.playing, { PlayerConn.toggle() }, 44.dp)
+    }
+    LinearWavyProgressIndicator(
+      progress = { if (dur > 0) (pos.longValue.toFloat() / dur).coerceIn(0f, 1f) else 0f },
+      modifier = Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, bottom = 8.dp),
+      amplitude = { if (s.playing) 1f else 0f },
+    )
+  }
+}

@@ -20,13 +20,13 @@ import java.io.File
 /** A queue entry for a track: its saved file when it is kept offline, the server stream otherwise. */
 fun mediaItemOf(t: Track): MediaItem = MediaItem.Builder()
   .setMediaId(t.id)
-  .setUri(Offline.file(t.id)?.let { Uri.fromFile(it) } ?: Uri.parse(Api.streamUrl(t.id)))
+  .setUri(Offline.file(t.id)?.let { Uri.fromFile(File(it)) } ?: Uri.parse(Api.streamUrl(t.id)))
   .setMediaMetadata(
     MediaMetadata.Builder()
       .setTitle(t.title)
       .setArtist(t.artists)
       .setAlbumTitle(t.album?.title)
-      .setArtworkUri(Offline.cover(t.id)?.let { Uri.fromFile(it) } ?: Api.img(t.coverUrl)?.let { Uri.parse(it) })
+      .setArtworkUri(Offline.cover(t.id)?.let { Uri.fromFile(File(it)) } ?: Api.img(t.coverUrl)?.let { Uri.parse(it) })
       .build()
   )
   .build()

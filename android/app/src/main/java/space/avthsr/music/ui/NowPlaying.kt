@@ -108,6 +108,7 @@ import space.avthsr.music.api.Track
 import space.avthsr.music.player.PlayerConn
 import space.avthsr.music.player.PlayerUi
 import space.avthsr.music.player.Queue
+import kotlin.math.abs
 import kotlin.math.max
 
 /** Set from a track's menu: the player opens straight on the lyrics. */
@@ -115,6 +116,14 @@ val showLyrics = kotlinx.coroutines.flow.MutableStateFlow(false)
 
 @Composable
 fun NowPlayingScreen(onClose: () -> Unit) {
+  val s by PlayerConn.state.collectAsStateWithLifecycle()
+  // the cover deck's place: the colours and the background follow a flip as far as it has come
+  val deck = rememberDeck(s)
+  FlipTheme(s, deck) { NowPlayingContent(deck, onClose) }
+}
+
+@Composable
+private fun NowPlayingContent(deck: Deck, onClose: () -> Unit) {
   val s by PlayerConn.state.collectAsStateWithLifecycle()
   val context by Queue.context.collectAsStateWithLifecycle()
   val nav = LocalNav.current
@@ -154,7 +163,15 @@ fun NowPlayingScreen(onClose: () -> Unit) {
     if (t != null && canvas) {
       TrackCanvas(t, s.playing, Modifier.fillMaxSize())
     } else if (t != null) {
-      BlurredCover(t.coverUrl, Modifier.fillMaxSize(), alpha = 0.6f)
+      // flipping the deck slides the background toward the next (or previous) cover as far as the card has come
+      val pos = s.deckPos()
+      BlurredCover(t.coverUrl, Modifier.fillMaxSize().graphicsLayer { alpha = 1f - abs(deck.cursor.value - pos).coerceIn(0f, 1f) }, alpha = 0.6f)
+      s.deckTrack(pos + 1)?.let { n ->
+        BlurredCover(n.coverUrl, Modifier.fillMaxSize().graphicsLayer { alpha = (deck.cursor.value - pos).coerceIn(0f, 1f) }, alpha = 0.6f)
+      }
+      s.deckTrack(pos - 1)?.let { p ->
+        BlurredCover(p.coverUrl, Modifier.fillMaxSize().graphicsLayer { alpha = (pos - deck.cursor.value).coerceIn(0f, 1f) }, alpha = 0.6f)
+      }
     }
     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(if (canvas) listOf(cs.background.copy(alpha = 0.5f), Color.Transparent, cs.background.copy(alpha = 0.6f), cs.background) else listOf(cs.background.copy(alpha = 0.35f), cs.background.copy(alpha = 0.8f), cs.background))))
     // with lyrics up, a veil over the canvas or cover so every line reads
@@ -193,7 +210,7 @@ fun NowPlayingScreen(onClose: () -> Unit) {
             canvas -> Spacer(Modifier.fillMaxSize())
             // the covers as a deck you flip through (see CoverStack); the top card flows from the
             // mini player when the player opens and back when it closes
-            else -> CoverStack(s, Modifier.fillMaxSize(), pauseScale = { coverScale })
+            else -> CoverStack(s, deck, Modifier.fillMaxSize(), pauseScale = { coverScale })
           }
         }
       }

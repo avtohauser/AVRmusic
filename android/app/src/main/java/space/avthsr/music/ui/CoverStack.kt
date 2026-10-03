@@ -45,30 +45,49 @@ private val CardShape = RoundedCornerShape(32.dp)
 private const val DEPTH = 3f
 private val PEEK = 16.dp
 
-@Composable
-fun CoverStack(s: PlayerUi, modifier: Modifier = Modifier, pauseScale: () -> Float = { 1f }) {
-  val order = s.order.ifEmpty { s.queue.indices.toList() }
-  val pos = order.indexOf(s.index).coerceAtLeast(0)
-  val cursor = remember { Animatable(pos.toFloat()) }
-  val scope = rememberCoroutineScope()
-  var dragging by remember { mutableStateOf(false) }
+/** The queue in playing order (shuffle included), the place of the playing track in it, and the track at a place. */
+fun PlayerUi.deckOrder(): List<Int> = order.ifEmpty { queue.indices.toList() }
+fun PlayerUi.deckPos(): Int = deckOrder().indexOf(index).coerceAtLeast(0)
+fun PlayerUi.deckTrack(p: Int): Track? = deckOrder().getOrNull(p)?.let { queue.getOrNull(it) }
 
+/**
+ * Where the deck is: a continuous place along the playing order (5.3 = the sixth card a third of the
+ * way off). The player owns it, so the colours and the background can follow a flip too.
+ */
+class Deck(start: Float) {
+  val cursor = Animatable(start)
+  var dragging by mutableStateOf(false)
+}
+
+@Composable
+fun rememberDeck(s: PlayerUi): Deck {
+  val pos = s.deckPos()
+  val deck = remember { Deck(pos.toFloat()) }
   // a track change from anywhere flips the deck; a long jump only shows its last step
   LaunchedEffect(pos) {
-    if (dragging) return@LaunchedEffect
-    val gap = pos - cursor.value
-    if (abs(gap) > 2.5f) cursor.snapTo(pos - sign(gap) * 1.5f)
-    cursor.animateTo(pos.toFloat(), Motion.expressive.defaultSpatialSpec())
+    if (deck.dragging) return@LaunchedEffect
+    val gap = pos - deck.cursor.value
+    if (abs(gap) > 2.5f) deck.cursor.snapTo(pos - sign(gap) * 1.5f)
+    deck.cursor.animateTo(pos.toFloat(), Motion.expressive.defaultSpatialSpec())
   }
+  return deck
+}
+
+@Composable
+fun CoverStack(s: PlayerUi, deck: Deck, modifier: Modifier = Modifier, pauseScale: () -> Float = { 1f }) {
+  val order = s.deckOrder()
+  val pos = s.deckPos()
+  val cursor = deck.cursor
+  val scope = rememberCoroutineScope()
 
   BoxWithConstraints(
     modifier
       .graphicsLayer { val k = pauseScale(); scaleX = k; scaleY = k }
       .pointerInput(pos, order.size) {
         detectHorizontalDragGestures(
-          onDragStart = { dragging = true },
+          onDragStart = { deck.dragging = true },
           onDragEnd = {
-            dragging = false
+            deck.dragging = false
             val p = cursor.value - pos
             scope.launch {
               when {
@@ -78,7 +97,7 @@ fun CoverStack(s: PlayerUi, modifier: Modifier = Modifier, pauseScale: () -> Flo
               }
             }
           },
-          onDragCancel = { dragging = false; scope.launch { cursor.animateTo(pos.toFloat(), Motion.expressive.fastSpatialSpec()) } },
+          onDragCancel = { deck.dragging = false; scope.launch { cursor.animateTo(pos.toFloat(), Motion.expressive.fastSpatialSpec()) } },
         ) { change, dx ->
           change.consume()
           // the deck resists a little past the first and the last card

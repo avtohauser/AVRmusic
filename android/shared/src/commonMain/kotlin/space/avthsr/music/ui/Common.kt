@@ -462,7 +462,7 @@ fun TrackMenu(t: Track, expanded: Boolean, close: () -> Unit, extra: (@Composabl
       })
     }
     if (Api.user?.isAdmin == true) {
-      DropdownMenuItem(text = { Text(tr("Редактировать трек")) }, leadingIcon = { Ico(Res.drawable.ic_settings) }, onClick = { close(); nav.route("admin/track/${Uri.encode(t.id)}") })
+      DropdownMenuItem(text = { Text(tr("Редактировать трек")) }, leadingIcon = { Ico(Res.drawable.ic_settings) }, onClick = { close(); nav.route("admin/track/${t.id.encodeURLParameter()}") })
     }
     extra?.invoke(this, close)
   }

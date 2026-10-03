@@ -12,7 +12,7 @@ fun imageLoader(context: PlatformContext, extra: ComponentRegistry.Builder.() ->
   ImageLoader.Builder(context)
     .crossfade(180)
     .components {
-      add(KtorNetworkFetcherFactory { httpClient {} })
+      add(KtorNetworkFetcherFactory(httpClient {}))
       extra()
     }
     .build()

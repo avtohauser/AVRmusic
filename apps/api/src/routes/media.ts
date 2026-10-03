@@ -6,6 +6,7 @@ import { notFound, unauthorized } from '../lib/errors.js';
 import { getTrackRaw } from '../services/library.js';
 import { safeFilename } from '../lib/util.js';
 import { config } from '../config.js';
+import { compatFile, needsCompat } from '../services/compat.js';
 
 /** Serve a file with HTTP Range support (206 Partial Content), ETag and conditional requests. */
 export function sendRange(req: FastifyRequest, reply: FastifyReply, filePath: string, mimeType: string, opts: { download?: string; cache?: string; etag?: string } = {}) {
@@ -70,6 +71,11 @@ export default async function mediaRoutes(app: FastifyInstance) {
     if (!t) throw notFound('Трек не найден');
     // the app's "save for offline" fetches the whole file with ?offline=1
     if ((req.query as any)?.offline && !req.headers.range) logDownload(req.userId, 'offline', t.id, t.file_size ?? null);
+    // the iOS app asks with ?compat=1: formats Apple can't play come as AAC
+    if ((req.query as any)?.compat && needsCompat(t.mime_type)) {
+      const file = await compatFile(t.id, t.file_path).catch((e) => { req.log.warn({ err: e }, 'compat conversion failed'); return null; });
+      if (file) return sendRange(req, reply, file, 'audio/mp4', { etag: t.file_hash ? `"${t.file_hash}-aac"` : undefined });
+    }
     return sendRange(req, reply, t.file_path, t.mime_type, { etag: t.file_hash ? `"${t.file_hash}"` : undefined });
   };
   app.get('/api/stream/:id', { preHandler: app.mediaAuth }, streamHandler);

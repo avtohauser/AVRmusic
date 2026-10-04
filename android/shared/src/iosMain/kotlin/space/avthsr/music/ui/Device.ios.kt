@@ -22,6 +22,7 @@ import platform.AVFAudio.AVEncoderAudioQualityKey
 import platform.AVFAudio.AVFormatIDKey
 import platform.AVFAudio.AVNumberOfChannelsKey
 import platform.AVFAudio.AVSampleRateKey
+import platform.AVFAudio.setActive
 import platform.CoreAudioTypes.kAudioFormatMPEG4AAC
 import platform.Foundation.NSFileManager
 import platform.Foundation.NSNumber

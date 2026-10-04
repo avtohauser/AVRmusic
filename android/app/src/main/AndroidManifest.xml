@@ -78,9 +78,26 @@
         android:exported="true"
         android:foregroundServiceType="mediaPlayback">
       <intent-filter>
+        <action android:name="androidx.media3.session.MediaLibraryService" />
         <action android:name="androidx.media3.session.MediaSessionService" />
         <action android:name="android.media.browse.MediaBrowserService" />
       </intent-filter>
     </service>
+
+    <!-- Android Auto: the player's library (wave, favourites, playlists, recent) in the car -->
+    <meta-data android:name="com.google.android.gms.car.application" android:resource="@xml/automotive_app_desc" />
+
+    <!-- Google Cast: music on a Chromecast, a TV or a speaker -->
+    <meta-data
+        android:name="com.google.android.gms.cast.framework.OPTIONS_PROVIDER_CLASS_NAME"
+        android:value="space.avthsr.music.player.CastOptionsProvider" />
+
+    <!-- the home-screen player -->
+    <receiver android:name=".player.PlayerWidget" android:exported="false" android:label="@string/widget_name">
+      <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+      </intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_player_info" />
+    </receiver>
   </application>
 </manifest>

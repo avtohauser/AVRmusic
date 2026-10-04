@@ -3,6 +3,7 @@
 package space.avthsr.music.ui
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 
 /** The system's share sheet with a picture. */
@@ -18,3 +19,7 @@ interface Recorder {
 /** The microphone (asks for the permission the first time). */
 @Composable
 expect fun rememberRecorder(): Recorder
+
+/** Playing on another device: Google Cast devices on Android, AirPlay on iOS. */
+@Composable
+expect fun CastButton(tint: Color)

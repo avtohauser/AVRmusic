@@ -14,6 +14,9 @@ import androidx.core.view.WindowInsetsControllerCompat
 import space.avthsr.music.api.NewsAlerts
 import space.avthsr.music.player.AndroidEngine
 import space.avthsr.music.player.Jam
+import space.avthsr.music.player.PlayerConn
+import space.avthsr.music.player.PlayerWidget
+import kotlinx.coroutines.launch
 import space.avthsr.music.ui.AvrTheme
 import space.avthsr.music.ui.Root
 
@@ -67,6 +70,11 @@ class MainActivity : ComponentActivity() {
   private fun handle(intent: Intent?) {
     if (intent == null) return
     if (intent.action == ACTION_OPEN_PLAYER) Links.openPlayer.value = true
+    // the widget's ▶ with nothing queued: "My Wave"
+    if (intent.getBooleanExtra(PlayerWidget.EXTRA_START_WAVE, false)) {
+      intent.removeExtra(PlayerWidget.EXTRA_START_WAVE)
+      App.scope.launch { runCatching { PlayerConn.startWave() }.onFailure { App.say(it.message ?: "") } }
+    }
     if (intent.action == NewsAlerts.ACTION_OPEN_NEWS) { Links.deepLink.value = "news"; return }
     if (intent.action == NewsAlerts.ACTION_OPEN_ROUTE) { intent.getStringExtra("route")?.let { Links.deepLink.value = it }; return }
     val data = intent.data ?: return

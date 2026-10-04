@@ -77,7 +77,7 @@ object Alarm {
     // 1970-01-01 was a Thursday; the local date's day number gives the weekday
     val t = localTime(ms)
     val days = daysFromCivil(t.year, t.month, t.day)
-    return ((days + 3) % 7 + 7) % 7 + 1
+    return (((days + 3) % 7 + 7) % 7 + 1).toInt()
   }
 
   private fun daysFromCivil(y0: Int, m: Int, d: Int): Long {

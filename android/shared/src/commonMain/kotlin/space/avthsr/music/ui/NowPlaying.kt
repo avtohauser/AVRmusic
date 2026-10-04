@@ -218,6 +218,7 @@ private fun NowPlayingContent(deck: Deck, onClose: () -> Unit) {
         IconButton(onClick = { jamOpen = true }) {
           Ico(Res.drawable.ic_headphones, tr("Слушать вместе"), tint = if (jam != null) cs.tertiary else LocalContentColor.current)
         }
+        CastButton(LocalContentColor.current)
         Box {
           IconButton(onClick = { menu = true }, enabled = t != null) { Ico(Res.drawable.ic_more, tr("Ещё")) }
           if (t != null) TrackMenu(t, menu, { menu = false }) { close ->

@@ -11,4 +11,11 @@
   <string name="offline_title">Нет соединения</string>
   <string name="offline_retry">Повторить</string>
   <string name="download_started">Загрузка началась</string>
+  <string name="widget_name">AVRmusic — плеер</string>
+  <string name="widget_description">Что играет, с кнопками управления</string>
+  <string name="widget_nothing">AVRmusic</string>
+  <string name="widget_hint">Нажмите ▶ — включится Моя волна</string>
+  <string name="widget_prev">Предыдущий</string>
+  <string name="widget_play">Играть / пауза</string>
+  <string name="widget_next">Следующий</string>
 </resources>

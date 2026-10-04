@@ -25,7 +25,7 @@ import space.avthsr.music.player.PlayerUi
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
-private const val STEPS = 24
+private const val STEPS = 16
 
 /** Seed colours of covers already looked at (url → colour). */
 private val seeds = HashMap<String, Int>()

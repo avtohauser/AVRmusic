@@ -1,9 +1,9 @@
 // The player's covers as a deck: the playing track on top, the next ones peeking out behind it, each a
 // little smaller, askew and darker further down. The top card is thrown off in any direction with the
-// finger: it flies that way off the screen and stays stuck out from behind its left or right edge, and
-// the next card rises in its place. The last nine thrown cards stick out from the edges like that, each
-// on the side and at the height it was thrown to, older ones further out; grab one and pull, and it
-// comes back on top (its song plays). Track changes from anywhere
+// finger: it flies that way out of the cover area and stays stuck out from behind its edge, wherever the
+// throw pointed (top, bottom, the sides, the corners), and the next card rises in its place. Every thrown
+// card stays around like that, older ones a little further out; grab one and pull, and it comes back on
+// top (its song plays). Track changes from anywhere
 // (the end of a song, the buttons, the queue) flip the deck the same way. One continuous cursor moves
 // along the playing order on the expressive spring; every card's place is computed from it while
 // drawing, so flipping never recomposes.
@@ -18,6 +18,7 @@ import androidx.compose.foundation.gestures.awaitTouchSlopOrCancellation
 import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -32,7 +33,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.GraphicsLayerScope
@@ -48,6 +50,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import coil3.compose.AsyncImage
+import coil3.compose.LocalPlatformContext
+import coil3.request.ImageRequest
+import coil3.request.crossfade
+import androidx.compose.ui.layout.ContentScale
+import space.avthsr.music.api.Api
 import space.avthsr.music.api.Track
 import space.avthsr.music.player.PlayerConn
 import space.avthsr.music.player.PlayerUi
@@ -68,8 +76,11 @@ private val CardShape = RoundedCornerShape(32.dp)
 private const val DEPTH = 3f
 private val PEEK = 16.dp
 
-/** How many thrown cards lie around the pile. */
-private const val RING = 9
+/** How many thrown cards stay around the pile (older ones are buried under these anyway). */
+private const val AROUND = 60
+
+/** Thrown cards older than this are decoded small: they are only ever seen at the edges. */
+private const val FULL_AGE = 2f
 
 /** The queue in playing order (shuffle included), the place of the playing track in it, and the track at a place. */
 fun PlayerUi.deckOrder(): List<Int> = order.ifEmpty { queue.indices.toList() }
@@ -123,13 +134,12 @@ private fun jitter2Of(t: Track) = (hash(t) / 9001 % 1000) / 1000f
 
 private fun Deck.angleOf(t: Track): Float = angles[t.id] ?: ((hash(t) / 9000 % 3600) / 3600f * 2f * PI.toFloat())
 
-/** The deck's measures in px: the top card's side and the box it is centred in (the screen's width). */
+/** The deck's measures in px: the top card's side and the box it is centred in (the cover area). */
 private class Geo(val side: Float, val boxW: Float, val boxH: Float)
 
 /**
- * A thrown card's place: behind the left or right edge of the screen (the side it was thrown to), at the
- * height the throw pointed at, sticking out into the screen by its inner edge; [age] 0 for the last one,
- * older ones (up to 8) a little further out.
+ * A thrown card's place: behind the edge of the cover area where its throw pointed (any side or corner),
+ * sticking out into it by its inner edge; [age] 0 for the last one, older ones a little further out.
  */
 private class Rest(angle: Float, g: Geo, t: Track, age: Float) {
   private val half = g.side * REST_SCALE / 2f
@@ -137,17 +147,23 @@ private class Rest(angle: Float, g: Geo, t: Track, age: Float) {
   init {
     val c = cos(angle)
     val s = sin(angle)
-    val dir = when {
-      abs(c) > 0.15f -> sign(c)
-      else -> if (hash(t) % 2 == 0) 1f else -1f
+    val hw = g.boxW / 2f
+    val hh = g.boxH / 2f
+    // how much of it shows inside: the gap beside the top card at most, a little less for older cards
+    val older = max(0.55f, 1f - 0.03f * age)
+    val showX = min((g.boxW - g.side) / 2f * 0.95f, half * 0.8f) * older
+    val showY = min((g.boxH - g.side) / 2f * 0.95f, half * 0.8f) * older
+    // where the throw's line leaves the area, spread a little along the edge so cards thrown alike don't hide each other
+    val along = (jitterOf(t) - 0.5f) * half * 1.2f
+    val toSide = if (abs(c) < 1e-4f) Float.MAX_VALUE else hw / abs(c)
+    val toTopBottom = if (abs(s) < 1e-4f) Float.MAX_VALUE else hh / abs(s)
+    center = if (toSide <= toTopBottom) {
+      val y = (s * toSide + along).coerceIn(-(hh + half - showY), hh + half - showY)
+      Offset(sign(c) * (hw + half - showX), y)
+    } else {
+      val x = (c * toTopBottom + along).coerceIn(-(hw + half - showX), hw + half - showX)
+      Offset(x, sign(s) * (hh + half - showY))
     }
-    // what shows inside the screen: the gap beside the top card at most
-    val gap = (g.boxW - g.side) / 2f
-    val shows = min(gap * 0.95f, half * 0.8f) * (1f - 0.05f * age.coerceIn(0f, 8f))
-    val x = dir * (g.boxW / 2f + half - shows)
-    val y = (s / max(abs(c), 0.35f)) * (g.boxW / 2f) + (jitterOf(t) - 0.5f) * half * 0.5f
-    val maxY = (g.boxH / 2f - half * 0.9f).coerceAtLeast(0f)
-    center = Offset(x, y.coerceIn(-maxY, maxY))
   }
   val rotation = tiltOf(t) * 2f + (jitter2Of(t) - 0.5f) * 20f
 }
@@ -200,7 +216,7 @@ private fun GraphicsLayerScope.place(deck: Deck, t: Track, p: Int, g: Geo) {
       alpha = if (x > DEPTH - 0.6f) ((DEPTH + 0.2f - x) / 0.8f).coerceIn(0f, 1f) else 1f
       shadowElevation = (24f - 7f * d).coerceAtLeast(4f).dp.toPx()
     }
-    // on its way between the top and its place at the screen's edge (either way)
+    // on its way between the top and its place at the edge (either way)
     x > -1f -> {
       val u = -x
       val rest = Rest(deck.angleOf(t), g, t, 0f)
@@ -209,17 +225,17 @@ private fun GraphicsLayerScope.place(deck: Deck, t: Track, p: Int, g: Geo) {
       rotationZ = lerp(0f, rest.rotation, u)
       val sc = lerp(1f, REST_SCALE, u)
       scaleX = sc; scaleY = sc
-      shadowElevation = lerp(24f, 10f, u).dp.toPx()
+      shadowElevation = lerp(24f, 0f, u).dp.toPx()
     }
-    // stuck out from behind the screen's edge; older ones further out and darker, the tenth fades away
+    // stuck out from behind the area's edge; older ones further out and darker (no shadows: dozens of them)
     else -> {
       val rest = Rest(deck.angleOf(t), g, t, -x - 1f)
       translationX = rest.center.x
       translationY = rest.center.y
       rotationZ = rest.rotation
       scaleX = REST_SCALE; scaleY = REST_SCALE
-      alpha = (RING + 1f + x).coerceIn(0f, 1f)
-      shadowElevation = 10.dp.toPx()
+      alpha = (AROUND + 1f + x).coerceIn(0f, 1f)
+      shadowElevation = 0f
     }
   }
 }
@@ -247,21 +263,22 @@ private fun Deck.layer(p: Int): Float {
   }
 }
 
-/** The deck's measures for its box: room beside the top card for the thrown ones' edges and above it for the pile. */
+/** The deck's measures for its box: room around the top card for the thrown ones' edges and above it for the pile. */
 private fun Density.geo(w: Float, h: Float): Geo {
-  val side = minOf(w * 0.74f, (h - PEEK.toPx() * 2.5f) * 0.88f, 420.dp.toPx()).coerceAtLeast(120.dp.toPx())
+  val side = minOf(w * 0.74f, (h - PEEK.toPx() * 2.5f) * 0.8f, 420.dp.toPx()).coerceAtLeast(120.dp.toPx())
   return Geo(side, w, h)
 }
 
 /** The card under a finger at [at] (from the deck's centre): the top one, or a thrown one by its edge. */
 private fun Density.pick(deck: Deck, s: PlayerUi, pos: Int, at: Offset, g: Geo): Int? {
   val top = g.side / 2f
-  if (s.deckTrack(pos) != null && abs(at.x) <= top && at.y <= top && at.y >= -top - PEEK.toPx() * DEPTH) return pos
+  val hasTop = s.deckTrack(pos) != null
+  if (hasTop && abs(at.x) <= top && abs(at.y) <= top) return pos
   // the thrown ones, the most recent first (it lies above the older)
   val half = g.side * REST_SCALE / 2f
-  for (j in 1..RING) {
+  for (j in 1..AROUND) {
     val p = pos - j
-    val t = s.deckTrack(p) ?: continue
+    val t = s.deckTrack(p) ?: break
     val rest = Rest(deck.angleOf(t), g, t, j - 1f)
     val q = at - rest.center
     val a = -rest.rotation * PI.toFloat() / 180f
@@ -269,6 +286,8 @@ private fun Density.pick(deck: Deck, s: PlayerUi, pos: Int, at: Offset, g: Geo):
     val ly = q.x * sin(a) + q.y * cos(a)
     if (abs(lx) <= half && abs(ly) <= half) return p
   }
+  // the pile's edges peeking out above the top card
+  if (hasTop && abs(at.x) <= top && at.y < -top && at.y >= -top - PEEK.toPx() * DEPTH) return pos
   return null
 }
 
@@ -280,7 +299,9 @@ fun CoverStack(s: PlayerUi, deck: Deck, modifier: Modifier = Modifier, pauseScal
   val scope = rememberCoroutineScope()
 
   BoxWithConstraints(
+    // the thrown cards stick out from behind the area's edges
     modifier
+      .clipToBounds()
       .graphicsLayer { val k = pauseScale(); scaleX = k; scaleY = k }
       .pointerInput(pos, order, s.queue) {
         awaitEachGesture {
@@ -358,6 +379,8 @@ fun CoverStack(s: PlayerUi, deck: Deck, modifier: Modifier = Modifier, pauseScal
               val home = Offset.Zero - Rest(deck.angleOf(t), g, t, deck.heldAge).center
               if (p == pos - 1) PlayerConn.prevTrack() else PlayerConn.seekToTrack(order[p])
               scope.launch {
+                // from far back, like any long jump, only the last steps are shown
+                if (pos - p > 3) cursor.snapTo(p + 2.5f)
                 coroutineScope {
                   launch { cursor.animateTo(p.toFloat(), spatial) }
                   launch { animate(Offset.VectorConverter, h, home, animationSpec = Motion.expressive.defaultSpatialSpec()) { o, _ -> deck.hand = o } }
@@ -382,7 +405,7 @@ fun CoverStack(s: PlayerUi, deck: Deck, modifier: Modifier = Modifier, pauseScal
     val side = with(density) { g.side.toDp() }
     // which cards exist right now; changes only when the cursor passes a whole card
     val base by remember { derivedStateOf { floor(cursor.value).toInt() } }
-    for (p in (base - RING - 1)..(base + DEPTH.toInt() + 1)) {
+    for (p in max(0, base - AROUND - 1)..(base + DEPTH.toInt() + 1)) {
       val track = s.deckTrack(p) ?: continue
       key(p) { StackCard(track, p, deck, g, side, top = p == pos) }
     }
@@ -392,16 +415,35 @@ fun CoverStack(s: PlayerUi, deck: Deck, modifier: Modifier = Modifier, pauseScal
 @Composable
 private fun StackCard(t: Track, p: Int, deck: Deck, g: Geo, side: Dp, top: Boolean) {
   val z by remember(p) { derivedStateOf { deck.layer(p) } }
+  // an old card, seen only at the edge, is decoded small (dozens of them at once)
+  val small by remember(p) { derivedStateOf { deck.held != p && deck.cursor.value - p > FULL_AGE } }
+  val density = LocalDensity.current
   Box(
     Modifier.zIndex(z).size(side)
       .then(if (top) Modifier.sharedCover("np:${t.id}") else Modifier)
-      .graphicsLayer { place(deck, t, p, g) }
-      .drawWithContent {
-        drawContent()
-        val dark = deck.darkness(p)
-        if (dark > 0f) drawRect(Color.Black, alpha = dark)
-      },
+      .graphicsLayer { place(deck, t, p, g) },
   ) {
-    Cover(t.coverUrl, Modifier.size(side), CardShape)
+    DeckCover(t.coverUrl, side, if (small) (g.side * REST_SCALE).toInt().coerceAtMost(with(density) { 220.dp.roundToPx() }) else null)
+    // down the pile and around it, darker: a layer's alpha, so flipping never redraws the cover
+    Box(Modifier.matchParentSize().graphicsLayer { alpha = deck.darkness(p) }.background(Color.Black))
+  }
+}
+
+/**
+ * A card's picture. It reads nothing from the theme: the colours flow with every flip, and dozens of
+ * cards must not be recomposed for each step of it. The card's layer rounds it.
+ */
+@Composable
+private fun DeckCover(url: String?, side: Dp, sizePx: Int?) {
+  val u = Api.img(url)
+  Box(Modifier.size(side).background(Color(0xFF2B2930))) {
+    if (u != null) {
+      val context = LocalPlatformContext.current
+      val request = remember(u, sizePx) {
+        ImageRequest.Builder(context).data(u).placeholderMemoryCacheKey(u).crossfade(true)
+          .apply { if (sizePx != null) size(sizePx) }.build()
+      }
+      AsyncImage(model = request, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+    }
   }
 }

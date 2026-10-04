@@ -1,7 +1,8 @@
 // The player's covers as a deck: the playing track on top, the next ones peeking out behind it, each a
 // little smaller, askew and darker further down. The top card is thrown off in any direction with the
-// finger: it flies that way out of the cover area and stays stuck out from behind its edge, wherever the
-// throw pointed (top, bottom, the sides, the corners), and the next card rises in its place. Every thrown
+// finger: it flies that way out of the cover area and stays stuck out past its edge, wherever the throw
+// pointed (top, bottom, the sides, the corners), under the player's other parts, and the next card
+// rises in its place. Every thrown
 // card stays around like that, older ones a little further out; grab one and pull, and it comes back on
 // top (its song plays). Track changes from anywhere
 // (the end of a song, the buttons, the queue) flip the deck the same way. One continuous cursor moves
@@ -34,7 +35,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.background
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.GraphicsLayerScope
@@ -299,9 +299,9 @@ fun CoverStack(s: PlayerUi, deck: Deck, modifier: Modifier = Modifier, pauseScal
   val scope = rememberCoroutineScope()
 
   BoxWithConstraints(
-    // the thrown cards stick out from behind the area's edges
+    // not clipped: the thrown cards reach past the area, under the player's other parts (which keep
+    // their touches: only the area itself takes the deck's)
     modifier
-      .clipToBounds()
       .graphicsLayer { val k = pauseScale(); scaleX = k; scaleY = k }
       .pointerInput(pos, order, s.queue) {
         awaitEachGesture {

@@ -207,7 +207,8 @@ private fun NowPlayingContent(deck: Deck, onClose: () -> Unit) {
       // the cover, or the lyrics in its place
       // over a canvas the empty area swipes between tracks (the cover deck has its own flip); not the lyrics, they scroll
       val swipe = rememberTrackSwipe()
-      Box(Modifier.weight(1f).fillMaxWidth().trackSwipe(swipe, scope, enabled = canvas && !lyricsShown).padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
+      // drawn first, so the deck's thrown cards pass under the bars and buttons above and below it
+      Box(Modifier.zIndex(-1f).weight(1f).fillMaxWidth().trackSwipe(swipe, scope, enabled = canvas && !lyricsShown).padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
         val motion = MaterialTheme.motionScheme
         AnimatedContent(
           targetState = lyricsShown,

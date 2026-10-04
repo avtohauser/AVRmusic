@@ -182,8 +182,10 @@ private fun NowPlayingContent(deck: Deck, onClose: () -> Unit) {
     // with lyrics up, a veil over the canvas or cover so every line reads
     Box(Modifier.fillMaxSize().graphicsLayer { alpha = veil }.background(cs.background.copy(alpha = if (canvas) 0.5f else 0.25f)))
 
-    Column(Modifier.fillMaxSize().windowInsetsPadding(SafeBars).padding(horizontal = 24.dp, vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-      Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    Column(Modifier.fillMaxSize().windowInsetsPadding(SafeBars).padding(vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+      // the cover deck spans the whole width (thrown covers stick out from the screen's edges); the rest keeps its margins
+      val margins = Modifier.padding(horizontal = 24.dp)
+      Row(margins.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = onClose) { Ico(Res.drawable.ic_expand_more, tr("Свернуть")) }
         Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
           Text(if (inWave) tr("Моя волна") else tr("Сейчас играет"), style = MaterialTheme.typography.labelLarge, color = cs.onSurfaceVariant)
@@ -212,7 +214,7 @@ private fun NowPlayingContent(deck: Deck, onClose: () -> Unit) {
           transitionSpec = {
             (fadeIn(motion.defaultEffectsSpec()) + scaleIn(motion.defaultSpatialSpec(), initialScale = 0.92f))
               .togetherWith(fadeOut(motion.fastEffectsSpec()))
-              // thrown covers lie around the deck and may reach into the side margins
+              // the deck's cards may reach past its box
               .using(SizeTransform(clip = false))
           },
           modifier = Modifier.fillMaxSize(),
@@ -220,7 +222,7 @@ private fun NowPlayingContent(deck: Deck, onClose: () -> Unit) {
           label = "art",
         ) { lyrics ->
           when {
-            lyrics && t != null -> LyricsPane(t, Modifier.fillMaxSize())
+            lyrics && t != null -> LyricsPane(t, margins.fillMaxSize())
             canvas -> Spacer(Modifier.fillMaxSize())
             // the covers as a deck you flip through (see CoverStack); the top card flows from the
             // mini player when the player opens and back when it closes
@@ -229,7 +231,7 @@ private fun NowPlayingContent(deck: Deck, onClose: () -> Unit) {
         }
       }
 
-      Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+      Row(margins.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         AnimatedContent(
           targetState = t,
           contentKey = { it?.id },
@@ -253,14 +255,14 @@ private fun NowPlayingContent(deck: Deck, onClose: () -> Unit) {
       }
       val reason = t?.reason
       if (inWave && reason != null && !lyricsShown) {
-        Text("✦ $reason", Modifier.fillMaxWidth().padding(top = 6.dp), style = MaterialTheme.typography.labelLarge, color = cs.tertiary, maxLines = 2)
+        Text("✦ $reason", margins.fillMaxWidth().padding(top = 6.dp), style = MaterialTheme.typography.labelLarge, color = cs.tertiary, maxLines = 2)
       }
 
       Spacer(Modifier.height(10.dp))
-      SeekBar(s)
+      Box(margins) { SeekBar(s) }
 
       Spacer(Modifier.height(10.dp))
-      Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+      Row(margins.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = { PlayerConn.toggleShuffle() }, shapes = IconButtonDefaults.shapes()) {
           Ico(Res.drawable.ic_shuffle, tr("Вперемешку"), tint = if (s.shuffle) cs.primary else cs.onSurfaceVariant)
         }

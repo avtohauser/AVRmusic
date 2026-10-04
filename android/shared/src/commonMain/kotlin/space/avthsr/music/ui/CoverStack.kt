@@ -1,8 +1,9 @@
 // The player's covers as a deck: the playing track on top, the next ones peeking out behind it, each a
 // little smaller, askew and darker further down. The top card is thrown off in any direction with the
-// finger: it flies that way and lands beside the pile, smaller and askew, and the next card rises in its
-// place. The last nine thrown cards lie around the pile like that, each on the side it was thrown to;
-// grab one and pull, and it comes back on top (its song plays). Track changes from anywhere
+// finger: it flies that way off the screen and stays stuck out from behind its left or right edge, and
+// the next card rises in its place. The last nine thrown cards stick out from the edges like that, each
+// on the side and at the height it was thrown to, older ones further out; grab one and pull, and it
+// comes back on top (its song plays). Track changes from anywhere
 // (the end of a song, the buttons, the queue) flip the deck the same way. One continuous cursor moves
 // along the playing order on the expressive spring; every card's place is computed from it while
 // drawing, so flipping never recomposes.
@@ -91,6 +92,8 @@ class Deck(start: Float) {
   var throwing by mutableStateOf(false)
   /** the thrown card is on its own way to its place now, in the direction it was let go */
   var flying by mutableStateOf(false)
+  /** how old the card pulled back was when it was grabbed (its place at the edge stays put meanwhile) */
+  var heldAge by mutableStateOf(0f)
 }
 
 @Composable
@@ -120,31 +123,37 @@ private fun jitter2Of(t: Track) = (hash(t) / 9001 % 1000) / 1000f
 
 private fun Deck.angleOf(t: Track): Float = angles[t.id] ?: ((hash(t) / 9000 % 3600) / 3600f * 2f * PI.toFloat())
 
-/** The deck's measures in px: the top card's side, the box it is centred in, and the margin beside the box. */
-private class Geo(val side: Float, val boxW: Float, val boxH: Float, val margin: Float)
+/** The deck's measures in px: the top card's side and the box it is centred in (the screen's width). */
+private class Geo(val side: Float, val boxW: Float, val boxH: Float)
 
-/** A thrown card's place beside the pile, on the side it was thrown to. */
-private class Rest(angle: Float, g: Geo, t: Track) {
-  val c = cos(angle)
-  val s = sin(angle)
+/**
+ * A thrown card's place: behind the left or right edge of the screen (the side it was thrown to), at the
+ * height the throw pointed at, sticking out into the screen by its inner edge; [age] 0 for the last one,
+ * older ones (up to 8) a little further out.
+ */
+private class Rest(angle: Float, g: Geo, t: Track, age: Float) {
   private val half = g.side * REST_SCALE / 2f
   val center: Offset
   init {
-    // just outside the top card along its direction, a little scattered; kept on screen (it may reach
-    // into the side margins, not past the box above and below)
-    val axis = max(abs(c), abs(s))
-    val d = (g.side / 2f + half * 0.9f) / axis
-    val jx = (jitterOf(t) - 0.5f) * half * 0.35f
-    val jy = (jitter2Of(t) - 0.5f) * half * 0.35f
-    val maxX = (g.boxW / 2f + g.margin - half * 0.6f).coerceAtLeast(0f)
-    val maxY = (g.boxH / 2f - half).coerceAtLeast(0f)
-    center = Offset((c * d + jx).coerceIn(-maxX, maxX), (s * d + jy).coerceIn(-maxY, maxY))
+    val c = cos(angle)
+    val s = sin(angle)
+    val dir = when {
+      abs(c) > 0.15f -> sign(c)
+      else -> if (hash(t) % 2 == 0) 1f else -1f
+    }
+    // what shows inside the screen: the gap beside the top card at most
+    val gap = (g.boxW - g.side) / 2f
+    val shows = min(gap * 0.95f, half * 0.8f) * (1f - 0.05f * age.coerceIn(0f, 8f))
+    val x = dir * (g.boxW / 2f + half - shows)
+    val y = (s / max(abs(c), 0.35f)) * (g.boxW / 2f) + (jitterOf(t) - 0.5f) * half * 0.5f
+    val maxY = (g.boxH / 2f - half * 0.9f).coerceAtLeast(0f)
+    center = Offset(x, y.coerceIn(-maxY, maxY))
   }
-  val rotation = tiltOf(t) * 2f + (jitter2Of(t) - 0.5f) * 24f + 6f * c
+  val rotation = tiltOf(t) * 2f + (jitter2Of(t) - 0.5f) * 20f
 }
 
-private const val REST_SCALE = 0.42f
-private const val REST_DARK = 0.22f
+private const val REST_SCALE = 0.62f
+private const val REST_DARK = 0.3f
 
 private fun lerp(a: Float, b: Float, k: Float) = a + (b - a) * k
 
@@ -160,7 +169,7 @@ private fun GraphicsLayerScope.place(deck: Deck, t: Track, p: Int, g: Geo) {
     held && deck.throwing -> {
       val h = deck.hand
       val angle = if (deck.flying || h.getDistance() < 0.5f) deck.angleOf(t) else atan2(h.y, h.x)
-      val rest = Rest(angle, g, t)
+      val rest = Rest(angle, g, t, 0f)
       val k = (h.getDistance() / rest.center.getDistance().coerceAtLeast(1f)).coerceIn(0f, 1f)
       translationX = h.x
       translationY = h.y
@@ -171,7 +180,7 @@ private fun GraphicsLayerScope.place(deck: Deck, t: Track, p: Int, g: Geo) {
     }
     // a thrown card pulled back: it grows and straightens as it comes over the pile
     held -> {
-      val rest = Rest(deck.angleOf(t), g, t)
+      val rest = Rest(deck.angleOf(t), g, t, deck.heldAge)
       val at = rest.center + deck.hand
       val k = (1f - at.getDistance() / rest.center.getDistance().coerceAtLeast(1f)).coerceIn(0f, 1f)
       translationX = at.x
@@ -191,10 +200,10 @@ private fun GraphicsLayerScope.place(deck: Deck, t: Track, p: Int, g: Geo) {
       alpha = if (x > DEPTH - 0.6f) ((DEPTH + 0.2f - x) / 0.8f).coerceIn(0f, 1f) else 1f
       shadowElevation = (24f - 7f * d).coerceAtLeast(4f).dp.toPx()
     }
-    // on its way between the top and its place beside the pile (either way)
+    // on its way between the top and its place at the screen's edge (either way)
     x > -1f -> {
       val u = -x
-      val rest = Rest(deck.angleOf(t), g, t)
+      val rest = Rest(deck.angleOf(t), g, t, 0f)
       translationX = rest.center.x * u
       translationY = rest.center.y * u
       rotationZ = lerp(0f, rest.rotation, u)
@@ -202,9 +211,9 @@ private fun GraphicsLayerScope.place(deck: Deck, t: Track, p: Int, g: Geo) {
       scaleX = sc; scaleY = sc
       shadowElevation = lerp(24f, 10f, u).dp.toPx()
     }
-    // beside the pile; older ones darker, the tenth fades away
+    // stuck out from behind the screen's edge; older ones further out and darker, the tenth fades away
     else -> {
-      val rest = Rest(deck.angleOf(t), g, t)
+      val rest = Rest(deck.angleOf(t), g, t, -x - 1f)
       translationX = rest.center.x
       translationY = rest.center.y
       rotationZ = rest.rotation
@@ -222,7 +231,7 @@ private fun Deck.darkness(p: Int): Float {
   return when {
     x >= 0f -> 0.22f * min(x, 2f)
     x > -1f -> lerp(0f, REST_DARK, -x)
-    else -> min(REST_DARK + 0.04f * (-x - 1f), 0.55f)
+    else -> min(REST_DARK + 0.03f * (-x - 1f), 0.55f)
   }
 }
 
@@ -232,34 +241,34 @@ private fun Deck.layer(p: Int): Float {
   val x = p - cursor.value
   return when {
     x >= 0f -> 200f - floor(x)
-    // thrown cards lie over the pile's edge, the most recent above the older
+    // flying over everything; at the edges, under the pile, the most recent above the older
     x > -1f -> 300f
-    else -> 260f - ceil(-x)
+    else -> 100f - ceil(-x)
   }
 }
 
-/** The deck's measures for its box: room around the top card for the thrown ones and above it for the pile. */
+/** The deck's measures for its box: room beside the top card for the thrown ones' edges and above it for the pile. */
 private fun Density.geo(w: Float, h: Float): Geo {
-  val side = minOf(w * 0.72f, (h - PEEK.toPx() * 2.5f) * 0.74f, 420.dp.toPx()).coerceAtLeast(120.dp.toPx())
-  return Geo(side, w, h, 24.dp.toPx())
+  val side = minOf(w * 0.74f, (h - PEEK.toPx() * 2.5f) * 0.88f, 420.dp.toPx()).coerceAtLeast(120.dp.toPx())
+  return Geo(side, w, h)
 }
 
-/** The card under a finger at [at] (from the deck's centre): a thrown one beside the pile, or the top one. */
+/** The card under a finger at [at] (from the deck's centre): the top one, or a thrown one by its edge. */
 private fun Density.pick(deck: Deck, s: PlayerUi, pos: Int, at: Offset, g: Geo): Int? {
-  // the thrown cards lie over the pile's edge, the most recent on top
+  val top = g.side / 2f
+  if (s.deckTrack(pos) != null && abs(at.x) <= top && at.y <= top && at.y >= -top - PEEK.toPx() * DEPTH) return pos
+  // the thrown ones, the most recent first (it lies above the older)
+  val half = g.side * REST_SCALE / 2f
   for (j in 1..RING) {
     val p = pos - j
     val t = s.deckTrack(p) ?: continue
-    val rest = Rest(deck.angleOf(t), g, t)
+    val rest = Rest(deck.angleOf(t), g, t, j - 1f)
     val q = at - rest.center
     val a = -rest.rotation * PI.toFloat() / 180f
     val lx = q.x * cos(a) - q.y * sin(a)
     val ly = q.x * sin(a) + q.y * cos(a)
-    val half = g.side * REST_SCALE / 2f
     if (abs(lx) <= half && abs(ly) <= half) return p
   }
-  val half = g.side / 2f
-  if (s.deckTrack(pos) != null && abs(at.x) <= half && at.y <= half && at.y >= -half - PEEK.toPx() * DEPTH) return pos
   return null
 }
 
@@ -288,6 +297,7 @@ fun CoverStack(s: PlayerUi, deck: Deck, modifier: Modifier = Modifier, pauseScal
           deck.throwing = throwing
           deck.flying = false
           deck.hand = start.position - down.position
+          deck.heldAge = (pos - p - 1f).coerceAtLeast(0f)
           deck.held = p
           val ended = drag(start.id) { change ->
             deck.hand += change.positionChange()
@@ -297,7 +307,7 @@ fun CoverStack(s: PlayerUi, deck: Deck, modifier: Modifier = Modifier, pauseScal
               // the next card rises and the colours follow as far as the throw has come
               val h = deck.hand
               val angle = if (h.getDistance() < 0.5f) deck.angleOf(t) else atan2(h.y, h.x)
-              val k = (h.getDistance() / Rest(angle, g, t).center.getDistance().coerceAtLeast(1f)).coerceIn(0f, 1f)
+              val k = (h.getDistance() / Rest(angle, g, t, 0f).center.getDistance().coerceAtLeast(1f)).coerceIn(0f, 1f)
               scope.launch { cursor.snapTo(pos + 0.6f * k) }
             }
           }
@@ -318,10 +328,10 @@ fun CoverStack(s: PlayerUi, deck: Deck, modifier: Modifier = Modifier, pauseScal
             val go = ended && pos < order.lastIndex &&
               (r > g.side * 0.25f || (fling.getDistance() > 1100f && outward && r > g.side * 0.04f))
             if (go) {
-              // it flies on the way it was thrown and lands beside the pile on that side
+              // it flies on the way it was thrown and sticks out from behind the screen's edge on that side
               deck.angles[t.id] = angle
               deck.flying = true
-              val place = Rest(angle, g, t).center
+              val place = Rest(angle, g, t, 0f).center
               PlayerConn.next()
               scope.launch {
                 coroutineScope {
@@ -344,8 +354,8 @@ fun CoverStack(s: PlayerUi, deck: Deck, modifier: Modifier = Modifier, pauseScal
           } else {
             val go = ended && (r > g.side * 0.08f || fling.getDistance() > 900f)
             if (go) {
-              // pulled from beside the pile: back on top, and its song plays
-              val home = Offset.Zero - Rest(deck.angleOf(t), g, t).center
+              // pulled in from the edge: back on top, and its song plays
+              val home = Offset.Zero - Rest(deck.angleOf(t), g, t, deck.heldAge).center
               if (p == pos - 1) PlayerConn.prevTrack() else PlayerConn.seekToTrack(order[p])
               scope.launch {
                 coroutineScope {

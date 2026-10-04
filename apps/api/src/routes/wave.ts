@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { waveFeedback, waveNext } from '../services/wave.js';
+import { isWaveMode, waveFeedback, waveNext } from '../services/wave.js';
 import { suggestionsFor } from '../services/suggest.js';
 import { kickDiscovery } from '../services/discover.js';
 
@@ -11,7 +11,7 @@ export default async function waveRoutes(app: FastifyInstance) {
   /** The next batch of "My Wave" for the listener. */
   app.post('/api/wave/next', auth, async (req) => {
     const body = z.object({
-      mode: z.enum(['mix', 'favorites', 'discover', 'popular']).default('mix'),
+      mode: z.string().refine(isWaveMode, 'Неизвестный режим волны').default('mix'),
       count: z.number().int().min(1).max(20).default(10),
       exclude: z.array(z.string()).max(300).default([]),
       genre: z.string().max(80).nullish(),

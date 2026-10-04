@@ -22,7 +22,7 @@ export const TRACK_SELECT = `
   t.bitrate, t.sample_rate, t.codec, t.created_at,
   (t.lyrics_plain IS NOT NULL OR t.lyrics_synced IS NOT NULL) AS has_lyrics,
   (t.lyrics_synced IS NOT NULL) AS has_synced,
-  t.canvas_path, t.canvas_mime,
+  t.canvas_path, t.canvas_mime, t.loudness, t.bpm,
   COALESCE(t.cover_path, al.cover_path) AS cover_path,
   ar.id AS artist_id, ar.name AS artist_name, ar.image_path AS artist_image,
   al.id AS album_id, al.title AS album_title, al.year AS album_year
@@ -56,6 +56,8 @@ export function mapTrack(db: DB, r: any, userId?: string | null, likedSet?: Set<
     artist: { id: r.artist_id, name: r.artist_name, imageUrl: coverUrl(r.artist_image) },
     featuring,
     album: r.album_id ? { id: r.album_id, title: r.album_title, year: r.album_year } : null,
+    loudness: r.loudness ? r.loudness : null,
+    bpm: r.bpm ? r.bpm : null,
     createdAt: r.created_at,
   };
   if (r.added_at) t.addedAt = r.added_at;

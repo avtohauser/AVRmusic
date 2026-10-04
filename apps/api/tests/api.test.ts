@@ -9,6 +9,7 @@ process.env.JWT_SECRET = 'test-secret';
 process.env.PUBLIC_LIBRARY = 'false';
 process.env.AUTO_HEAL = 'false';
 process.env.WAVE_DISCOVERY = 'false';
+process.env.ANALYZE = 'false';
 
 const { buildApp } = await import('../src/app.js');
 const { openDatabase } = await import('../src/lib/db.js');
@@ -332,4 +333,104 @@ test('admin news reach everyone, newest first, and can be taken back', async () 
   assert.equal(empty.statusCode, 400, empty.body);
   assert.equal((await app.inject({ method: 'DELETE', url: `/api/admin/news/${first.id}`, headers: h })).statusCode, 200);
   assert.equal((await app.inject({ method: 'GET', url: '/api/news', headers: h })).json().some((n: any) => n.id === first.id), false);
+});
+
+
+async function uploadSong(title: string): Promise<string> {
+  const { wav } = synthesize({ bpm: 100, bars: 1, root: 60, scale: SCALES.major, progression: [0], lead: 'sine', pad: 'sine', drums: false, swing: 0, seed: title.length * 7 + title.charCodeAt(0) });
+  const boundary = '----avrsong';
+  const body = Buffer.concat([
+    Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="files"; filename="Friend Band - ${title}.wav"\r\nContent-Type: audio/wav\r\n\r\n`),
+    wav,
+    Buffer.from(`\r\n--${boundary}--\r\n`),
+  ]);
+  const r = await app.inject({ method: 'POST', url: '/api/admin/upload', headers: { authorization: `Bearer ${access}`, 'content-type': `multipart/form-data; boundary=${boundary}` }, payload: body });
+  assert.equal(r.statusCode, 200, r.body);
+  return r.json().imported[0].id;
+}
+
+test('friends: now playing, shares, reactions, shared playlists, recap and compatibility', async () => {
+  const h = { authorization: `Bearer ${access}` };
+  trackId = await uploadSong('Together');
+  const pt = (await app.inject({ method: 'POST', url: '/api/auth/login', payload: { login: 'petya', password: 'secret1' } })).json().accessToken;
+  const hp = { authorization: `Bearer ${pt}` };
+  const users = (await app.inject({ method: 'GET', url: '/api/users', headers: h })).json();
+  const petya = users.find((u: any) => u.username === 'petya');
+  assert.ok(petya, 'petya is listed');
+
+  await app.inject({ method: 'POST', url: '/api/me/now', headers: h, payload: { trackId, positionMs: 1000, playing: true } });
+  const seen = (await app.inject({ method: 'GET', url: '/api/users', headers: hp })).json();
+  const admin = seen.find((u: any) => u.now);
+  assert.equal(admin.now.track.id, trackId, 'friends see what is playing');
+
+  const sent = await app.inject({ method: 'POST', url: '/api/shares', headers: h, payload: { to: [petya.id], kind: 'track', refId: trackId, message: 'послушай' } });
+  assert.equal(sent.json().sent, 1, sent.body);
+  const inbox = (await app.inject({ method: 'GET', url: '/api/shares', headers: hp })).json();
+  assert.equal(inbox[0].item.id, trackId);
+  assert.equal(inbox[0].from.id, admin.id);
+  assert.equal(inbox[0].seen, false);
+  await app.inject({ method: 'POST', url: '/api/shares/seen', headers: hp });
+  assert.equal((await app.inject({ method: 'GET', url: '/api/shares', headers: hp })).json()[0].seen, true);
+  assert.equal((await app.inject({ method: 'POST', url: '/api/shares', headers: h, payload: { to: [petya.id], kind: 'track', refId: 'nope' } })).statusCode, 404);
+
+  const r = await app.inject({ method: 'POST', url: `/api/tracks/${trackId}/reactions`, headers: hp, payload: { atMs: 1500, emoji: '🔥' } });
+  assert.equal(r.statusCode, 200, r.body);
+  const list = (await app.inject({ method: 'GET', url: `/api/tracks/${trackId}/reactions`, headers: h })).json();
+  assert.equal(list[0].emoji, '🔥');
+  assert.equal(list[0].user.id, petya.id);
+  assert.equal((await app.inject({ method: 'POST', url: `/api/tracks/${trackId}/reactions`, headers: hp, payload: { atMs: 0 } })).statusCode, 400);
+  assert.equal((await app.inject({ method: 'DELETE', url: `/api/reactions/${list[0].id}`, headers: hp })).statusCode, 200);
+
+  // a shared playlist: the invited friend may add tracks, others may not
+  const pl = (await app.inject({ method: 'POST', url: '/api/playlists', headers: h, payload: { title: 'Вместе' } })).json();
+  assert.equal((await app.inject({ method: 'POST', url: `/api/playlists/${pl.id}/tracks`, headers: hp, payload: { trackIds: [trackId] } })).statusCode, 403);
+  assert.equal((await app.inject({ method: 'POST', url: `/api/playlists/${pl.id}/members`, headers: h, payload: { userId: petya.id } })).statusCode, 200);
+  const add = await app.inject({ method: 'POST', url: `/api/playlists/${pl.id}/tracks`, headers: hp, payload: { trackIds: [trackId] } });
+  assert.equal(add.statusCode, 200, add.body);
+  const full = (await app.inject({ method: 'GET', url: `/api/playlists/${pl.id}`, headers: hp })).json();
+  assert.equal(full.canEdit, true);
+  assert.equal(full.members.length, 1);
+  assert.equal(full.tracks[0].addedBy.id, petya.id);
+  assert.ok((await app.inject({ method: 'GET', url: '/api/playlists', headers: hp })).json().some((p: any) => p.id === pl.id), 'a shared playlist is in the member\'s list');
+  assert.equal((await app.inject({ method: 'GET', url: '/api/shares', headers: hp })).json()[0].message, 'invite');
+  assert.equal((await app.inject({ method: 'DELETE', url: `/api/playlists/${pl.id}/members/${petya.id}`, headers: hp })).statusCode, 200);
+  assert.equal((await app.inject({ method: 'POST', url: `/api/playlists/${pl.id}/tracks`, headers: hp, payload: { trackIds: [trackId] } })).statusCode, 403);
+
+  const rc = await app.inject({ method: 'GET', url: '/api/me/recap?period=year&tz=180', headers: h });
+  assert.equal(rc.statusCode, 200, rc.body);
+  assert.equal(rc.json().hours.length, 24);
+  const prof = await app.inject({ method: 'GET', url: `/api/users/${petya.id}`, headers: h });
+  assert.equal(prof.statusCode, 200, prof.body);
+  assert.ok(prof.json().compat.score >= 0 && prof.json().compat.score <= 100);
+
+  const wave = await app.inject({ method: 'POST', url: '/api/wave/next', headers: h, payload: { mode: `friend:${petya.id}` } });
+  assert.equal(wave.statusCode, 200, wave.body);
+  assert.equal((await app.inject({ method: 'POST', url: '/api/wave/next', headers: h, payload: { mode: 'run' } })).statusCode, 200);
+  assert.equal((await app.inject({ method: 'POST', url: '/api/wave/next', headers: h, payload: { mode: 'bogus' } })).statusCode, 400);
+});
+
+test('listen together: start, join, ops and long-poll', async () => {
+  const h = { authorization: `Bearer ${access}` };
+  const hp = { authorization: `Bearer ${(await app.inject({ method: 'POST', url: '/api/auth/login', payload: { login: 'petya', password: 'secret1' } })).json().accessToken}` };
+  const j = (await app.inject({ method: 'POST', url: '/api/jam', headers: h, payload: { trackIds: [trackId], playing: false } })).json();
+  assert.equal(j.queue[0].id, trackId);
+  assert.equal((await app.inject({ method: 'GET', url: `/api/jam/${j.id}`, headers: hp })).statusCode, 403);
+  const joined = (await app.inject({ method: 'POST', url: `/api/jam/${j.id}/join`, headers: hp })).json();
+  assert.equal(joined.members.length, 2);
+  const wait = app.inject({ method: 'GET', url: `/api/jam/${j.id}?v=${joined.version}`, headers: h });
+  await new Promise((r) => setTimeout(r, 20));
+  const played = (await app.inject({ method: 'POST', url: `/api/jam/${j.id}/op`, headers: hp, payload: { op: 'play' } })).json();
+  assert.equal(played.playing, true);
+  const woke = (await wait).json();
+  assert.equal(woke.playing, true, 'the waiting member learns about the change');
+  assert.ok(woke.version > joined.version);
+  const other = await uploadSong('Second');
+  const added = (await app.inject({ method: 'POST', url: `/api/jam/${j.id}/op`, headers: h, payload: { op: 'add', trackIds: [trackId, other], next: true } })).json();
+  assert.deepEqual(added.queue.map((t: any) => t.id), [trackId, other], 'what is queued already stays once');
+  const skipped = (await app.inject({ method: 'POST', url: `/api/jam/${j.id}/op`, headers: hp, payload: { op: 'next' } })).json();
+  assert.equal(skipped.index, 1);
+  assert.equal((await app.inject({ method: 'GET', url: '/api/jams', headers: hp })).json().length, 1);
+  await app.inject({ method: 'POST', url: '/api/jam/leave', headers: hp });
+  await app.inject({ method: 'POST', url: '/api/jam/leave', headers: h });
+  assert.equal((await app.inject({ method: 'GET', url: '/api/jam', headers: h })).json(), null);
 });

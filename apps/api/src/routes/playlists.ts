@@ -3,7 +3,8 @@ import { z } from 'zod';
 import fs from 'node:fs';
 import path from 'node:path';
 import { badRequest, notFound } from '../lib/errors.js';
-import { addTracks, assertOwner, createPlaylist, getPlaylist, listPublicPlaylists, listUserPlaylists, removeTrack, reorder, touch } from '../services/playlists.js';
+import { addTracks, assertCanEdit, assertOwner, createPlaylist, getPlaylist, listPublicPlaylists, listUserPlaylists, removeTrack, reorder, touch } from '../services/playlists.js';
+import { newId } from '../lib/util.js';
 import { indexPlaylist, removeFromIndex } from '../services/search.js';
 import { saveUploadedImage } from '../lib/uploads.js';
 import { config } from '../config.js';
@@ -52,7 +53,7 @@ export default async function playlistRoutes(app: FastifyInstance) {
 
   app.post('/api/playlists/:id/tracks', { preHandler: app.authenticate }, async (req) => {
     const id = (req.params as any).id;
-    assertOwner(db, id, req.userId!, req.userRole!);
+    assertCanEdit(db, id, req.userId!, req.userRole!);
     const body = z.object({ trackIds: z.array(z.string()).min(1).max(500) }).parse(req.body);
     const added = addTracks(db, id, body.trackIds, req.userId!);
     return { added, playlist: getPlaylist(db, id, req.userId) };
@@ -60,14 +61,14 @@ export default async function playlistRoutes(app: FastifyInstance) {
 
   app.delete('/api/playlists/:id/tracks/:trackId', { preHandler: app.authenticate }, async (req) => {
     const { id, trackId } = req.params as any;
-    assertOwner(db, id, req.userId!, req.userRole!);
+    assertCanEdit(db, id, req.userId!, req.userRole!);
     removeTrack(db, id, trackId);
     return getPlaylist(db, id, req.userId);
   });
 
   app.put('/api/playlists/:id/order', { preHandler: app.authenticate }, async (req) => {
     const id = (req.params as any).id;
-    assertOwner(db, id, req.userId!, req.userRole!);
+    assertCanEdit(db, id, req.userId!, req.userRole!);
     const body = z.object({ trackIds: z.array(z.string()) }).parse(req.body);
     reorder(db, id, body.trackIds);
     return getPlaylist(db, id, req.userId);
@@ -83,5 +84,29 @@ export default async function playlistRoutes(app: FastifyInstance) {
     if (p.cover_path && p.cover_path !== name) { try { fs.unlinkSync(path.join(config.coversDir, p.cover_path)); } catch { /* ignore */ } }
     touch(db, id);
     return getPlaylist(db, id, req.userId);
+  });
+
+  /* ---------- edited together ---------- */
+
+  /** The owner invites a friend to edit the playlist (they get it in their inbox). */
+  app.post('/api/playlists/:id/members', { preHandler: app.authenticate }, async (req) => {
+    const id = (req.params as any).id;
+    assertOwner(db, id, req.userId!, req.userRole!);
+    const body = z.object({ userId: z.string() }).parse(req.body ?? {});
+    if (body.userId === req.userId) throw badRequest('Вы и так владелец');
+    if (!db.prepare('SELECT 1 FROM users WHERE id = ? AND disabled = 0').get(body.userId)) throw notFound('Пользователь не найден');
+    const r = db.prepare('INSERT OR IGNORE INTO playlist_members (playlist_id, user_id) VALUES (?, ?)').run(id, body.userId);
+    if (r.changes) db.prepare(`INSERT INTO shares (id, from_user, to_user, kind, ref_id, message) VALUES (?,?,?,?,?,?)`).run(newId(), req.userId!, body.userId, 'playlist', id, 'invite');
+    touch(db, id);
+    return getPlaylist(db, id, req.userId);
+  });
+
+  /** The owner removes a member, or a member leaves. */
+  app.delete('/api/playlists/:id/members/:userId', { preHandler: app.authenticate }, async (req) => {
+    const { id, userId } = req.params as any;
+    if (userId !== req.userId) assertOwner(db, id, req.userId!, req.userRole!);
+    db.prepare('DELETE FROM playlist_members WHERE playlist_id = ? AND user_id = ?').run(id, userId);
+    touch(db, id);
+    return userId === req.userId ? { ok: true } : getPlaylist(db, id, req.userId);
   });
 }

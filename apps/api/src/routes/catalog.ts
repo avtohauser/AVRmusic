@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { config } from '../config.js';
-import { forbidden, notFound } from '../lib/errors.js';
+import { badRequest, forbidden, notFound } from '../lib/errors.js';
 import { catalogAlbum, catalogArtist, catalogTrack, rawAlbum, rawArtist, rawTrack, searchCatalog } from '../services/catalog.js';
 import { enqueue, getJob, listJobs, removeJob } from '../services/jobs.js';
 import { clamp, parseIntSafe } from '../lib/util.js';
@@ -37,6 +37,16 @@ export default async function catalogRoutes(app: FastifyInstance) {
     const dup = listJobs().find((j) => j.kind === 'acquire' && (j.status === 'queued' || j.status === 'running') && j.title === title);
     if (dup) return { jobId: dup.id, job: dup, duplicate: true };
     const job = enqueue({ kind: 'acquire', title, requestedBy: req.userId }, { kind: body.kind, id: body.id });
+    return { jobId: job.id, job };
+  });
+
+  /** A playlist from a Yandex Music or Spotify link: found in the library or fetched, song by song. */
+  app.post('/api/import/link', { preHandler: app.authenticate }, async (req) => {
+    const body = z.object({ url: z.string().url() }).parse(req.body ?? {});
+    if (!/spotify\.com|music\.yandex\./i.test(body.url)) throw badRequest('Поддерживаются ссылки Яндекс Музыки и Spotify');
+    let may = config.acquireRole !== 'off' && (config.acquireRole !== 'admin' || req.userRole === 'admin');
+    if (may && req.userRole !== 'admin') may = (db.prepare('SELECT can_acquire FROM users WHERE id = ?').get(req.userId) as any)?.can_acquire !== 0;
+    const job = enqueue({ kind: 'acquire', title: 'Импорт плейлиста по ссылке', requestedBy: req.userId }, { kind: 'link', url: body.url, userId: req.userId, canAcquire: may });
     return { jobId: job.id, job };
   });
 

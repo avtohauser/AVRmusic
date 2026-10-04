@@ -21,7 +21,10 @@ import importRoutes from './routes/import.js';
 import catalogRoutes from './routes/catalog.js';
 import waveRoutes from './routes/wave.js';
 import newsRoutes from './routes/news.js';
+import socialRoutes from './routes/social.js';
+import recognizeRoutes from './routes/recognize.js';
 import { registerRunners } from './services/runners.js';
+import { startAnalysis } from './services/analyze.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -38,6 +41,7 @@ export async function buildApp(opts: { db?: DB; logger?: boolean } = {}): Promis
   });
   app.decorate('db', opts.db ?? openDatabase());
   registerRunners(app.db);
+  if (process.env.ANALYZE !== 'false') startAnalysis(app.db);
 
   // set before the routes: route plugins take the error handler that exists when they are registered
   app.setErrorHandler((err: any, req, reply) => {
@@ -69,6 +73,8 @@ export async function buildApp(opts: { db?: DB; logger?: boolean } = {}): Promis
   await app.register(catalogRoutes);
   await app.register(waveRoutes);
   await app.register(newsRoutes);
+  await app.register(socialRoutes);
+  await app.register(recognizeRoutes);
 
   app.get('/api/health', async () => ({ ok: true, version: config.version }));
 

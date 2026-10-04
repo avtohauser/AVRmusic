@@ -1,6 +1,6 @@
 import type { DB } from '../lib/db.js';
-import type { Playlist, PlaylistSummary, Track } from '@avrmusic/shared';
-import { TRACK_FROM, TRACK_SELECT, coverUrl, isLiked, mapTracks } from './library.js';
+import type { FriendRef, Playlist, PlaylistSummary, Track } from '@avrmusic/shared';
+import { TRACK_FROM, TRACK_SELECT, avatarUrl, coverUrl, isLiked, mapTracks } from './library.js';
 import { newId } from '../lib/util.js';
 import { nowIso } from '../lib/db.js';
 import { forbidden, notFound } from '../lib/errors.js';
@@ -40,20 +40,39 @@ export function mapPlaylistSummary(db: DB, r: any, userId?: string | null): Play
   return s;
 }
 
+/** People who may edit a playlist besides its owner. */
+export function playlistMembers(db: DB, playlistId: string): FriendRef[] {
+  return (db.prepare(`SELECT u.id, u.display_name, u.avatar_path FROM playlist_members m JOIN users u ON u.id = m.user_id WHERE m.playlist_id = ? ORDER BY m.added_at`).all(playlistId) as any[])
+    .map((u) => ({ id: u.id, displayName: u.display_name, avatarUrl: avatarUrl(u.avatar_path) }));
+}
+
+export function isMember(db: DB, playlistId: string, userId?: string | null): boolean {
+  return !!userId && !!db.prepare('SELECT 1 FROM playlist_members WHERE playlist_id = ? AND user_id = ?').get(playlistId, userId);
+}
+
 export function getPlaylist(db: DB, id: string, userId?: string | null): Playlist | null {
   const r = db.prepare(`SELECT ${PLAYLIST_SELECT} ${PLAYLIST_FROM} WHERE p.id = ?`).get(id) as any;
   if (!r) return null;
-  if (!r.is_public && r.owner_id !== userId) throw forbidden('Плейлист приватный');
+  const member = isMember(db, id, userId);
+  if (!r.is_public && r.owner_id !== userId && !member) throw forbidden('Плейлист приватный');
   const rows = db
-    .prepare(`SELECT ${TRACK_SELECT}, pt.added_at ${TRACK_FROM} JOIN playlist_tracks pt ON pt.track_id = t.id WHERE pt.playlist_id = ? ORDER BY pt.position`)
+    .prepare(`SELECT ${TRACK_SELECT}, pt.added_at, pt.added_by ${TRACK_FROM} JOIN playlist_tracks pt ON pt.track_id = t.id WHERE pt.playlist_id = ? ORDER BY pt.position`)
     .all(id) as any[];
-  return { ...mapPlaylistSummary(db, r, userId), tracks: mapTracks(db, rows, userId) };
+  const members = playlistMembers(db, id);
+  const tracks = mapTracks(db, rows, userId);
+  // who put each track in, when the playlist is edited together
+  if (members.length) {
+    const people = new Map<string, FriendRef>();
+    for (const u of db.prepare('SELECT id, display_name, avatar_path FROM users').all() as any[]) people.set(u.id, { id: u.id, displayName: u.display_name, avatarUrl: avatarUrl(u.avatar_path) });
+    tracks.forEach((t, i) => { t.addedBy = rows[i].added_by ? people.get(rows[i].added_by) ?? null : null; });
+  }
+  return { ...mapPlaylistSummary(db, r, userId), tracks, members, canEdit: !!userId && (r.owner_id === userId || member) };
 }
 
 export function listUserPlaylists(db: DB, userId: string): PlaylistSummary[] {
   const rows = db
-    .prepare(`SELECT ${PLAYLIST_SELECT} ${PLAYLIST_FROM} WHERE p.owner_id = ? OR p.id IN (SELECT entity_id FROM likes WHERE user_id = ? AND entity_type = 'playlist') ORDER BY p.updated_at DESC`)
-    .all(userId, userId) as any[];
+    .prepare(`SELECT ${PLAYLIST_SELECT} ${PLAYLIST_FROM} WHERE p.owner_id = ? OR p.id IN (SELECT entity_id FROM likes WHERE user_id = ? AND entity_type = 'playlist') OR p.id IN (SELECT playlist_id FROM playlist_members WHERE user_id = ?) ORDER BY p.updated_at DESC`)
+    .all(userId, userId, userId) as any[];
   return rows.map((r) => mapPlaylistSummary(db, r, userId));
 }
 
@@ -74,6 +93,14 @@ export function assertOwner(db: DB, playlistId: string, userId: string, role: st
   const p = db.prepare('SELECT * FROM playlists WHERE id = ?').get(playlistId) as any;
   if (!p) throw notFound('Плейлист не найден');
   if (p.owner_id !== userId && role !== 'admin') throw forbidden('Это не ваш плейлист');
+  return p;
+}
+
+/** The owner, a member (a playlist edited together) or an admin may change its tracks. */
+export function assertCanEdit(db: DB, playlistId: string, userId: string, role: string): any {
+  const p = db.prepare('SELECT * FROM playlists WHERE id = ?').get(playlistId) as any;
+  if (!p) throw notFound('Плейлист не найден');
+  if (p.owner_id !== userId && role !== 'admin' && !isMember(db, playlistId, userId)) throw forbidden('Это не ваш плейлист');
   return p;
 }
 

@@ -274,6 +274,40 @@ const MIGRATIONS: string[] = [
     PRIMARY KEY (user_id, deezer_id)
   );
   `,
+  // 13: friends — things sent to each other, reactions at a moment of a track, playlists edited
+  //     together; per track: tempo (for the wave's moods) and loudness (to even out the volume)
+  `
+  CREATE TABLE shares (
+    id TEXT PRIMARY KEY,
+    from_user TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    to_user TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL,
+    ref_id TEXT NOT NULL,
+    message TEXT NOT NULL DEFAULT '',
+    seen INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+  );
+  CREATE INDEX idx_shares_to ON shares(to_user, created_at);
+  CREATE TABLE reactions (
+    id TEXT PRIMARY KEY,
+    track_id TEXT NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    at_ms INTEGER NOT NULL,
+    emoji TEXT NOT NULL DEFAULT '',
+    text TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+  );
+  CREATE INDEX idx_reactions_track ON reactions(track_id, at_ms);
+  CREATE TABLE playlist_members (
+    playlist_id TEXT NOT NULL REFERENCES playlists(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    added_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    PRIMARY KEY (playlist_id, user_id)
+  );
+  CREATE INDEX idx_playlist_members_user ON playlist_members(user_id);
+  ALTER TABLE tracks ADD COLUMN bpm REAL;
+  ALTER TABLE tracks ADD COLUMN loudness REAL;
+  `,
 ];
 
 export function openDatabase(dbPath = config.dbPath): DB {

@@ -7,11 +7,12 @@ import { runUrlImport } from './ytdlp.js';
 import { healPending, runAcquireAlbum, runAcquireArtist, runAcquireTrack, runHeal, runRefetch } from './acquire.js';
 import { runCanvasJob } from './canvas.js';
 import { runLyricsBatch } from './lrclib.js';
+import { runLinkImport } from './linkImport.js';
 
 export function registerRunners(db: DB) {
   setRunner('url', (job, p, api) => runUrlImport(db, job, p, api));
   setRunner('lyrics', (job, _p, api) => runLyricsBatch(db, job, api));
-  setRunner('acquire', (job, p, api) => (p.kind === 'refetch' ? runRefetch(db, job, p.trackIds ?? [], api) : p.kind === 'track' ? runAcquireTrack(db, job, p.id, api) : p.kind === 'album' ? runAcquireAlbum(db, job, p.id, api) : runAcquireArtist(db, job, p.id, api)));
+  setRunner('acquire', (job, p, api) => (p.kind === 'link' ? runLinkImport(db, job, p, api) : p.kind === 'refetch' ? runRefetch(db, job, p.trackIds ?? [], api) : p.kind === 'track' ? runAcquireTrack(db, job, p.id, api) : p.kind === 'album' ? runAcquireAlbum(db, job, p.id, api) : runAcquireArtist(db, job, p.id, api)));
   setRunner('canvas', (job, p, api) => runCanvasJob(db, job, p, api));
   setRunner('discover', (job, p, api) => runDiscovery(db, job, p, api));
   setRunner('heal', async (job, _p, api) => {

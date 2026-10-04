@@ -82,7 +82,20 @@ export interface Track {
   album: { id: string; title: string; year: number | null } | null;
   liked?: boolean;
   addedAt?: string;
+  /** who put it in this playlist (shared playlists) */
+  addedBy?: FriendRef | null;
+  /** integrated loudness, LUFS (null: not measured yet) — the apps even out the volume with it */
+  loudness?: number | null;
+  /** tempo from the catalogue (null: unknown) */
+  bpm?: number | null;
   createdAt: string;
+}
+
+/** Someone on the server, as shown next to what they did. */
+export interface FriendRef {
+  id: string;
+  displayName: string;
+  avatarUrl: string | null;
 }
 
 export interface LyricLine {
@@ -113,6 +126,10 @@ export interface PlaylistSummary {
 
 export interface Playlist extends PlaylistSummary {
   tracks: Track[];
+  /** people who may add and remove tracks besides the owner */
+  members?: FriendRef[];
+  /** may this user add / remove tracks */
+  canEdit?: boolean;
   /** First 4 track covers, used for mosaic when no custom cover is set */
   mosaic: string[];
 }
@@ -306,7 +323,8 @@ export interface ApiError {
 export type Paginated<T> = { items: T[]; total: number; offset: number; limit: number };
 
 /* ---------- My Wave / suggestions ---------- */
-export type WaveMode = 'mix' | 'favorites' | 'discover' | 'popular';
+/** the wave's modes; also moods ('run', 'focus', 'evening', 'party') and "friend:<userId>" */
+export type WaveMode = 'mix' | 'favorites' | 'discover' | 'popular' | 'run' | 'focus' | 'evening' | 'party' | `friend:${string}`;
 export interface WaveTrack extends Track { reason: string }
 export interface WaveBatch { tracks: WaveTrack[]; mode: WaveMode }
 export interface SuggestionTrack extends CatalogTrack { reason: string }

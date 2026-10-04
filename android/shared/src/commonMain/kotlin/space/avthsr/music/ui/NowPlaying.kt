@@ -23,7 +23,9 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.interaction.DragInteraction
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.togetherWith
+import androidx.compose.animation.using
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.fadeIn
@@ -211,6 +213,8 @@ private fun NowPlayingContent(deck: Deck, onClose: () -> Unit) {
           transitionSpec = {
             (fadeIn(motion.defaultEffectsSpec()) + scaleIn(motion.defaultSpatialSpec(), initialScale = 0.92f))
               .togetherWith(fadeOut(motion.fastEffectsSpec()))
+              // thrown covers lie around the deck and may reach into the side margins
+              .using(SizeTransform(clip = false))
           },
           modifier = Modifier.fillMaxSize(),
           contentAlignment = Alignment.Center,

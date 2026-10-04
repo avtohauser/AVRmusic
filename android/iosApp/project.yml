@@ -36,6 +36,8 @@ targets:
         UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
         # music keeps playing with the screen off; news are checked in the background
         UIBackgroundModes: [audio, fetch]
+        # "what's playing?": a few seconds from the microphone go to the server to recognise the song
+        NSMicrophoneUsageDescription: AVRmusic слушает несколько секунд, чтобы узнать, какая песня играет рядом.
         BGTaskSchedulerPermittedIdentifiers: [space.avthsr.music.news]
         # downloaded tracks and albums show in Files → On My iPhone → AVRmusic
         UIFileSharingEnabled: true

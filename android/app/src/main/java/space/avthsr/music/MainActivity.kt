@@ -13,6 +13,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import space.avthsr.music.api.NewsAlerts
 import space.avthsr.music.player.AndroidEngine
+import space.avthsr.music.player.Jam
 import space.avthsr.music.ui.AvrTheme
 import space.avthsr.music.ui.Root
 
@@ -48,7 +49,8 @@ class MainActivity : ComponentActivity() {
 
   override fun onStop() {
     super.onStop()
-    AndroidEngine.release()
+    // listening together, the app keeps following the session with the screen off
+    if (!Jam.active) AndroidEngine.release()
   }
 
   override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -66,6 +68,7 @@ class MainActivity : ComponentActivity() {
     if (intent == null) return
     if (intent.action == ACTION_OPEN_PLAYER) Links.openPlayer.value = true
     if (intent.action == NewsAlerts.ACTION_OPEN_NEWS) { Links.deepLink.value = "news"; return }
+    if (intent.action == NewsAlerts.ACTION_OPEN_ROUTE) { intent.getStringExtra("route")?.let { Links.deepLink.value = it }; return }
     val data = intent.data ?: return
     val path = data.path ?: return
     val query = runCatching { data.queryParameterNames.associateWith { data.getQueryParameter(it).orEmpty() } }.getOrDefault(emptyMap())

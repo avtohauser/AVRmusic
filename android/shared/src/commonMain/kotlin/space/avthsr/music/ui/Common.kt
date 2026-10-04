@@ -321,6 +321,7 @@ fun AlbumMenu(id: String, title: String, artistId: String, artistName: String, e
   val nav = LocalNav.current
   val liked by Likes.of("album").collectAsStateWithLifecycle()
   var pick by remember { mutableStateOf<List<String>?>(null) }
+  var send by remember { mutableStateOf(false) }
   val load = suspend { Api.album(id).tracks }
   DropdownMenu(expanded = expanded, onDismissRequest = close) {
     DropdownMenuItem(text = { Text(tr("Играть следующим")) }, leadingIcon = { Ico(Res.drawable.ic_queue) }, onClick = { close(); withTracks(load) { PlayerConn.playNext(it) } })
@@ -337,9 +338,11 @@ fun AlbumMenu(id: String, title: String, artistId: String, artistName: String, e
       close(); downloadToDevice("/api/download/album/$id", "$artistName - $title.zip")
     })
     if (artistId.isNotEmpty()) DropdownMenuItem(text = { Text(tr("К исполнителю")) }, leadingIcon = { Ico(Res.drawable.ic_person) }, onClick = { close(); nav.artist(artistId) })
+    DropdownMenuItem(text = { Text(tr("Отправить другу")) }, leadingIcon = { Ico(Res.drawable.ic_send) }, onClick = { close(); send = true })
     DropdownMenuItem(text = { Text(tr("Поделиться")) }, leadingIcon = { Ico(Res.drawable.ic_share) }, onClick = { close(); share("/album/$id", "$artistName — $title") })
   }
   pick?.let { ids -> PlaylistPicker(ids) { pick = null } }
+  if (send) SendDialog("album", id, "$artistName — $title") { send = false }
 }
 
 /** Long-press menu of a playlist card, as on the site. */
@@ -348,6 +351,7 @@ fun PlaylistMenu(p: PlaylistSummary, expanded: Boolean, close: () -> Unit) {
   val liked by Likes.of("playlist").collectAsStateWithLifecycle()
   val load = suspend { Api.playlist(p.id).tracks }
   val own = p.isOwner == true || (p.owner != null && p.owner.id == Api.user?.id)
+  var send by remember { mutableStateOf(false) }
   DropdownMenu(expanded = expanded, onDismissRequest = close) {
     DropdownMenuItem(text = { Text(tr("Играть следующим")) }, leadingIcon = { Ico(Res.drawable.ic_queue) }, onClick = { close(); withTracks(load) { PlayerConn.playNext(it) } })
     DropdownMenuItem(text = { Text(tr("Добавить в очередь")) }, leadingIcon = { Ico(Res.drawable.ic_add) }, onClick = { close(); withTracks(load) { PlayerConn.enqueue(it) } })
@@ -363,8 +367,10 @@ fun PlaylistMenu(p: PlaylistSummary, expanded: Boolean, close: () -> Unit) {
     DropdownMenuItem(text = { Text(tr("Скачать на устройство (ZIP)")) }, leadingIcon = { Ico(Res.drawable.ic_folder) }, onClick = {
       close(); downloadToDevice("/api/download/playlist/${p.id}", "${p.title}.zip")
     })
+    DropdownMenuItem(text = { Text(tr("Отправить другу")) }, leadingIcon = { Ico(Res.drawable.ic_send) }, onClick = { close(); send = true })
     DropdownMenuItem(text = { Text(tr("Поделиться")) }, leadingIcon = { Ico(Res.drawable.ic_share) }, onClick = { close(); share("/playlist/${p.id}", p.title) })
   }
+  if (send) SendDialog("playlist", p.id, p.title) { send = false }
 }
 
 @Composable
@@ -424,6 +430,7 @@ fun TrackMenu(t: Track, expanded: Boolean, close: () -> Unit, extra: (@Composabl
   val nav = LocalNav.current
   val liked by Likes.tracks.collectAsStateWithLifecycle()
   var pick by remember { mutableStateOf(false) }
+  var send by remember { mutableStateOf(false) }
   DropdownMenu(expanded = expanded, onDismissRequest = close) {
     DropdownMenuItem(text = { Text(tr("Играть следующим")) }, leadingIcon = { Ico(Res.drawable.ic_queue) }, onClick = { close(); PlayerConn.playNext(t) })
     DropdownMenuItem(text = { Text(tr("Добавить в очередь")) }, leadingIcon = { Ico(Res.drawable.ic_add) }, onClick = { close(); PlayerConn.enqueue(t) })
@@ -454,6 +461,7 @@ fun TrackMenu(t: Track, expanded: Boolean, close: () -> Unit, extra: (@Composabl
       DropdownMenuItem(text = { Text(tr("Сохранить офлайн")) }, leadingIcon = { Ico(Res.drawable.ic_download) }, onClick = { close(); Offline.save(listOf(t)) })
     }
     DropdownMenuItem(text = { Text(tr("Скачать на устройство")) }, leadingIcon = { Ico(Res.drawable.ic_folder) }, onClick = { close(); downloadTrack(t) })
+    DropdownMenuItem(text = { Text(tr("Отправить другу")) }, leadingIcon = { Ico(Res.drawable.ic_send) }, onClick = { close(); send = true })
     DropdownMenuItem(text = { Text(tr("Поделиться")) }, leadingIcon = { Ico(Res.drawable.ic_share) }, onClick = { close(); share(trackPath(t), "${t.artists} — ${t.title}") })
     DropdownMenuItem(text = { Text(tr("Скопировать ссылку")) }, leadingIcon = { Ico(Res.drawable.ic_link) }, onClick = { close(); copyLink(trackPath(t)) })
     if (!t.hasCanvas && Api.user?.canAcquire != false) {
@@ -467,6 +475,7 @@ fun TrackMenu(t: Track, expanded: Boolean, close: () -> Unit, extra: (@Composabl
     extra?.invoke(this, close)
   }
   if (pick) PlaylistPicker(listOf(t.id)) { pick = false }
+  if (send) SendDialog("track", t.id, "${t.artists} — ${t.title}") { send = false }
 }
 
 fun toggleLike(type: String, id: String) {
@@ -504,7 +513,8 @@ fun LikeButton(type: String, id: String) {
 /** Adds tracks to one of the user's playlists (or a new one). */
 @Composable
 fun PlaylistPicker(trackIds: List<String>, onDone: () -> Unit) {
-  val loader = rememberLoad(Unit) { Api.playlists().filter { it.isOwner != false } }
+  // own playlists and shared ones this listener may add to
+  val loader = rememberLoad(Unit) { Api.playlists().filter { it.canEdit ?: (it.isOwner != false) } }
   var title by remember { mutableStateOf("") }
   fun add(p: PlaylistSummary) {
     onDone()

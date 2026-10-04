@@ -5,6 +5,7 @@ package space.avthsr.music.ui
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideInHorizontally
+import space.avthsr.music.api.Inbox
 import space.avthsr.music.api.News
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.LocalContentColor
@@ -152,7 +153,8 @@ private fun Main() {
     }
   }
   // news: checked while the app is open (the background check notifies when it is not)
-  LaunchedEffect(Unit) { while (true) { News.refresh(); delay(5 * 60_000L) } }
+  // and what friends sent
+  LaunchedEffect(Unit) { while (true) { News.refresh(); Inbox.refresh(); delay(2 * 60_000L) } }
   // notifications need the listener's yes, asked once
   AskNotificationsOnce()
   val open by Links.openPlayer.collectAsStateWithLifecycle()
@@ -161,7 +163,12 @@ private fun Main() {
   }
   val link by Links.deepLink.collectAsStateWithLifecycle()
   LaunchedEffect(link) {
-    link?.let { Links.deepLink.value = null; playerOpen = false; nav.route(it) }
+    link?.let {
+      Links.deepLink.value = null
+      // the alarm's notification: the music starts and the player opens
+      if (it == "play:alarm") { App.scope.launch { space.avthsr.music.player.Alarm.ring() }; playerOpen = true }
+      else { playerOpen = false; nav.route(it) }
+    }
   }
 
   // edge to edge: the content runs under the camera cutout and under the floating bars; screens pad by LocalEdges
@@ -225,6 +232,12 @@ private fun Main() {
           screen("downloads") { DownloadsScreen() }
           screen("news") { NewsScreen() }
           screen("settings") { SettingsScreen() }
+          screen("friends") { FriendsScreen() }
+          screen("user/{id}") { FriendScreen(it.arg("id")) }
+          screen("inbox") { InboxScreen() }
+          screen("recap") { RecapScreen() }
+          screen("recognize") { RecognizeScreen() }
+          screen("alarm") { AlarmScreen() }
           screen("admin") { AdminScreen() }
           screen("admin/user/{id}") { AdminUserScreen(it.arg("id")) }
           screen("admin/track/{id}") { AdminTrackScreen(it.arg("id")) }

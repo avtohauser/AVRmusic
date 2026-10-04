@@ -47,6 +47,11 @@ data class Track(
   val hasSyncedLyrics: Boolean = false,
   /** why "My Wave" picked it */
   val reason: String? = null,
+  /** who put it into a shared playlist */
+  val addedBy: FriendRef? = null,
+  /** integrated loudness (LUFS), for evening out the volume */
+  val loudness: Double? = null,
+  val bpm: Double? = null,
 ) {
   val artists: String get() = (listOf(artist) + featuring).joinToString(", ") { it.name }
 }
@@ -105,6 +110,7 @@ data class PlaylistSummary(
   val trackCount: Int = 0,
   val durationMs: Long = 0,
   val isOwner: Boolean? = null,
+  val canEdit: Boolean? = null,
   val mosaic: List<String> = emptyList(),
 )
 
@@ -121,6 +127,9 @@ data class Playlist(
   val isOwner: Boolean? = null,
   val tracks: List<Track> = emptyList(),
   val mosaic: List<String> = emptyList(),
+  /** friends who may add and remove tracks too */
+  val members: List<FriendRef> = emptyList(),
+  val canEdit: Boolean? = null,
 )
 
 @Serializable

@@ -70,9 +70,11 @@ class IosEngine : PlayerEngine {
     }
     remote()
     App.scope.launch {
+      var n = 0
       while (true) {
-        delay(500)
-        tick()
+        delay(100)
+        volumeTick()
+        if (n++ % 5 == 0) tick()
       }
     }
     App.scope.launch { Likes.tracks.collect { showLike() } }
@@ -84,6 +86,7 @@ class IosEngine : PlayerEngine {
   override fun trackAt(i: Int): Track = items[i]
   override val index get() = orderList.getOrNull(pos) ?: -1
   override val isPlaying get() = player.timeControlStatus == AVPlayerTimeControlStatusPlaying
+  override val playWhenReady get() = wantPlay
   override val isBuffering get() = wantPlay && !ended && player.timeControlStatus == AVPlayerTimeControlStatusWaitingToPlayAtSpecifiedRate
   override val isIdle get() = !prepared
   override val isEnded get() = ended
@@ -179,6 +182,8 @@ class IosEngine : PlayerEngine {
   }
 
   override fun play() {
+    // a sleep timer whose time came while paused is over
+    if (Gain.sleepDue(Platform.nowMs())) Gain.sleepAt.value = null
     wantPlay = true
     if (!prepared) load()
     player.rate = rate
@@ -234,6 +239,8 @@ class IosEngine : PlayerEngine {
   }
 
   private fun onEnded() {
+    // the sleep timer "at the end of the track": the next one is put in but does not start
+    if (Gain.sleepAtTrackEnd.value) { wantPlay = false; player.pause(); Gain.slept() }
     when {
       repeatMode == Repeat.ONE -> { seekTo(0); if (wantPlay) player.rate = rate }
       pos + 1 < orderList.size -> go(pos + 1)
@@ -326,6 +333,15 @@ class IosEngine : PlayerEngine {
 
   /* ---------- reports, wave, lock screen ---------- */
 
+  /** Fades, normalization and the sleep timer, several times a second while playing. */
+  private fun volumeTick() {
+    if (!isPlaying) return
+    if (Gain.sleepDue(Platform.nowMs())) { pause(); Gain.slept() }
+    Alarm.rise()
+    val v = Gain.volume(items.getOrNull(index), positionMs, durationMs)
+    if (kotlin.math.abs(player.volume - v) > 0.005f) player.volume = v
+  }
+
   private fun tick() {
     val item = player.currentItem
     if (item != null && item.status == AVPlayerItemStatusFailed && failedItem != item) {
@@ -338,6 +354,7 @@ class IosEngine : PlayerEngine {
       if (playing) playingSince = now else if (playingSince > 0) { playedMs += now - playingSince; playingSince = 0 }
       wasPlaying = playing
     }
+    NowReport.update(currentId, positionMs, wantPlay && !ended)
     val snap = "$playing ${isBuffering} ${durationMs / 1000}"
     if (snap != lastSnapshot) {
       lastSnapshot = snap

@@ -7,6 +7,8 @@ package space.avthsr.music.player
 import space.avthsr.music.tr
 import android.app.PendingIntent
 import android.content.Intent
+import android.media.audiofx.Equalizer
+import android.media.audiofx.LoudnessEnhancer
 import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
@@ -33,9 +35,15 @@ import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlin.math.abs
+import kotlin.math.roundToInt
 import space.avthsr.music.App
 import space.avthsr.music.BuildConfig
 import space.avthsr.music.MainActivity
@@ -58,6 +66,12 @@ class PlaybackService : MediaSessionService() {
   private var playedMs = 0L
   private var playingSince = 0L
   private var topping = false
+
+  // volume (fades, normalization, sleep timer), the equalizer, "now listening" for friends
+  private var ticker: Job? = null
+  private var eq: Equalizer? = null
+  private var booster: LoudnessEnhancer? = null
+  private var boostMb = -1
 
   override fun onCreate() {
     super.onCreate()
@@ -94,9 +108,117 @@ class PlaybackService : MediaSessionService() {
     setMediaNotificationProvider(notifications)
 
     scope.launch { Likes.tracks.collect { showLike() } }
+    scope.launch { combine(Gain.eqOn, Gain.eqBands) { on, bands -> on to bands }.collect { applyEq() } }
+    scope.launch { Gain.normalize.collect { applyBoost() } }
+    attachEffects(player.audioSessionId)
+  }
+
+  /* ---------- volume, equalizer, booster ---------- */
+
+  /** While playing: the volume follows the fades several times a second, friends hear what plays. */
+  private fun startTicker() {
+    if (ticker?.isActive == true) return
+    // a sleep timer whose time came while paused is over
+    if (Gain.sleepDue(System.currentTimeMillis())) Gain.sleepAt.value = null
+    ticker = scope.launch {
+      var n = 0
+      while (isActive) {
+        if (Gain.sleepDue(System.currentTimeMillis())) { player.pause(); Gain.slept() }
+        Alarm.rise()
+        applyVolume()
+        if (n++ % 25 == 0) reportNow()
+        delay(120)
+      }
+    }
+  }
+
+  private fun stopTicker() {
+    ticker?.cancel()
+    ticker = null
+    applyVolume()
+    reportNow()
+  }
+
+  private fun applyVolume() {
+    val d = player.duration.takeIf { it != C.TIME_UNSET && it > 0 } ?: 0L
+    val v = Gain.volume(Queue.track(player.currentMediaItem?.mediaId), player.currentPosition, d)
+    if (abs(player.volume - v) > 0.005f) player.volume = v
+  }
+
+  private fun reportNow() {
+    NowReport.update(player.currentMediaItem?.mediaId, player.currentPosition, player.playWhenReady && player.playbackState != Player.STATE_ENDED)
+  }
+
+  /** The equalizer and the booster live on the player's audio session (a new one after some changes). */
+  private fun attachEffects(sessionId: Int) {
+    runCatching { eq?.release() }
+    runCatching { booster?.release() }
+    eq = null; booster = null; boostMb = -1
+    if (sessionId == C.AUDIO_SESSION_ID_UNSET || sessionId == 0) return
+    eq = runCatching { Equalizer(0, sessionId) }.getOrNull()
+    booster = runCatching { LoudnessEnhancer(sessionId) }.getOrNull()
+    applyEq()
+    applyBoost()
+  }
+
+  /** The five bands of the settings, each set on the phone's band nearest to it. */
+  private fun applyEq() {
+    val e = eq ?: return
+    runCatching {
+      if (!Gain.eqOn.value) { e.enabled = false; return }
+      val range = e.bandLevelRange
+      val bands = Gain.eqBands.value
+      for (b in 0 until e.numberOfBands) {
+        val hz = e.getCenterFreq(b.toShort()) / 1000
+        val i = EQ_FREQS.indices.minByOrNull { abs(kotlin.math.ln(EQ_FREQS[it].toDouble()) - kotlin.math.ln(hz.coerceAtLeast(1).toDouble())) } ?: continue
+        val mb = (bands[i] * 100).roundToInt().coerceIn(range[0].toInt(), range[1].toInt())
+        e.setBandLevel(b.toShort(), mb.toShort())
+      }
+      e.enabled = true
+    }
+  }
+
+  /** Quieter tracks are raised by the booster (louder ones are turned down by the volume). */
+  private fun applyBoost() {
+    val b = booster ?: return
+    val db = Gain.normDb(Queue.track(player.currentMediaItem?.mediaId)?.loudness)
+    val mb = if (db > 0) (db * 100).roundToInt() else 0
+    if (mb == boostMb) return
+    boostMb = mb
+    runCatching {
+      b.setTargetGain(mb)
+      b.enabled = mb > 0
+    }
   }
 
   override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
+
+  /** The system's alarm clock woke the service: the alarm's music starts, rising from quiet. */
+  override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    val r = super.onStartCommand(intent, flags, startId)
+    if (intent?.action == AlarmClock.ACTION_ALARM) ringAlarm()
+    return r
+  }
+
+  private fun ringAlarm() {
+    val s = Alarm.setting.value
+    fun start(list: List<space.avthsr.music.api.Track>) {
+      if (list.isEmpty()) return
+      Alarm.fired()
+      Queue.remember(list)
+      if (s.source != "liked") Queue.setWaveMode(s.source)
+      Queue.context.value = if (s.source == "liked") "liked" else Queue.WAVE
+      applyVolume()
+      player.setMediaItems(list.map { mediaItemOf(it) })
+      player.prepare()
+      player.play()
+    }
+    val kept = Alarm.storedTracks()
+    if (kept.isNotEmpty()) start(kept)
+    else scope.launch {
+      start(runCatching { if (s.source == "liked") Api.likedTracks().shuffled().take(40) else Api.waveNext(s.source, emptyList()).tracks }.getOrDefault(emptyList()))
+    }
+  }
 
   /** Swiped away from the recent apps: keep playing if music is on, otherwise go. */
   override fun onTaskRemoved(rootIntent: Intent?) {
@@ -105,6 +227,9 @@ class PlaybackService : MediaSessionService() {
 
   override fun onDestroy() {
     flushPlay()
+    NowReport.update(null, 0, false)
+    runCatching { eq?.release() }
+    runCatching { booster?.release() }
     scope.cancel()
     player.removeListener(listener)
     session?.release()
@@ -118,14 +243,28 @@ class PlaybackService : MediaSessionService() {
       val now = SystemClock.elapsedRealtime()
       if (isPlaying) playingSince = now
       else if (playingSince > 0) { playedMs += now - playingSince; playingSince = 0 }
+      if (isPlaying) startTicker() else stopTicker()
+    }
+
+    override fun onAudioSessionIdChanged(audioSessionId: Int) {
+      attachEffects(audioSessionId)
     }
 
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+      // the sleep timer "at the end of the track": the next one does not start
+      if (Gain.sleepAtTrackEnd.value && (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO || reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT)) {
+        player.pause()
+        player.seekTo(0)
+        Gain.slept()
+      }
       flushPlay()
       currentId = mediaItem?.mediaId
       playingSince = if (player.isPlaying) SystemClock.elapsedRealtime() else 0
       showLike()
       topUpWave()
+      applyBoost()
+      applyVolume()
+      reportNow()
     }
 
     override fun onPlayerError(error: PlaybackException) {

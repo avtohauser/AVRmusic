@@ -8,6 +8,12 @@
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
   <uses-permission android:name="android.permission.WAKE_LOCK" />
   <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+  <!-- "what's playing?": a few seconds from the microphone to recognise a song -->
+  <uses-permission android:name="android.permission.RECORD_AUDIO" />
+  <!-- the music alarm: the system's alarm clock, kept after a restart of the phone -->
+  <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+  <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
+  <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
   <!-- saving files from the site (track / album downloads) on Android 9 and older -->
   <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
 
@@ -46,6 +52,24 @@
         <data android:scheme="https" android:host="music.avthsr.space" />
       </intent-filter>
     </activity>
+
+    <!-- after a restart of the phone or a change of the clock the alarm is set again (the app's start does it) -->
+    <receiver android:name=".player.AlarmBoot" android:exported="false">
+      <intent-filter>
+        <action android:name="android.intent.action.BOOT_COMPLETED" />
+        <action android:name="android.intent.action.TIME_SET" />
+        <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+      </intent-filter>
+    </receiver>
+
+    <!-- pictures shared from the app (a recap card) -->
+    <provider
+        android:name="androidx.core.content.FileProvider"
+        android:authorities="${applicationId}.files"
+        android:exported="false"
+        android:grantUriPermissions="true">
+      <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
+    </provider>
 
     <!-- The player: ExoPlayer in a media session. Gives the notification-shade / lock-screen player
          with previous, play/pause, next and a Like button, and keeps playing in the background. -->

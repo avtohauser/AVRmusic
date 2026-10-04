@@ -33,6 +33,8 @@ interface PlayerEngine {
   fun trackAt(i: Int): Track
   val index: Int
   val isPlaying: Boolean
+  /** the listener wants it playing (true while buffering too) */
+  val playWhenReady: Boolean
   val isBuffering: Boolean
   val isIdle: Boolean
   val isEnded: Boolean
@@ -75,6 +77,8 @@ data class PlayerUi(
   val durationMs: Long = 0,
   /** the queue's indices in the order they play (shuffle included), for the cover deck */
   val order: List<Int> = emptyList(),
+  /** playing, or about to (buffering with play pressed) */
+  val wantsToPlay: Boolean = false,
 )
 
 object PlayerConn {
@@ -98,7 +102,11 @@ object PlayerConn {
     val actions = pending.toList()
     pending.clear()
     actions.forEach { it(e) }
+    Jam.resync()
   }
+
+  /** the platform's player is there (the app is in front, or always on iOS) */
+  val attached get() = engine != null
 
   /** The app went to the background: let go of the player (it keeps playing on its own). */
   fun detach() {
@@ -129,6 +137,7 @@ object PlayerConn {
       repeat = c.repeat,
       durationMs = c.durationMs.takeIf { it > 0 } ?: track?.durationMs ?: 0,
       order = c.order(),
+      wantsToPlay = c.playWhenReady && !c.isEnded,
     )
   }
 
@@ -142,6 +151,8 @@ object PlayerConn {
   /** Plays a list starting at [index]; [context] says where it comes from (for the stats and the wave). */
   fun play(tracks: List<Track>, index: Int = 0, context: String? = null, shuffle: Boolean = false) {
     if (tracks.isEmpty()) return
+    // listening together: everyone gets it
+    if (Jam.active) return Jam.replace(tracks, if (shuffle) Random.nextInt(tracks.size) else index)
     Queue.remember(tracks)
     Queue.context.value = context
     withController { c ->
@@ -153,7 +164,12 @@ object PlayerConn {
     }
   }
 
-  fun toggle() = withController { c ->
+  fun toggle() {
+    if (Jam.active) return Jam.toggle()
+    toggleLocal()
+  }
+
+  private fun toggleLocal() = withController { c ->
     if (c.isPlaying) c.pause()
     else {
       if (c.isIdle) c.prepare()
@@ -164,6 +180,7 @@ object PlayerConn {
 
   /** Stops and empties the queue (signing out). */
   fun stop() {
+    if (Jam.active) Jam.leave()
     Queue.context.value = null
     engine?.let { it.stop(); it.clear() }
   }
@@ -172,8 +189,7 @@ object PlayerConn {
 
   val speed = MutableStateFlow(1f)
   /** when the sleep timer pauses the music (epoch ms), or null */
-  val sleepAt = MutableStateFlow<Long?>(null)
-  private var sleepJob: Job? = null
+  val sleepAt = Gain.sleepAt
   val speeds = listOf(0.75f, 1f, 1.25f, 1.5f, 2f)
 
   fun setSpeed(v: Float) {
@@ -187,39 +203,80 @@ object PlayerConn {
     setSpeed(speeds[(i + 1) % speeds.size])
   }
 
-  /** Pauses the music in [minutes]; null switches the timer off. */
+  /** the sleep timer stops the music when the current track ends */
+  val sleepAtTrackEnd = Gain.sleepAtTrackEnd
+
+  /**
+   * Pauses the music in [minutes], fading it out over the last half minute; null switches the timer off.
+   * The player itself keeps the time (the service on Android), so it works with the app closed.
+   */
   fun setSleep(minutes: Int?) {
-    sleepJob?.cancel()
-    sleepAt.value = null
-    if (minutes == null) return
-    sleepAt.value = Platform.nowMs() + minutes * 60_000L
-    sleepJob = App.scope.launch {
-      delay(minutes * 60_000L)
-      withController { it.pause() }
-      sleepAt.value = null
-      App.say(tr("Таймер сна: музыка остановлена"))
-    }
+    Gain.sleepAtTrackEnd.value = false
+    Gain.sleepAt.value = minutes?.let { Platform.nowMs() + it * 60_000L }
   }
 
-  fun move(from: Int, to: Int) = withController { if (from != to) it.move(from, to) }
+  /** Stops the music when the current track ends (its last seconds fade out). */
+  fun setSleepAtTrackEnd() {
+    Gain.sleepAt.value = null
+    Gain.sleepAtTrackEnd.value = true
+  }
+
+  fun move(from: Int, to: Int) {
+    if (from == to) return
+    if (Jam.active) return Jam.move(from, to)
+    withController { it.move(from, to) }
+  }
 
   /** Leaves only the current track in the queue. */
-  fun clearQueue() = withController { c ->
+  fun clearQueue() {
+    val s = state.value
+    if (Jam.active) return s.track?.let { Jam.replace(listOf(it), 0, position()) } ?: Unit
+    clearLocal()
+  }
+
+  private fun clearLocal() = withController { c ->
     val cur = c.index
     if (cur + 1 < c.count) c.removeRange(cur + 1, c.count)
     if (cur > 0) c.removeRange(0, cur)
   }
 
-  fun next() = withController { it.next() }
-  fun prev() = withController { it.previous() }
+  fun next() { if (Jam.active) Jam.next() else withController { it.next() } }
+  fun prev() { if (Jam.active) Jam.prev() else withController { it.previous() } }
   /** the previous track itself (a swipe), not a restart of the current one */
-  fun prevTrack() = withController { it.previousTrack() }
-  fun seek(ms: Long) = withController { it.seekTo(ms) }
-  fun skipTo(index: Int) = withController { it.seekToDefault(index); it.play() }
+  fun prevTrack() { if (Jam.active) Jam.skip((state.value.index - 1).coerceAtLeast(0)) else withController { it.previousTrack() } }
+  fun seek(ms: Long) { if (Jam.active) Jam.seek(ms) else withController { it.seekTo(ms) } }
+  fun skipTo(index: Int) { if (Jam.active) Jam.skip(index) else withController { it.seekToDefault(index); it.play() } }
   /** to that queue item without starting playback (a card pulled back onto the deck) */
-  fun seekToTrack(index: Int) = withController { it.seekToDefault(index) }
-  fun removeAt(index: Int) = withController { it.remove(index) }
-  fun toggleShuffle() = withController { it.shuffle = !it.shuffle }
+  fun seekToTrack(index: Int) { if (Jam.active) Jam.skip(index) else withController { it.seekToDefault(index) } }
+  fun removeAt(index: Int) { if (Jam.active) Jam.remove(index) else withController { it.remove(index) } }
+  fun toggleShuffle() {
+    if (Jam.active) return App.say(tr("В совместном прослушивании порядок общий"))
+    withController { it.shuffle = !it.shuffle }
+  }
+
+  /* ---------- following a "listen together" session (Jam calls these; nothing goes back to it) ---------- */
+
+  internal fun jamLoad(tracks: List<Track>, index: Int, positionMs: Long, playing: Boolean) {
+    Queue.remember(tracks)
+    withController { c ->
+      c.shuffle = false
+      c.setTracks(tracks, index)
+      c.prepare()
+      if (positionMs > 1000) c.seekTo(positionMs)
+      if (playing) c.play() else c.pause()
+    }
+  }
+
+  internal fun jamGo(index: Int, positionMs: Long) = withController { c ->
+    c.seekToDefault(index)
+    if (positionMs > 1000) c.seekTo(positionMs)
+  }
+
+  internal fun jamSeek(ms: Long) = withController { it.seekTo(ms) }
+
+  internal fun jamPlaying(playing: Boolean) = withController { c ->
+    if (playing) { if (c.isIdle) c.prepare(); if (c.isEnded) c.seekToDefault(0); c.play() } else c.pause()
+  }
 
   fun cycleRepeat() = withController {
     it.repeat = when (it.repeat) {
@@ -236,6 +293,7 @@ object PlayerConn {
   /** Puts tracks (one, or a whole album / playlist) right after the current one. */
   fun playNext(list: List<Track>) {
     if (list.isEmpty()) return
+    if (Jam.active) return Jam.add(list, next = true)
     if (queue.isEmpty()) return play(list)
     Queue.remember(list)
     withController { it.insert(it.index + 1, list) }
@@ -244,6 +302,7 @@ object PlayerConn {
 
   fun enqueue(list: List<Track>) {
     if (list.isEmpty()) return
+    if (Jam.active) return Jam.add(list, next = false)
     if (queue.isEmpty()) return play(list)
     Queue.remember(list)
     withController { it.append(list) }

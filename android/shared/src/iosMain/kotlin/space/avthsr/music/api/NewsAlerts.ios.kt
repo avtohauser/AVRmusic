@@ -45,7 +45,9 @@ actual object NewsAlerts {
       didReceiveNotificationResponse: UNNotificationResponse,
       withCompletionHandler: () -> Unit,
     ) {
-      if (didReceiveNotificationResponse.notification.request.content.userInfo["news"] != null) Links.deepLink.value = "news"
+      val info = didReceiveNotificationResponse.notification.request.content.userInfo
+      if (info["news"] != null) Links.deepLink.value = "news"
+      (info["route"] as? String)?.let { Links.deepLink.value = it }
       withCompletionHandler()
     }
   }
@@ -82,6 +84,16 @@ actual object NewsAlerts {
     content.setSound(UNNotificationSound.defaultSound)
     content.setUserInfo(mapOf("news" to n.id))
     val req = UNNotificationRequest.requestWithIdentifier("news-${n.id}", content, null)
+    UNUserNotificationCenter.currentNotificationCenter().addNotificationRequest(req, null)
+  }
+
+  actual fun notify(key: String, title: String, body: String, route: String) {
+    val content = UNMutableNotificationContent()
+    content.setTitle(title)
+    content.setBody(body)
+    content.setSound(UNNotificationSound.defaultSound)
+    content.setUserInfo(mapOf("route" to route))
+    val req = UNNotificationRequest.requestWithIdentifier(key, content, null)
     UNUserNotificationCenter.currentNotificationCenter().addNotificationRequest(req, null)
   }
 }

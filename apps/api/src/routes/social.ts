@@ -69,6 +69,8 @@ export default async function socialRoutes(app: FastifyInstance) {
       case 'album': { const r = db.prepare(`SELECT ${ALBUM_SELECT} ${ALBUM_FROM} WHERE al.id = ?`).get(refId); return r ? mapAlbumSummary(r) : null; }
       case 'artist': { const r = db.prepare('SELECT id, name, image_path FROM artists WHERE id = ?').get(refId); return r ? mapArtistSummary(r) : null; }
       case 'playlist': { const r = db.prepare(`SELECT ${PLAYLIST_SELECT} ${PLAYLIST_FROM} WHERE p.id = ?`).get(refId) as any; return r ? mapPlaylistSummary(db, r, viewer) : null; }
+      // an invitation to listen together: gone once the session ends
+      case 'jam': { const j = getJam(refId); if (!j) return null; const v = jamView(db, j, viewer); return { id: v.id, host: v.host, members: v.members, track: v.queue[v.index] ?? null, playing: v.playing }; }
       default: return null;
     }
   };
@@ -80,7 +82,7 @@ export default async function socialRoutes(app: FastifyInstance) {
   app.post('/api/shares', auth, async (req) => {
     const b = z.object({
       to: z.array(z.string()).min(1).max(20),
-      kind: z.enum(['track', 'album', 'artist', 'playlist']),
+      kind: z.enum(['track', 'album', 'artist', 'playlist', 'jam']),
       refId: z.string().min(1),
       message: z.string().trim().max(500).default(''),
     }).parse(req.body ?? {});
@@ -185,7 +187,7 @@ export default async function socialRoutes(app: FastifyInstance) {
       z.object({ op: z.literal('add'), trackIds: z.array(z.string()).min(1).max(200), next: z.boolean().optional() }),
       z.object({ op: z.literal('remove'), index: z.number().int().min(0) }),
       z.object({ op: z.literal('move'), from: z.number().int().min(0), to: z.number().int().min(0) }),
-      z.object({ op: z.literal('replace'), trackIds: z.array(z.string()).min(1).max(500), index: z.number().int().min(0) }),
+      z.object({ op: z.literal('replace'), trackIds: z.array(z.string()).min(1).max(500), index: z.number().int().min(0), positionMs: z.number().min(0).optional() }),
     ]).parse(req.body ?? {}) as JamOp;
     applyJam(j, req.userId!, o);
     return jamView(db, j, req.userId!);

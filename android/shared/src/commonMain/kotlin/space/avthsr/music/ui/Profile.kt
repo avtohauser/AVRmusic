@@ -47,6 +47,7 @@ import space.avthsr.music.api.Likes
 import space.avthsr.music.api.changePassword
 import space.avthsr.music.api.clearHistory
 import space.avthsr.music.api.history
+import space.avthsr.music.api.importLink
 import space.avthsr.music.api.myStats
 import space.avthsr.music.api.removeAvatar
 import space.avthsr.music.api.updateProfile
@@ -63,6 +64,7 @@ fun ProfileScreen() {
   var editPassword by remember { mutableStateOf(false) }
   var avatarMenu by remember { mutableStateOf(false) }
   var logout by remember { mutableStateOf(false) }
+  var importLink by remember { mutableStateOf(false) }
   val stats = rememberLoad(Unit) { Api.myStats() }
   val pickAvatar = rememberPicker(Pick.IMAGE) { f ->
     f.firstOrNull()?.let { file -> act(tr("Аватар обновлён")) { Api.uploadAvatarSquare(file) } }
@@ -106,6 +108,19 @@ fun ProfileScreen() {
           )
         }
       }
+      item { SectionTitle(tr("Музыка и друзья")) }
+      item {
+        Column(Modifier.padding(horizontal = 16.dp)) {
+          ProfileItem(Res.drawable.ic_chart, tr("Итоги"), tr("Ваш месяц и год в музыке — истории, которыми можно поделиться")) { nav.route("recap") }
+          val inbox by space.avthsr.music.api.Inbox.items.collectAsStateWithLifecycle()
+          val fresh = space.avthsr.music.api.Inbox.unread(inbox)
+          ProfileItem(Res.drawable.ic_inbox, tr("Входящие"), if (fresh > 0) tr("Новых: {}", fresh) else tr("Что вам отправили друзья")) { nav.route("inbox") }
+          ProfileItem(Res.drawable.ic_group, tr("Друзья"), tr("Кто что слушает, совместимость вкусов, волна друга")) { nav.route("friends") }
+          ProfileItem(Res.drawable.ic_mic, tr("Распознать песню"), tr("Узнать, что играет рядом")) { nav.route("recognize") }
+          ProfileItem(Res.drawable.ic_import, tr("Импорт по ссылке"), tr("Плейлист или альбом из Яндекс Музыки или Spotify")) { importLink = true }
+          ProfileItem(Res.drawable.ic_alarm, tr("Будильник"), alarmLine()) { nav.route("alarm") }
+        }
+      }
       item { SectionTitle(tr("Аккаунт")) }
       item {
         Column(Modifier.padding(horizontal = 16.dp)) {
@@ -145,6 +160,8 @@ fun ProfileScreen() {
       else -> act(tr("Пароль изменён")) { Api.changePassword(v[0], v[1]) }
     }
   }
+
+  if (importLink) ImportLinkDialog { importLink = false }
 
   if (logout) ConfirmDialog(tr("Выйти из аккаунта?"), tr("Музыка остановится, вход понадобится снова."), tr("Выйти"), { logout = false }) {
     App.scope.launch {
@@ -198,5 +215,22 @@ fun HistoryScreen() {
   }
   if (clear) ConfirmDialog(tr("Очистить историю?"), tr("Статистика и «Моя волна» начнут учиться заново."), tr("Очистить"), { clear = false }) {
     act(tr("История очищена"), then = { version++ }) { Api.clearHistory() }
+  }
+}
+
+/** A playlist or album from Yandex Music or Spotify, by its link: it becomes a playlist here, missing tracks are fetched. */
+@Composable
+fun ImportLinkDialog(onDone: () -> Unit) {
+  val nav = LocalNav.current
+  FormDialog(
+    tr("Импорт по ссылке"),
+    listOf(Field(tr("Ссылка на плейлист, альбом или трек"), "")),
+    confirm = tr("Импортировать"),
+    onDismiss = onDone,
+  ) { v ->
+    val url = v[0].trim()
+    if (!url.startsWith("http")) { App.say(tr("Вставьте ссылку из Яндекс Музыки или Spotify")); return@FormDialog }
+    onDone()
+    act(tr("Импорт начат — плейлист появится в медиатеке"), { nav.jobs() }) { Api.importLink(url) }
   }
 }

@@ -120,10 +120,13 @@ fun HomeScreen() {
       Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         val greeting = localGreeting()
         FlowText(greeting, MaterialTheme.typography.headlineMedium, Modifier.weight(1f))
+        IconButton(onClick = { nav.route("recognize") }) { Ico(Res.drawable.ic_mic, tr("Распознать песню")) }
+        InboxButton()
       }
     }
     item { NewsBanner { nav.route("news") } }
     item { WaveCard() }
+    item { FriendsRow() }
     when (val s = loader.state) {
       is Load.Ok -> {
         val picks = s.data.quickPicks
@@ -149,6 +152,7 @@ fun WaveCard() {
   val context by Queue.context.collectAsStateWithLifecycle()
   val mode by Queue.waveMode.collectAsStateWithLifecycle()
   val inWave = context == Queue.WAVE && player.track != null
+  val friends by space.avthsr.music.api.Friends.list.collectAsStateWithLifecycle()
   var busy by remember { mutableStateOf(false) }
   val scope = rememberCoroutineScope()
   fun start(m: String) {
@@ -181,6 +185,7 @@ fun WaveCard() {
           FlowText(tr("Моя волна"), MaterialTheme.typography.displaySmall, color = cs.onPrimaryContainer, maxLines = 1)
           Spacer(Modifier.height(4.dp))
           val line = if (inWave) player.track?.reason ?: player.track?.let { "${it.title} · ${it.artists}" } ?: ""
+          else if (mode.startsWith("friend:")) tr("Что любит {} — и похожее на это", Queue.modeLabel(mode).substringAfter(": "))
           else Queue.modes.firstOrNull { it.id == mode }?.hint ?: ""
           Text(line, style = MaterialTheme.typography.bodyMedium, color = cs.onPrimaryContainer.copy(alpha = 0.85f), maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
@@ -212,6 +217,24 @@ fun WaveCard() {
             Ico(m.icon, null, Modifier.size(18.dp))
             Spacer(Modifier.width(6.dp))
             Text(m.label)
+          }
+        }
+        // a friend's wave: their favourites and what is close to them
+        friends.forEach { f ->
+          val id = "friend:${f.id}"
+          ToggleButton(
+            checked = id == mode,
+            onCheckedChange = { start(id) },
+            colors = ToggleButtonDefaults.toggleButtonColors(
+              containerColor = cs.surface.copy(alpha = 0.35f),
+              contentColor = cs.onPrimaryContainer,
+              checkedContainerColor = cs.onPrimaryContainer,
+              checkedContentColor = cs.primaryContainer,
+            ),
+          ) {
+            Cover(f.avatarUrl, Modifier.size(20.dp), CircleShape, Res.drawable.ic_person)
+            Spacer(Modifier.width(6.dp))
+            Text(f.name)
           }
         }
       }

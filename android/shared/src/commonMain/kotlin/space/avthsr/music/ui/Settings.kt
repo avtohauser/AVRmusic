@@ -38,6 +38,19 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import space.avthsr.music.res.*
 import space.avthsr.music.player.PlayerConn
+import space.avthsr.music.player.AutoOffline
+import space.avthsr.music.player.EQ_FREQS
+import space.avthsr.music.player.Gain
+import space.avthsr.music.player.NowReport
+import space.avthsr.music.Platform
+import androidx.compose.material3.Slider
+import androidx.compose.foundation.layout.requiredWidth
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import kotlin.math.roundToInt
 
 /** Look and playback settings, like the site's settings. */
 @Composable
@@ -87,6 +100,67 @@ fun SettingsScreen() {
           Text(tr("Короткие видео за плеером вместо обложки"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Switch(checked = canvasOn, onCheckedChange = { Look.setCanvas(it) })
+      }
+
+      Spacer(Modifier.height(24.dp))
+      Text(tr("Звук"), style = MaterialTheme.typography.headlineSmall)
+      val fade by Gain.fadeMs.collectAsStateWithLifecycle()
+      Group(tr("Плавные переходы между треками")) { Choices(Gain.fades, fade.toString()) { Gain.setFade(it.toInt()) } }
+      val norm by Gain.normalize.collectAsStateWithLifecycle()
+      SwitchRow(tr("Выравнивание громкости"), tr("Все треки звучат одинаково громко — без скачков между ними"), norm) { Gain.setNormalize(it) }
+      if (Platform.name == "Android") Equalizer()
+
+      Spacer(Modifier.height(24.dp))
+      Text(tr("Друзья и офлайн"), style = MaterialTheme.typography.headlineSmall)
+      var showNow by remember { mutableStateOf(NowReport.enabled()) }
+      SwitchRow(tr("Показывать друзьям, что я слушаю"), tr("Друзья видят трек на главной и могут присоединиться"), showNow) { showNow = it; NowReport.setEnabled(it) }
+      val auto by AutoOffline.enabled.collectAsStateWithLifecycle()
+      SwitchRow(tr("Скачивать избранное по Wi-Fi"), tr("Всё, что вы лайкнули, само сохраняется на телефон"), auto) { AutoOffline.set(it) }
+    }
+  }
+}
+
+@Composable
+private fun SwitchRow(title: String, subtitle: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+  Row(
+    Modifier.fillMaxWidth().padding(top = 12.dp).clip(RoundedCornerShape(20.dp)).background(MaterialTheme.colorScheme.surfaceContainer)
+      .clickable { onChange(!checked) }.padding(horizontal = 16.dp, vertical = 12.dp),
+    verticalAlignment = Alignment.CenterVertically,
+  ) {
+    Column(Modifier.weight(1f)) {
+      Text(title, style = MaterialTheme.typography.titleMedium)
+      Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+    Switch(checked = checked, onCheckedChange = onChange)
+  }
+}
+
+/** The equalizer: presets and five bands, applied on the player's audio (Android). */
+@Composable
+private fun Equalizer() {
+  val on by Gain.eqOn.collectAsStateWithLifecycle()
+  val preset by Gain.eqPreset.collectAsStateWithLifecycle()
+  val bands by Gain.eqBands.collectAsStateWithLifecycle()
+  SwitchRow(tr("Эквалайзер"), tr("Басы, голос, высокие — под ваши наушники"), on) { Gain.setEqOn(it) }
+  if (!on) return
+  Group(tr("Пресет")) { Choices(Gain.presets.map { Choice(it.id, it.label) }, preset) { Gain.setPreset(it) } }
+  Spacer(Modifier.height(10.dp))
+  Row(
+    Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(MaterialTheme.colorScheme.surfaceContainer).padding(vertical = 14.dp, horizontal = 6.dp),
+    horizontalArrangement = Arrangement.SpaceEvenly,
+  ) {
+    EQ_FREQS.forEachIndexed { i, hz ->
+      Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+        val db = bands.getOrElse(i) { 0f }
+        Text((if (db > 0) "+" else "") + db.roundToInt(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+        // a vertical slider: the horizontal one turned a quarter
+        Box(Modifier.height(170.dp).width(48.dp), contentAlignment = Alignment.Center) {
+          Slider(
+            value = db, onValueChange = { Gain.setBand(i, it) }, valueRange = -12f..12f,
+            modifier = Modifier.requiredWidth(170.dp).graphicsLayer { rotationZ = -90f },
+          )
+        }
+        Text(if (hz >= 1000) tr("{} кГц", hz / 1000) else tr("{} Гц", hz), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
       }
     }
   }

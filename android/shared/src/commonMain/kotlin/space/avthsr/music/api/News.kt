@@ -56,6 +56,13 @@ object News {
    * notifications. False means "try again later".
    */
   suspend fun check(): Boolean {
+    val news = checkNews()
+    // things friends sent come with the same background check
+    val shares = Inbox.check()
+    return news && shares
+  }
+
+  private suspend fun checkNews(): Boolean {
     if (Api.session.value == null) return true
     val p = Api.prefs
     val since = p.getString("news.notified", null)
@@ -77,4 +84,6 @@ object News {
 expect object NewsAlerts {
   fun start()
   fun show(n: NewsItem)
+  /** Any other notification (a friend sent a track …); a tap opens [route]. */
+  fun notify(key: String, title: String, body: String, route: String)
 }

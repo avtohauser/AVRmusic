@@ -110,6 +110,15 @@ import space.avthsr.music.api.Track
 import space.avthsr.music.player.PlayerConn
 import space.avthsr.music.player.PlayerUi
 import space.avthsr.music.player.Queue
+import space.avthsr.music.player.Jam
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
+import space.avthsr.music.api.Reaction
+import space.avthsr.music.api.reactions
+import androidx.compose.runtime.mutableStateListOf
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlin.math.abs
 import kotlin.math.max
 
@@ -141,6 +150,17 @@ private fun NowPlayingContent(deck: Deck, onClose: () -> Unit) {
   LaunchedEffect(wantLyrics) { if (wantLyrics) { lyricsMode = true; showLyrics.value = false } }
   val lyricsShown = lyricsMode && t?.hasLyrics == true
   var menu by remember { mutableStateOf(false) }
+  var jamOpen by remember { mutableStateOf(false) }
+  var reactAt by remember { mutableStateOf<Long?>(null) }
+  val jam by Jam.view.collectAsStateWithLifecycle()
+  val sleepEnd by PlayerConn.sleepAtTrackEnd.collectAsStateWithLifecycle()
+  // friends' reactions on this track, and the listener's own shown at once
+  val reactions = remember(t?.id) { mutableStateListOf<Reaction>() }
+  val ownReaction = remember { MutableSharedFlow<Reaction>(extraBufferCapacity = 4) }
+  LaunchedEffect(t?.id) {
+    val id = t?.id ?: return@LaunchedEffect
+    runCatching { Api.reactions(id) }.onSuccess { reactions.clear(); reactions.addAll(it) }
+  }
   var pull by remember { mutableFloatStateOf(0f) }
   val scope = rememberCoroutineScope()
   fun settle() {
@@ -188,8 +208,15 @@ private fun NowPlayingContent(deck: Deck, onClose: () -> Unit) {
       Row(margins.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = onClose) { Ico(Res.drawable.ic_expand_more, tr("Свернуть")) }
         Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-          Text(if (inWave) tr("Моя волна") else tr("Сейчас играет"), style = MaterialTheme.typography.labelLarge, color = cs.onSurfaceVariant)
-          if (inWave) Text(Queue.modes.firstOrNull { it.id == Queue.waveMode.value }?.label ?: "", style = MaterialTheme.typography.labelSmall, color = cs.primary)
+          val v = jam
+          if (v != null) JamBanner(v) { jamOpen = true }
+          else {
+            Text(if (inWave) tr("Моя волна") else tr("Сейчас играет"), style = MaterialTheme.typography.labelLarge, color = cs.onSurfaceVariant)
+            if (inWave) Text(Queue.modeLabel(Queue.waveMode.value), style = MaterialTheme.typography.labelSmall, color = cs.primary)
+          }
+        }
+        IconButton(onClick = { jamOpen = true }) {
+          Ico(Res.drawable.ic_headphones, tr("Слушать вместе"), tint = if (jam != null) cs.tertiary else LocalContentColor.current)
         }
         Box {
           IconButton(onClick = { menu = true }, enabled = t != null) { Ico(Res.drawable.ic_more, tr("Ещё")) }
@@ -199,6 +226,11 @@ private fun NowPlayingContent(deck: Deck, onClose: () -> Unit) {
               text = { Text(if (canvasOn) tr("Выключить канвасы") else tr("Включить канвасы")) },
               leadingIcon = { Ico(Res.drawable.ic_movie) },
               onClick = { close(); Look.setCanvas(!canvasOn) },
+            )
+            DropdownMenuItem(
+              text = { Text(tr("Скорость: {}×", fmtSpeed(speed))) },
+              leadingIcon = { Ico(Res.drawable.ic_speed) },
+              onClick = { PlayerConn.cycleSpeed() },
             )
           }
         }
@@ -230,6 +262,8 @@ private fun NowPlayingContent(deck: Deck, onClose: () -> Unit) {
             else -> CoverStack(s, deck, Modifier.fillMaxSize(), pauseScale = { coverScale })
           }
         }
+        // friends' reactions float up over the cover at their moments
+        if (!lyricsShown) ReactionBubbles(reactions, ownReaction, Modifier.fillMaxSize())
       }
 
       Row(margins.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -259,8 +293,11 @@ private fun NowPlayingContent(deck: Deck, onClose: () -> Unit) {
         Text("✦ $reason", margins.fillMaxWidth().padding(top = 6.dp), style = MaterialTheme.typography.labelLarge, color = cs.tertiary, maxLines = 2)
       }
 
-      Spacer(Modifier.height(10.dp))
-      Box(margins) { SeekBar(s) }
+      Spacer(Modifier.height(4.dp))
+      Column(margins) {
+        ReactionMarks(reactions, s.durationMs)
+        SeekBar(s)
+      }
 
       Spacer(Modifier.height(10.dp))
       Row(margins.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -292,19 +329,24 @@ private fun NowPlayingContent(deck: Deck, onClose: () -> Unit) {
           Ico(Res.drawable.ic_lyrics, tr("Текст"), tint = if (lyricsShown) cs.primary else LocalContentColor.current)
         }
         IconButton(onClick = { queueOpen = true }, shapes = IconButtonDefaults.shapes()) { Ico(Res.drawable.ic_queue, tr("Очередь")) }
-        TextButton(onClick = { PlayerConn.cycleSpeed() }) { Text("${fmtSpeed(speed)}×", style = MaterialTheme.typography.labelLarge) }
+        IconButton(onClick = { reactAt = PlayerConn.position() }, enabled = t != null, shapes = IconButtonDefaults.shapes()) {
+          Ico(Res.drawable.ic_mood, tr("Реакция на этот момент"))
+        }
         Box {
           IconButton(onClick = { sleepMenu = true }, shapes = IconButtonDefaults.shapes()) {
-            Ico(Res.drawable.ic_bedtime, tr("Таймер сна"), tint = if (sleepAt != null) cs.primary else LocalContentColor.current)
+            Ico(Res.drawable.ic_bedtime, tr("Таймер сна"), tint = if (sleepAt != null || sleepEnd) cs.primary else LocalContentColor.current)
           }
           DropdownMenu(expanded = sleepMenu, onDismissRequest = { sleepMenu = false }) {
             sleepAt?.let { at ->
               Text(tr("Остановится в {}", fmtClock(at)), Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.labelLarge, color = cs.primary)
             }
-            listOf(15, 30, 45, 60, 90).forEach { m ->
+            if (sleepEnd) Text(tr("Остановится в конце трека"), Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.labelLarge, color = cs.primary)
+            DropdownMenuItem(text = { Text(tr("В конце трека")) }, onClick = { sleepMenu = false; PlayerConn.setSleepAtTrackEnd(); App.say(tr("Музыка остановится в конце трека")) })
+            listOf(5, 15, 30, 45, 60, 90).forEach { m ->
               DropdownMenuItem(text = { Text(tr("Через {} мин", m)) }, onClick = { sleepMenu = false; PlayerConn.setSleep(m); App.say(tr("Музыка остановится через {} мин", m)) })
             }
-            if (sleepAt != null) DropdownMenuItem(text = { Text(tr("Выключить таймер")) }, onClick = { sleepMenu = false; PlayerConn.setSleep(null) })
+            if (sleepAt != null || sleepEnd) DropdownMenuItem(text = { Text(tr("Выключить таймер")) }, onClick = { sleepMenu = false; PlayerConn.setSleep(null) })
+            Text(tr("Музыка плавно затихнет"), Modifier.padding(horizontal = 16.dp, vertical = 6.dp), style = MaterialTheme.typography.labelSmall, color = cs.onSurfaceVariant)
           }
         }
       }
@@ -312,6 +354,9 @@ private fun NowPlayingContent(deck: Deck, onClose: () -> Unit) {
   }
 
   if (queueOpen) QueueSheet(s) { queueOpen = false }
+  if (jamOpen) JamSheet { jamOpen = false }
+  val at = reactAt
+  if (at != null && t != null) ReactDialog(t.id, at, onPosted = { r -> reactions.add(r); ownReaction.tryEmit(r) }) { reactAt = null }
 }
 
 /** The seek bar with its times; the only part of the player that follows the position. */
@@ -453,23 +498,85 @@ private fun SyncedLyrics(lines: List<LyricLine>) {
     ) {
       itemsIndexed(lines) { i, line ->
         val k by animateFloatAsState(if (i == cur) 1f else 0f, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "line")
-        Text(
-          line.text.ifBlank { "♪" },
-          Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).clickable { PlayerConn.seek(line.timeMs) }
-            .graphicsLayer {
-              val base = if (i < cur) 0.32f else 0.5f
-              alpha = base + (1f - base) * k
-              val sc = 0.94f + 0.06f * k
-              scaleX = sc; scaleY = sc
-              transformOrigin = TransformOrigin(0f, 0.5f)
-            }
-            .padding(horizontal = 6.dp, vertical = 10.dp),
+        val mod = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).clickable { PlayerConn.seek(line.timeMs) }
+          .graphicsLayer {
+            val base = if (i < cur) 0.32f else 0.5f
+            alpha = base + (1f - base) * k
+            val sc = 0.94f + 0.06f * k
+            scaleX = sc; scaleY = sc
+            transformOrigin = TransformOrigin(0f, 0.5f)
+          }
+          .padding(horizontal = 6.dp, vertical = 10.dp)
+        // the line being sung fills word by word, like karaoke
+        if (i == cur && line.text.isNotBlank()) {
+          val words = remember(line, lines) { karaokeWords(line, lines.getOrNull(i + 1)?.timeMs) }
+          KaraokeLine(words, mod)
+        } else Text(
+          stripTags(line.text).ifBlank { "♪" }, mod,
           style = MaterialTheme.typography.headlineSmall,
           color = cs.onSurface,
         )
       }
     }
   }
+}
+
+private class Word(val text: String, val start: Long, val end: Long)
+
+/** Word timings of enhanced LRC ("<01:02.30>word"). */
+private val WORD_TAG = Regex("<(\\d+):(\\d+(?:\\.\\d+)?)>")
+
+private fun stripTags(s: String) = s.replace(WORD_TAG, "")
+
+private fun tagMs(m: MatchResult) = m.groupValues[1].toLong() * 60_000 + (m.groupValues[2].toDouble() * 1000).toLong()
+
+/**
+ * When each word of a line is sung: from the word tags when the lyrics have them, otherwise spread over
+ * the line's time by the words' length (a long instrumental gap after a line does not stretch it).
+ */
+private fun karaokeWords(line: LyricLine, next: Long?): List<Word> {
+  val raw = line.text
+  val until = next ?: (line.timeMs + 6000)
+  val tags = WORD_TAG.findAll(raw).toList()
+  if (tags.isNotEmpty()) {
+    val out = mutableListOf<Word>()
+    val lead = raw.substring(0, tags.first().range.first)
+    if (lead.isNotBlank()) out += Word(lead, line.timeMs, tagMs(tags.first()))
+    tags.forEachIndexed { k, m ->
+      val endText = if (k + 1 < tags.size) tags[k + 1].range.first else raw.length
+      val text = raw.substring(m.range.last + 1, endText)
+      if (text.isNotEmpty()) out += Word(text, tagMs(m), if (k + 1 < tags.size) tagMs(tags[k + 1]) else until)
+    }
+    return out
+  }
+  val parts = Regex("\\S+\\s*").findAll(raw).map { it.value }.toList()
+  if (parts.isEmpty()) return emptyList()
+  val span = (until - line.timeMs).coerceAtLeast(600)
+  val dur = minOf(span, raw.length * 330L + 1200)
+  val total = parts.sumOf { it.trim().length + 1 }
+  var acc = 0
+  return parts.map { p ->
+    val start = line.timeMs + dur * acc / total
+    acc += p.trim().length + 1
+    Word(p, start, line.timeMs + dur * acc / total)
+  }
+}
+
+@Composable
+private fun KaraokeLine(words: List<Word>, modifier: Modifier) {
+  val cs = MaterialTheme.colorScheme
+  var pos by remember { mutableLongStateOf(PlayerConn.position()) }
+  LaunchedEffect(words) { while (true) { pos = PlayerConn.position() + 120; delay(50) } }
+  val dim = cs.onSurface.copy(alpha = 0.42f)
+  val text = buildAnnotatedString {
+    words.forEach { w ->
+      val p = ((pos - w.start).toFloat() / (w.end - w.start).coerceAtLeast(1)).coerceIn(0f, 1f)
+      // sung: the accent colour; being sung: sliding into it; still ahead: dim
+      val color = if (p >= 1f) cs.primary else lerp(dim, cs.primary, p)
+      withStyle(SpanStyle(color = color)) { append(w.text) }
+    }
+  }
+  Text(text, modifier, style = MaterialTheme.typography.headlineSmall)
 }
 
 /** Fades the top and bottom edges of scrolling content out. */

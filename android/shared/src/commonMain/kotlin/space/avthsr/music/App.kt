@@ -13,6 +13,10 @@ import kotlinx.coroutines.launch
 import space.avthsr.music.api.Api
 import space.avthsr.music.api.Likes
 import space.avthsr.music.api.News
+import space.avthsr.music.player.Alarm
+import space.avthsr.music.player.AutoOffline
+import space.avthsr.music.player.Gain
+import space.avthsr.music.player.Jam
 import space.avthsr.music.player.Net
 import space.avthsr.music.player.Offline
 import space.avthsr.music.player.Queue
@@ -28,9 +32,12 @@ object App {
     Lang.init()
     News.init()
     Queue.init()
+    Gain.init()
     Offline.init()
     Look.init()
     Net.init()
+    Alarm.init()
+    AutoOffline.init()
     if (previousCrash != null) {
       lastCrash.value = previousCrash
       report(previousCrash)
@@ -38,6 +45,7 @@ object App {
     if (Api.session.value != null) scope.launch {
       Likes.load()
       runCatching { Api.refreshMe() }
+      Jam.resume()
     }
   }
 

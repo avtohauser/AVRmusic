@@ -136,7 +136,7 @@ export type JamOp =
   | { op: 'play' } | { op: 'pause' } | { op: 'seek'; positionMs: number }
   | { op: 'skip'; index: number } | { op: 'next' } | { op: 'prev' }
   | { op: 'add'; trackIds: string[]; next?: boolean } | { op: 'remove'; index: number } | { op: 'move'; from: number; to: number }
-  | { op: 'replace'; trackIds: string[]; index: number };
+  | { op: 'replace'; trackIds: string[]; index: number; positionMs?: number };
 
 /** Anyone in the session changes it for everyone. */
 export function applyJam(j: Jam, userId: string, o: JamOp) {
@@ -147,7 +147,8 @@ export function applyJam(j: Jam, userId: string, o: JamOp) {
     case 'play': j.positionMs = at; j.playing = true; j.updatedAt = Date.now(); break;
     case 'pause': j.positionMs = at; j.playing = false; j.updatedAt = Date.now(); break;
     case 'seek': j.positionMs = Math.max(0, o.positionMs); j.updatedAt = Date.now(); break;
-    case 'skip': restart(o.index); j.playing = true; break;
+    // everyone's app reports the same automatic move to the next track: only the first one counts
+    case 'skip': if (o.index !== j.index) restart(o.index); j.playing = true; break;
     case 'next': if (j.index + 1 < j.queue.length) restart(j.index + 1); else { j.positionMs = at; j.playing = false; j.updatedAt = Date.now(); } break;
     case 'prev': if (at > 3000 || j.index === 0) { j.positionMs = 0; j.updatedAt = Date.now(); } else restart(j.index - 1); break;
     case 'add': {
@@ -171,7 +172,7 @@ export function applyJam(j: Jam, userId: string, o: JamOp) {
       else if (o.from > cur && o.to <= cur) j.index++;
       break;
     }
-    case 'replace': j.queue = o.trackIds.slice(0, 500); restart(o.index); j.playing = true; break;
+    case 'replace': j.queue = o.trackIds.slice(0, 500); restart(o.index); if (o.positionMs) j.positionMs = o.positionMs; j.playing = true; break;
   }
   j.lastBy = userId;
   j.lastAction = o.op;

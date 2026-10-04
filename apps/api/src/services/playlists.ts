@@ -36,6 +36,7 @@ export function mapPlaylistSummary(db: DB, r: any, userId?: string | null): Play
   if (userId) {
     s.liked = isLiked(db, userId, 'playlist', r.id);
     s.isOwner = r.owner_id === userId;
+    s.canEdit = s.isOwner || isMember(db, r.id, userId);
   }
   return s;
 }

@@ -39,6 +39,7 @@ class AndroidEngine private constructor(private val c: MediaController) : Player
   override fun trackAt(i: Int): Track = c.getMediaItemAt(i).let { Queue.track(it.mediaId) ?: fallback(it) }
   override val index get() = c.currentMediaItemIndex
   override val isPlaying get() = c.isPlaying
+  override val playWhenReady get() = c.playWhenReady
   override val isBuffering get() = c.playbackState == Player.STATE_BUFFERING
   override val isIdle get() = c.playbackState == Player.STATE_IDLE
   override val isEnded get() = c.playbackState == Player.STATE_ENDED

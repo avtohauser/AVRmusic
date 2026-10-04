@@ -122,14 +122,14 @@ export interface PlaylistSummary {
   updatedAt: string;
   liked?: boolean;
   isOwner?: boolean;
+  /** may this user add / remove tracks (the owner, or a member of a shared playlist) */
+  canEdit?: boolean;
 }
 
 export interface Playlist extends PlaylistSummary {
   tracks: Track[];
   /** people who may add and remove tracks besides the owner */
   members?: FriendRef[];
-  /** may this user add / remove tracks */
-  canEdit?: boolean;
   /** First 4 track covers, used for mosaic when no custom cover is set */
   mosaic: string[];
 }

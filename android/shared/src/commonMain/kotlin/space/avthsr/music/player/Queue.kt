@@ -12,10 +12,15 @@ import org.jetbrains.compose.resources.DrawableResource
 import space.avthsr.music.api.Api
 import space.avthsr.music.api.Track
 import space.avthsr.music.res.Res
+import space.avthsr.music.api.Friends
 import space.avthsr.music.res.ic_all_inclusive
+import space.avthsr.music.res.ic_bedtime
 import space.avthsr.music.res.ic_explore
 import space.avthsr.music.res.ic_fire
+import space.avthsr.music.res.ic_focus
 import space.avthsr.music.res.ic_heart_filled
+import space.avthsr.music.res.ic_party
+import space.avthsr.music.res.ic_run
 import space.avthsr.music.tr
 
 data class WaveMode(val id: String, val label: String, val hint: String, val icon: DrawableResource)
@@ -28,7 +33,21 @@ object Queue {
     WaveMode("favorites", tr("Любимое"), tr("То, что вы слушаете чаще всего"), Res.drawable.ic_heart_filled),
     WaveMode("discover", tr("Незнакомое"), tr("Новая музыка рядом с любимой — волна сама находит и докачивает"), Res.drawable.ic_explore),
     WaveMode("popular", tr("Популярное"), tr("Что слушают друзья"), Res.drawable.ic_fire),
+    // moods and activities: tempo and genres that fit, from the listener's own taste
+    WaveMode("run", tr("Бег"), tr("Быстрый ритм, 140+ ударов в минуту — под шаг"), Res.drawable.ic_run),
+    WaveMode("focus", tr("Фокус"), tr("Спокойное и ровное, чтобы думалось"), Res.drawable.ic_focus),
+    WaveMode("evening", tr("Вечер"), tr("Медленнее и теплее — к концу дня"), Res.drawable.ic_bedtime),
+    WaveMode("party", tr("Вечеринка"), tr("Танцевальное и громкое"), Res.drawable.ic_party),
   )
+
+  /** A mode's name for the player ("Бег", "Волна Пети" …). */
+  fun modeLabel(id: String): String {
+    if (id.startsWith("friend:")) {
+      val friend = Friends.list.value.firstOrNull { it.id == id.removePrefix("friend:") }?.name
+      return if (friend != null) tr("Волна: {}", friend) else tr("Волна друга")
+    }
+    return modes.firstOrNull { it.id == id }?.label ?: ""
+  }
 
   // the player service and the screens both touch it (on Android from different threads)
   private val tracks = AtomicReference(mapOf<String, Track>())

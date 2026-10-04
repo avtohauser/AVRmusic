@@ -341,6 +341,10 @@ fun PlaylistScreen(id: String) {
   Page {
     Loaded(loader) { p ->
       val own = p.isOwner == true || p.owner?.id == Api.user?.id
+      val canEdit = p.canEdit ?: own
+      val shared = p.members.isNotEmpty()
+      var members by remember { mutableStateOf(false) }
+      if (members) MembersDialog(p, onChanged = { loader.reload() }) { members = false }
       LazyColumn(Modifier.fillMaxSize(), contentPadding = screenPadding(bottom = 24.dp, hero = true)) {
         item {
           Header(
@@ -352,6 +356,8 @@ fun PlaylistScreen(id: String) {
           }
           Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
             if (!own) LikeButton("playlist", p.id) else PlaylistOwnerMenu(p) { loader.reload() }
+            // a playlist kept together with friends: their faces, a tap shows / invites them
+            if (own || shared) MemberFaces(p) { members = true }
             OfflineButton(p.tracks)
             IconButton(onClick = { downloadToDevice("/api/download/playlist/${p.id}", "${p.title}.zip") }) { Ico(Res.drawable.ic_folder, tr("Скачать на устройство (ZIP)")) }
             IconButton(onClick = { share("/playlist/${p.id}", p.title) }) { Ico(Res.drawable.ic_share, tr("Поделиться")) }
@@ -359,8 +365,10 @@ fun PlaylistScreen(id: String) {
         }
         if (p.tracks.isEmpty()) item { Hint(tr("Плейлист пуст. Добавляйте треки через меню ⋮ у любого трека.")) }
         itemsIndexed(p.tracks) { i, t ->
-          TrackRow(t, onClick = { PlayerConn.play(p.tracks, i, "playlist:${p.id}") }, menuExtra = { close ->
-            if (own) DropdownMenuItem(text = { Text(tr("Убрать из плейлиста")) }, leadingIcon = { Ico(Res.drawable.ic_close) }, onClick = {
+          TrackRow(t, onClick = { PlayerConn.play(p.tracks, i, "playlist:${p.id}") },
+            subtitle = t.addedBy?.takeIf { shared }?.let { tr("{} · добавил(а) {}", t.artists, it.displayName) },
+            menuExtra = { close ->
+            if (canEdit) DropdownMenuItem(text = { Text(tr("Убрать из плейлиста")) }, leadingIcon = { Ico(Res.drawable.ic_close) }, onClick = {
               close()
               App.scope.launch { runCatching { Api.removeFromPlaylist(p.id, t.id) }.onSuccess { loader.reload() }.onFailure { App.say(it.message ?: tr("Не получилось")) } }
             })

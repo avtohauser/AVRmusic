@@ -34,7 +34,13 @@ import space.avthsr.music.tr
 class IosEngine : PlayerEngine {
   override var onChange: ((Boolean) -> Unit)? = null
 
-  private val player = AVPlayer()
+  // a queue player: the next track waits loaded behind the current one, so one runs into the next without a gap
+  private val player = AVQueuePlayer()
+  /** the item of the current track, and the next one prepared behind it */
+  private var loadedItem: AVPlayerItem? = null
+  private var upcoming: AVPlayerItem? = null
+  private var upcomingKey: String? = null
+  private var upcomingIndex = -1
   private val items = mutableListOf<Track>()
   /** queue indices in the order they play */
   private var orderList = mutableListOf<Int>()
@@ -66,7 +72,7 @@ class IosEngine : PlayerEngine {
       s.setActive(true, error = null)
     }
     NSNotificationCenter.defaultCenter.addObserverForName(AVPlayerItemDidPlayToEndTimeNotification, null, NSOperationQueue.mainQueue) { note ->
-      if (note?.`object` == player.currentItem) onEnded()
+      if (note?.`object` == loadedItem) onEnded()
     }
     remote()
     App.scope.launch {
@@ -146,14 +152,18 @@ class IosEngine : PlayerEngine {
   private fun load() {
     val t = items.getOrNull(index)
     flushPlay()
+    dropUpcoming()
+    player.removeAllItems()
     if (t == null) {
-      player.replaceCurrentItemWithPlayerItem(null)
+      loadedItem = null
       currentId = null
       changed(true)
       return
     }
-    val url = Offline.file(t.id)?.let { NSURL.fileURLWithPath(it) } ?: NSURL(string = Api.streamUrl(t.id))
-    player.replaceCurrentItemWithPlayerItem(AVPlayerItem(uRL = url))
+    val item = AVPlayerItem(uRL = urlFor(t))
+    player.actionAtItemEnd = AVPlayerActionAtItemEndPause
+    player.insertItem(item, afterItem = null)
+    loadedItem = item
     prepared = true
     ended = false
     currentId = t.id
@@ -163,6 +173,44 @@ class IosEngine : PlayerEngine {
     showLike()
     topUpWave()
     changed(false)
+    ensureUpcoming()
+  }
+
+  private fun urlFor(t: Track): NSURL = Offline.file(t.id)?.let { NSURL.fileURLWithPath(it) } ?: NSURL(string = Api.streamUrl(t.id))
+
+  /** The queue index that plays after the current one, if any. */
+  private fun desiredNext(): Int? = when {
+    repeatMode == Repeat.ONE -> null
+    pos + 1 < orderList.size -> orderList[pos + 1]
+    repeatMode == Repeat.ALL && orderList.size > 1 -> orderList[0]
+    else -> null
+  }
+
+  private fun dropUpcoming() {
+    upcoming?.let { runCatching { player.removeItem(it) } }
+    upcoming = null
+    upcomingKey = null
+    upcomingIndex = -1
+  }
+
+  /** Keeps the next track loaded behind the current one (after any change of the queue, shuffle or repeat). */
+  private fun ensureUpcoming() {
+    val cur = loadedItem ?: return
+    if (player.currentItem !== cur) return
+    val want = desiredNext()
+    val key = want?.let { "$it:${items[it].id}" }
+    if (key == upcomingKey) return
+    dropUpcoming()
+    if (want != null) {
+      val item = AVPlayerItem(uRL = urlFor(items[want]))
+      if (player.canInsertItem(item, afterItem = cur)) {
+        player.insertItem(item, afterItem = cur)
+        upcoming = item
+        upcomingKey = key
+        upcomingIndex = want
+      }
+    }
+    player.actionAtItemEnd = if (upcoming != null) AVPlayerActionAtItemEndAdvance else AVPlayerActionAtItemEndPause
   }
 
   override fun setTracks(tracks: List<Track>, start: Int) {
@@ -241,6 +289,29 @@ class IosEngine : PlayerEngine {
   private fun onEnded() {
     // the sleep timer "at the end of the track": the next one is put in but does not start
     if (Gain.sleepAtTrackEnd.value) { wantPlay = false; player.pause(); Gain.slept() }
+    val next = upcoming
+    if (next != null && repeatMode != Repeat.ONE) {
+      // the queue player went on to the prepared track by itself, without a gap
+      if (player.currentItem !== next) player.advanceToNextItem()
+      flushPlay()
+      val p = orderList.indexOf(upcomingIndex)
+      pos = if (p >= 0) p else (pos + 1).coerceAtMost(orderList.size - 1)
+      loadedItem = next
+      upcoming = null
+      upcomingKey = null
+      upcomingIndex = -1
+      val t = items.getOrNull(index)
+      currentId = t?.id
+      ended = false
+      playingSince = 0
+      if (wantPlay) player.rate = rate else player.pause()
+      t?.let { loadArtwork(it) }
+      showLike()
+      topUpWave()
+      changed(false)
+      ensureUpcoming()
+      return
+    }
     when {
       repeatMode == Repeat.ONE -> { seekTo(0); if (wantPlay) player.rate = rate }
       pos + 1 < orderList.size -> go(pos + 1)
@@ -318,7 +389,9 @@ class IosEngine : PlayerEngine {
     flushPlay()
     wantPlay = false
     player.pause()
-    player.replaceCurrentItemWithPlayerItem(null)
+    dropUpcoming()
+    player.removeAllItems()
+    loadedItem = null
     prepared = false
     changed(false)
   }
@@ -343,6 +416,7 @@ class IosEngine : PlayerEngine {
   }
 
   private fun tick() {
+    ensureUpcoming()
     val item = player.currentItem
     if (item != null && item.status == AVPlayerItemStatusFailed && failedItem != item) {
       failedItem = item

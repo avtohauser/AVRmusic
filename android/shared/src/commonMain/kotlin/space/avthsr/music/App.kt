@@ -15,6 +15,8 @@ import space.avthsr.music.api.Likes
 import space.avthsr.music.api.News
 import space.avthsr.music.player.Alarm
 import space.avthsr.music.player.AutoOffline
+import space.avthsr.music.player.Session
+import space.avthsr.music.player.LockLyrics
 import space.avthsr.music.player.Gain
 import space.avthsr.music.player.Jam
 import space.avthsr.music.player.Net
@@ -38,6 +40,8 @@ object App {
     Net.init()
     Alarm.init()
     AutoOffline.init()
+    Session.init()
+    LockLyrics.init()
     if (previousCrash != null) {
       lastCrash.value = previousCrash
       report(previousCrash)

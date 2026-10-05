@@ -53,7 +53,9 @@ import space.avthsr.music.api.Api
 import space.avthsr.music.api.CatalogAlbum
 import space.avthsr.music.api.CatalogTrack
 import space.avthsr.music.player.PlayerConn
-import space.avthsr.music.player.Preview
+import space.avthsr.music.player.Instant
+import space.avthsr.music.api.follow
+import androidx.compose.runtime.produceState
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 private val ADDED_HINT get() = tr("появится в медиатеке через минуту-другую")
@@ -67,15 +69,20 @@ fun acquire(kind: String, id: Long, what: String, done: (Boolean) -> Unit = {}) 
   }
 }
 
-/** A catalogue track: plays when it is on the server already, otherwise can be added. */
+/**
+ * A catalogue track: a tap plays it in full at once (from the server when it is there, otherwise straight
+ * from its source while the server fetches it); [onPlay] plays the whole list it is in instead.
+ */
 @Composable
-fun CatalogTrackRow(t: CatalogTrack, index: Int? = null, cover: String? = t.album?.coverUrl, reason: Boolean = false) {
+fun CatalogTrackRow(t: CatalogTrack, index: Int? = null, cover: String? = t.album?.coverUrl, reason: Boolean = false, onPlay: (() -> Unit)? = null) {
   val have = t.libraryTrackId
-  val previewing by Preview.playing.collectAsStateWithLifecycle()
+  val canAcquire by produceState(false) { value = Api.canAcquire() }
+  val currentId by PlayerConn.currentId.collectAsStateWithLifecycle()
+  val current = currentId == (have ?: "dz:${t.id}")
   var state by remember(t.id) { mutableIntStateOf(0) } // 0 idle, 1 sending, 2 sent
   Row(
     Modifier.fillMaxWidth()
-      .clickable(enabled = have != null) { if (have != null) App.scope.launch { runCatching { PlayerConn.playId(have) }.onFailure { App.say(it.message ?: tr("Не получилось")) } } }
+      .clickable { (onPlay ?: { Instant.playOne(t) })() }
       .padding(start = 16.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
     verticalAlignment = Alignment.CenterVertically,
   ) {
@@ -85,21 +92,18 @@ fun CatalogTrackRow(t: CatalogTrack, index: Int? = null, cover: String? = t.albu
       Spacer(Modifier.width(14.dp))
     }
     Column(Modifier.weight(1f)) {
-      Text(t.title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+      Text(t.title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, color = if (current) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
       Text(
         if (reason && t.reason != null) "${t.artists} · ${t.reason}" else t.artists,
         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
       )
     }
-    val preview = t.previewUrl
-    if (have == null && preview != null) {
-      val on = previewing == t.id
-      IconButton(onClick = { Preview.toggle(t.id, preview) }) {
-        Ico(if (on) Res.drawable.ic_stop else Res.drawable.ic_play, if (on) tr("Остановить превью") else tr("Превью 30 сек"), tint = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
-      }
+    // the full song, at once
+    IconButton(onClick = { (onPlay ?: { Instant.playOne(t) })() }) {
+      Ico(Res.drawable.ic_play, tr("Слушать"), tint = if (have != null || current) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
     }
     when {
-      have != null -> Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) { Ico(Res.drawable.ic_play, tr("На сервере"), tint = MaterialTheme.colorScheme.primary) }
+      have != null || !canAcquire -> {}
       state == 1 -> Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) { LoadingIndicator(Modifier.size(30.dp)) }
       state == 2 -> Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) { Ico(Res.drawable.ic_check, tr("Добавляется"), tint = MaterialTheme.colorScheme.primary) }
       else -> IconButton(onClick = { state = 1; acquire("track", t.id, tr("Трек")) { ok -> state = if (ok) 2 else 0 } }) {
@@ -124,6 +128,7 @@ fun CatalogAlbumCard(a: CatalogAlbum, subtitle: String = listOfNotNull(a.artist.
 fun CatalogAlbumScreen(id: Long) {
   val nav = LocalNav.current
   val loader = rememberLoad(id) { Api.catalogAlbum(id) }
+  val canAcquire by produceState(false) { value = Api.canAcquire() }
   Page { Loaded(loader) { a ->
     var sent by remember(a.id) { mutableStateOf(false) }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = screenPadding(bottom = 24.dp, hero = true)) {
@@ -136,16 +141,19 @@ fun CatalogAlbumScreen(id: Long) {
           onSubtitle = { nav.catalogArtist(a.artist.id) },
           meta = listOfNotNull(albumType(a.type), a.year?.toString(), tracksWord(a.trackCount), a.label).joinToString(" · "),
         ) {
+          Button(shapes = ButtonDefaults.shapes(), enabled = a.tracks.isNotEmpty(), onClick = { Instant.play(a.tracks, 0, "calbum:${a.id}") }) {
+            Ico(Res.drawable.ic_play, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(tr("Слушать"))
+          }
           if (a.libraryAlbumId != null) FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { nav.album(a.libraryAlbumId) }) { Text(tr("В медиатеке")) }
-          if (a.inLibrary < a.trackCount) {
-            Button(shapes = ButtonDefaults.shapes(), enabled = !sent, onClick = { sent = true; acquire("album", a.id, tr("Альбом")) { ok -> sent = ok } }) {
+          if (a.inLibrary < a.trackCount && canAcquire) {
+            FilledTonalButton(shapes = ButtonDefaults.shapes(), enabled = !sent, onClick = { sent = true; acquire("album", a.id, tr("Альбом")) { ok -> sent = ok } }) {
               Ico(Res.drawable.ic_download, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp))
               Text(if (sent) tr("Добавляется…") else if (a.inLibrary > 0) tr("Добавить остальное") else tr("Добавить на сервер"))
             }
           }
         }
       }
-      itemsIndexed(a.tracks) { i, t -> CatalogTrackRow(t, index = t.trackNo ?: (i + 1)) }
+      itemsIndexed(a.tracks) { i, t -> CatalogTrackRow(t, index = t.trackNo ?: (i + 1), onPlay = { Instant.play(a.tracks, i, "calbum:${a.id}") }) }
     }
   }
   }
@@ -155,19 +163,30 @@ fun CatalogAlbumScreen(id: Long) {
 fun CatalogArtistScreen(id: Long) {
   val nav = LocalNav.current
   val loader = rememberLoad(id) { Api.catalogArtist(id) }
+  val canAcquire by produceState(false) { value = Api.canAcquire() }
   var confirm by remember { mutableStateOf(false) }
   Page { Loaded(loader) { p ->
     val a = p.artist
+    var following by remember(p) { mutableStateOf(p.following) }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = screenPadding(bottom = 24.dp, hero = true)) {
       item {
         Header(share = "cartist:$id", cover = a.imageUrl, title = a.name, meta = if (a.fans > 0) tr("{} поклонников в Deezer", a.fans) else "", circle = true) {
+          if (p.topTracks.isNotEmpty()) Button(shapes = ButtonDefaults.shapes(), onClick = { Instant.play(p.topTracks, 0, "cartist:$id") }) {
+            Ico(Res.drawable.ic_play, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(tr("Слушать"))
+          }
+          // new releases come into the inbox (and the library) by themselves
+          FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = {
+            val on = !following
+            following = on
+            act(if (on) tr("Новинки {} будут приходить вам", a.name) else tr("Вы больше не следите за {}", a.name)) { Api.follow(a.id, a.name, on) }
+          }) { Ico(if (following) Res.drawable.ic_check else Res.drawable.ic_campaign, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(if (following) tr("Вы следите") else tr("Следить")) }
           if (a.libraryArtistId != null) FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { nav.artist(a.libraryArtistId) }) { Text(tr("В медиатеке")) }
-          Button(shapes = ButtonDefaults.shapes(), onClick = { confirm = true }) { Text(tr("Вся дискография")) }
+          if (canAcquire) FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { confirm = true }) { Text(tr("Вся дискография")) }
         }
       }
       if (p.topTracks.isNotEmpty()) {
         item { SectionTitle(tr("Популярные треки")) }
-        items(p.topTracks.take(10)) { CatalogTrackRow(it) }
+        itemsIndexed(p.topTracks.take(10)) { i, t -> CatalogTrackRow(t, onPlay = { Instant.play(p.topTracks, i, "cartist:$id") }) }
       }
       if (p.albums.isNotEmpty()) item { SectionTitle(tr("Альбомы")); CardRow(p.albums) { CatalogAlbumCard(it, it.year?.toString() ?: "") } }
       if (p.singles.isNotEmpty()) item { SectionTitle(tr("Синглы и EP")); CardRow(p.singles) { CatalogAlbumCard(it, it.year?.toString() ?: "") } }

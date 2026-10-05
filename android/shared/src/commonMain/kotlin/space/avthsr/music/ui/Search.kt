@@ -62,8 +62,10 @@ import space.avthsr.music.api.ArtistSummary
 import space.avthsr.music.api.PlaylistSummary
 import space.avthsr.music.api.Track
 import space.avthsr.music.player.PlayerConn
+import space.avthsr.music.player.Instant
+import androidx.compose.foundation.lazy.itemsIndexed
 
-private val types get() = listOf("all" to tr("Всё"), "track" to tr("Треки"), "album" to tr("Альбомы"), "artist" to tr("Исполнители"), "playlist" to tr("Плейлисты"))
+private val types get() = listOf("all" to tr("Всё"), "track" to tr("Треки"), "album" to tr("Альбомы"), "artist" to tr("Исполнители"), "playlist" to tr("Плейлисты"), "lyrics" to tr("По тексту"))
 
 /** Recent searches, kept on the phone. */
 private object Recent {
@@ -88,10 +90,13 @@ fun SearchScreen() {
   var recent by remember { mutableStateOf(Recent.list()) }
   LaunchedEffect(q) { delay(350); query = q.trim() }
   val canAcquire by produceState(false) { value = Api.canAcquire() }
+  // the catalogue plays for everyone (in full, at once); fetching to the server needs the right
+  val catalogOn by produceState(false) { value = runCatching { Api.info().catalog }.getOrDefault(false) }
   val genres = rememberLoad(Unit) { Api.genres() }
   val local = rememberLoad(query, type) { if (query.isEmpty()) null else Api.search(query, type) }
-  val remote = rememberLoad(query, canAcquire) { if (query.length < 2 || !canAcquire) null else Api.catalogSearch(query) }
+  val remote = rememberLoad(query, catalogOn) { if (query.length < 2 || !catalogOn) null else Api.catalogSearch(query) }
   fun keep(text: String = query) { Recent.add(text); recent = Recent.list() }
+  val voice = rememberVoiceInput { text -> q = text; query = text; keep(text) }
 
   Column(Modifier.fillMaxSize()) {
     TextField(
@@ -100,7 +105,10 @@ fun SearchScreen() {
       modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp + LocalEdges.current.top, bottom = 8.dp),
       placeholder = { Text(tr("Что хотите послушать?")) },
       leadingIcon = { Ico(Res.drawable.ic_search) },
-      trailingIcon = { if (q.isNotEmpty()) IconButton(onClick = { q = "" }) { Ico(Res.drawable.ic_close, tr("Очистить")) } },
+      trailingIcon = {
+        if (q.isNotEmpty()) IconButton(onClick = { q = "" }) { Ico(Res.drawable.ic_close, tr("Очистить")) }
+        else if (voice != null) IconButton(onClick = voice) { Ico(Res.drawable.ic_mic, tr("Сказать голосом")) }
+      },
       singleLine = true,
       shape = RoundedCornerShape(28.dp),
       keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
@@ -138,11 +146,11 @@ fun SearchScreen() {
         is Load.Ok -> {
           val r = s.data
           if (r != null) {
-            val empty = r.tracks.isEmpty() && r.albums.isEmpty() && r.artists.isEmpty() && r.playlists.isEmpty()
+            val empty = r.tracks.isEmpty() && r.albums.isEmpty() && r.artists.isEmpty() && r.playlists.isEmpty() && r.lyrics.isEmpty()
             if (empty) {
               item {
                 Text(
-                  if (canAcquire) tr("На сервере ничего не нашлось — посмотрите в каталоге ниже") else tr("Ничего не найдено. Попробуйте другой запрос"),
+                  if (catalogOn) tr("На сервере ничего не нашлось — посмотрите в каталоге ниже") else tr("Ничего не найдено. Попробуйте другой запрос"),
                   Modifier.fillMaxWidth().padding(24.dp), textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
               }
@@ -152,6 +160,13 @@ fun SearchScreen() {
               item { SectionTitle(tr("Треки")) }
               items(if (type == "all") r.tracks.take(8) else r.tracks) { t ->
                 TrackRow(t, onClick = { keep(); PlayerConn.play(r.tracks, r.tracks.indexOf(t), "search") })
+              }
+            }
+            // a line of a song typed in: the songs that have it
+            if (r.lyrics.isNotEmpty()) {
+              item { SectionTitle(tr("По строчке из песни")) }
+              items(r.lyrics) { h ->
+                TrackRow(h.track, onClick = { keep(); PlayerConn.play(r.lyrics.map { it.track }, r.lyrics.indexOf(h), "search") }, subtitle = "«${h.line}» · ${h.track.artists}")
               }
             }
             if (r.artists.isNotEmpty()) {
@@ -177,11 +192,12 @@ fun SearchScreen() {
         is Load.Err -> item { Text(s.message, Modifier.padding(24.dp), color = MaterialTheme.colorScheme.error) }
         else -> item { Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { LoadingIndicator() } }
       }
-      if (canAcquire && type == "all") {
+      if (catalogOn && type == "all") {
         val c = remote.data
         if (c != null && (c.tracks.isNotEmpty() || c.albums.isNotEmpty() || c.artists.isNotEmpty())) {
-          item { SectionTitle(tr("В каталоге"), tr("Чего нет на сервере — добавьте в одно касание")) }
-          items(c.tracks.take(8)) { CatalogTrackRow(it) }
+          item { SectionTitle(tr("В каталоге"), tr("Нажмите — заиграет сразу целиком, а сервер сохранит трек себе")) }
+          val top = c.tracks.take(8)
+          itemsIndexed(top) { i, t -> CatalogTrackRow(t, onPlay = { keep(); Instant.play(top, i, "search") }) }
           if (c.albums.isNotEmpty()) item { CardRow(c.albums) { CatalogAlbumCard(it) } }
           if (c.artists.isNotEmpty()) item {
             CardRow(c.artists) { a -> MediaCard(a.name, "", a.imageUrl, { nav.catalogArtist(a.id) }, share = "cartist:${a.id}", circle = true, width = 124.dp) }

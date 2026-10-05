@@ -64,6 +64,10 @@ actual object Platform {
     cm.setPrimaryClip(ClipData.newPlainText("AVRmusic", text))
   }
 
+  actual fun openUrl(url: String) {
+    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+  }
+
   /** Downloads/AVRmusic through the system downloader (Android 10+ needs no permission for it). */
   actual fun download(url: String, fileName: String, onError: (String) -> Unit) {
     runCatching {

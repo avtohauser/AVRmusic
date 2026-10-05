@@ -73,4 +73,12 @@ object Queue {
   }
 
   fun track(id: String?): Track? = id?.let { tracks.load()[it] }
+
+  /** A song played straight from the catalogue ("dz:<id>") is now the library's [real] track. */
+  fun alias(id: String, real: Track) {
+    while (true) {
+      val cur = tracks.load()
+      if (tracks.compareAndSet(cur, cur + (id to real) + (real.id to real))) return
+    }
+  }
 }

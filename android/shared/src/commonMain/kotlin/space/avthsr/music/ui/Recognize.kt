@@ -57,6 +57,7 @@ import space.avthsr.music.api.CatalogTrack
 import space.avthsr.music.api.Recognized
 import space.avthsr.music.api.recognize
 import space.avthsr.music.player.PlayerConn
+import space.avthsr.music.player.Instant
 import space.avthsr.music.res.*
 import space.avthsr.music.tr
 
@@ -185,11 +186,9 @@ private fun CatalogHit(t: CatalogTrack) {
       Text(t.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
       Text(listOfNotNull(t.artists, t.album?.title).joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
-    val lib = t.libraryTrackId
-    if (lib != null) Button(onClick = { scope.launch { runCatching { PlayerConn.playId(lib) }.onFailure { App.say(it.message ?: tr("Не получилось")) } } }, shapes = ButtonDefaults.shapes()) {
-      Ico(Res.drawable.ic_play, null, Modifier.size(18.dp))
-    } else FilledTonalButton(onClick = { act(tr("Скачиваю на сервер — трек появится в медиатеке")) { Api.acquire("track", t.id) } }, shapes = ButtonDefaults.shapes()) {
-      Ico(Res.drawable.ic_download, null, Modifier.size(18.dp))
+    // the full song at once (straight from its source while the server fetches it)
+    Button(onClick = { Instant.playOne(t) }, shapes = ButtonDefaults.shapes()) {
+      Ico(Res.drawable.ic_play, tr("Слушать"), Modifier.size(18.dp))
     }
   }
 }

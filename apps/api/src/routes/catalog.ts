@@ -100,6 +100,11 @@ export default async function catalogRoutes(app: FastifyInstance) {
     const have = libraryId(id);
     if (have) return reply.redirect(`/api/stream/${have}?t=${encodeURIComponent(q.t ?? '')}${q.compat ? '&compat=1' : ''}`);
     const aac = q.compat === '1';
+    // a song reached in the queue (an album played from the catalogue) is fetched as it starts
+    if (req.userId && !req.headers.range?.match(/^bytes=[1-9]/) && mayAcquire(req.userId, req.userRole ?? 'user') && !fetchJob(id)) {
+      const t = await rawTrack(db, id).catch(() => null);
+      if (t) enqueue({ kind: 'acquire', title: `${t.artist?.name ?? ''} — ${t.title}`, requestedBy: req.userId }, { kind: 'track', id, instant: true });
+    }
     for (let attempt = 0; attempt < 2; attempt++) {
       const src = await liveSource(db, id, aac);
       if (!src) throw notFound('Не нашлось, откуда играть этот трек');

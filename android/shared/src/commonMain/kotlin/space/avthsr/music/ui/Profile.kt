@@ -117,7 +117,7 @@ fun ProfileScreen() {
           ProfileItem(Res.drawable.ic_inbox, tr("Входящие"), if (fresh > 0) tr("Новых: {}", fresh) else tr("Что вам отправили друзья")) { nav.route("inbox") }
           ProfileItem(Res.drawable.ic_group, tr("Друзья"), tr("Кто что слушает, совместимость вкусов, волна друга")) { nav.route("friends") }
           ProfileItem(Res.drawable.ic_mic, tr("Распознать песню"), tr("Узнать, что играет рядом")) { nav.route("recognize") }
-          ProfileItem(Res.drawable.ic_import, tr("Импорт по ссылке"), tr("Плейлист или альбом из Яндекс Музыки или Spotify")) { importLink = true }
+          ProfileItem(Res.drawable.ic_import, tr("Перенести музыку"), tr("Всё из Spotify и Яндекс Музыки: лайки, плейлисты, исполнители")) { nav.route("transfer") }
           ProfileItem(Res.drawable.ic_alarm, tr("Будильник"), alarmLine()) { nav.route("alarm") }
         }
       }

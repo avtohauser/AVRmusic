@@ -17,6 +17,12 @@
   <!-- saving files from the site (track / album downloads) on Android 9 and older -->
   <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
 
+  <!-- voice search: the system's speech recogniser -->
+  <queries>
+    <intent><action android:name="android.speech.RecognitionService" /></intent>
+    <intent><action android:name="android.speech.action.RECOGNIZE_SPEECH" /></intent>
+  </queries>
+
   <application
       android:name=".AndroidApp"
       android:enableOnBackInvokedCallback="true"

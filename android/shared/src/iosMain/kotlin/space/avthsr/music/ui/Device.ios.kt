@@ -83,3 +83,7 @@ private class IosRecorder : Recorder {
 
 @Composable
 actual fun rememberRecorder(): Recorder = remember { IosRecorder() }
+
+/** The iPhone keyboard has its own dictation (the microphone key). */
+@Composable
+actual fun rememberVoiceInput(onResult: (String) -> Unit): (() -> Unit)? = null

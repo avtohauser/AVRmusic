@@ -92,6 +92,11 @@ class PlaybackService : MediaLibraryService() {
   private var booster: LoudnessEnhancer? = null
   private var boostMb = -1
 
+  // the line being sung, shown in place of the artist in the shade and on the lock screen
+  private var lyricLines: List<space.avthsr.music.api.LyricLine>? = null
+  private var lyricsFor: String? = null
+  private var shownLine: String? = null
+
   override fun onCreate() {
     super.onCreate()
     val http = DefaultHttpDataSource.Factory()
@@ -184,7 +189,9 @@ class PlaybackService : MediaLibraryService() {
         if (Gain.sleepDue(System.currentTimeMillis())) { active.pause(); Gain.slept() }
         Alarm.rise()
         applyVolume()
-        if (n++ % 25 == 0) reportNow()
+        showLyricLine()
+        if (n % 25 == 0) reportNow()
+        if (n++ % 40 == 0) Session.notePosition(active.currentMediaItem?.mediaId, active.currentPosition)
         delay(120)
       }
     }
@@ -203,6 +210,31 @@ class PlaybackService : MediaLibraryService() {
     val d = player.duration.takeIf { it != C.TIME_UNSET && it > 0 } ?: 0L
     val v = Gain.volume(Queue.track(player.currentMediaItem?.mediaId), player.currentPosition, d)
     if (abs(player.volume - v) > 0.005f) player.volume = v
+  }
+
+  /** The current line of the lyrics in place of the artist (the item's address stays: playback goes on). */
+  private fun showLyricLine() {
+    if (active !== player) return
+    val item = player.currentMediaItem ?: return
+    val track = Queue.track(item.mediaId)
+    if (!LockLyrics.enabled.value || track == null) { if (shownLine != null) setArtistLine(null); return }
+    if (lyricsFor != track.id) {
+      lyricsFor = track.id
+      lyricLines = null
+      scope.launch { val l = LockLyrics.lines(track.id); if (lyricsFor == track.id) lyricLines = l }
+    }
+    val lines = lyricLines ?: run { if (shownLine != null) setArtistLine(null); return }
+    val line = LockLyrics.lineAt(lines, player.currentPosition)?.let { "♪ $it" }
+    if (line != shownLine) setArtistLine(line)
+  }
+
+  private fun setArtistLine(line: String?) {
+    shownLine = line
+    val i = player.currentMediaItemIndex
+    val item = player.currentMediaItem ?: return
+    val artist = line ?: Queue.track(item.mediaId)?.artists ?: item.mediaMetadata.artist?.toString()
+    if (item.mediaMetadata.artist?.toString() == artist) return
+    runCatching { player.replaceMediaItem(i, item.buildUpon().setMediaMetadata(item.mediaMetadata.buildUpon().setArtist(artist).build()).build()) }
   }
 
   private fun reportNow() {
@@ -336,6 +368,9 @@ class PlaybackService : MediaLibraryService() {
     }
 
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+      // the same item with a new lyric line in its metadata: nothing changed for playback
+      if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED && mediaItem?.mediaId == currentId && mediaItem != null) return
+      shownLine = null
       // the sleep timer "at the end of the track": the next one does not start
       if (Gain.sleepAtTrackEnd.value && (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO || reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT)) {
         active.pause()

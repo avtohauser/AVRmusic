@@ -92,6 +92,7 @@ import space.avthsr.music.api.PlaylistSummary
 import space.avthsr.music.api.Share
 import space.avthsr.music.api.Track
 import space.avthsr.music.api.addMember
+import space.avthsr.music.api.createBlend
 import space.avthsr.music.api.friend
 import space.avthsr.music.api.jams
 import space.avthsr.music.api.removeMember
@@ -418,15 +419,17 @@ private fun ShareCard(s: Share) {
       .background(if (s.seen) cs.surfaceContainer else cs.secondaryContainer).padding(14.dp).animateContentSize(),
   ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-      FriendAvatar(s.from?.avatarUrl, 36.dp)
+      // a notice from the server itself (a new release) has no sender
+      if (s.from == null) Box(Modifier.size(36.dp).clip(LogoShape).background(cs.primary), contentAlignment = Alignment.Center) { Ico(Res.drawable.ic_campaign, null, Modifier.size(20.dp), cs.onPrimary) }
+      else FriendAvatar(s.from.avatarUrl, 36.dp)
       Spacer(Modifier.width(10.dp))
       Column(Modifier.weight(1f)) {
-        Text(s.from?.displayName ?: tr("Друг"), style = MaterialTheme.typography.titleSmall)
+        Text(s.from?.displayName ?: if (s.kind == "release") tr("Новый релиз") else "AVRmusic", style = MaterialTheme.typography.titleSmall)
         Text(fmtAgo(s.createdAt), style = MaterialTheme.typography.labelSmall, color = cs.onSurfaceVariant)
       }
       if (!s.seen) Box(Modifier.size(10.dp).clip(CircleShape).background(cs.primary))
     }
-    val note = s.message.takeIf { it.isNotBlank() && it != "invite" }
+    val note = s.message.takeIf { it.isNotBlank() && it != "invite" && it != "release" && s.kind != "report" }
     if (note != null) {
       Spacer(Modifier.height(8.dp))
       Text(
@@ -456,6 +459,19 @@ private fun ShareCard(s: Share) {
       "artist" -> o.decodeAs(ArtistSummary.serializer())?.let { a -> SharedItem(a.imageUrl, a.name, tr("Исполнитель"), circle = true) { nav.artist(a.id) } }
       "playlist" -> o.decodeAs(PlaylistSummary.serializer())?.let { p -> SharedItem(p.coverUrl ?: p.mosaic.firstOrNull(), p.title, tracksWord(p.trackCount)) { nav.playlist(p.id) } }
       "jam" -> o.decodeAs(JamSummary.serializer())?.let { j -> JamRow(j) }
+      "release" -> {
+        fun str(k: String) = (o[k] as? kotlinx.serialization.json.JsonPrimitive)?.content
+        val lib = str("libraryAlbumId")
+        val cid = str("id")?.toLongOrNull()
+        SharedItem(str("coverUrl"), str("title").orEmpty(), listOfNotNull(str("artist"), albumType(str("type") ?: "album"), str("year")).joinToString(" · ")) {
+          if (lib != null) nav.album(lib) else if (cid != null) nav.catalogAlbum(cid)
+        }
+      }
+      "report" -> o.decodeAs(Track.serializer())?.let { t ->
+        Text(reportReason(s.message), style = MaterialTheme.typography.labelLarge, color = cs.error)
+        Spacer(Modifier.height(6.dp))
+        SharedItem(t.coverUrl, t.title, t.artists) { nav.route("admin") }
+      }
     }
   }
 }
@@ -580,4 +596,44 @@ fun MemberFaces(p: Playlist, onClick: () -> Unit) {
     Spacer(Modifier.width(2.dp))
     Ico(Res.drawable.ic_person_add, tr("Участники"), Modifier.size(20.dp), cs.primary)
   }
+}
+
+/** A blend: pick up to four friends — a playlist you all own, filled from everyone's taste every day. */
+@Composable
+fun BlendDialog(onCreated: (String) -> Unit, onDone: () -> Unit) {
+  val friends by Friends.list.collectAsStateWithLifecycle()
+  LaunchedEffect(Unit) { Friends.refresh() }
+  val picked = remember { mutableStateListOf<String>() }
+  AlertDialog(
+    onDismissRequest = onDone,
+    title = { Text(tr("Блендер")) },
+    text = {
+      Column {
+        Text(tr("Общий плейлист из ваших вкусов: любимое каждого и то, что вы слушаете оба. Обновляется каждый день, все — владельцы."), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(8.dp))
+        LazyColumn(Modifier.heightIn(max = 280.dp)) {
+          items(friends, key = { it.id }) { f ->
+            val on = f.id in picked
+            Row(
+              Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).clickable { if (on) picked.remove(f.id) else if (picked.size < 4) picked.add(f.id) }.padding(vertical = 4.dp),
+              verticalAlignment = Alignment.CenterVertically,
+            ) {
+              FriendAvatar(f.avatarUrl, 40.dp)
+              Spacer(Modifier.width(10.dp))
+              Text(f.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+              Checkbox(checked = on, onCheckedChange = { if (it && picked.size < 4) picked.add(f.id) else picked.remove(f.id) })
+            }
+          }
+        }
+      }
+    },
+    confirmButton = {
+      TextButton(enabled = picked.isNotEmpty(), onClick = {
+        val ids = picked.toList()
+        onDone()
+        act(tr("Блендер готов")) { onCreated(Api.createBlend(ids).id) }
+      }) { Text(tr("Смешать")) }
+    },
+    dismissButton = { TextButton(onClick = onDone) { Text(tr("Отмена")) } },
+  )
 }

@@ -120,6 +120,11 @@ actual object Platform {
     top.presentViewController(sheet, animated = true, completion = null)
   }
 
+  actual fun openUrl(url: String) {
+    val u = NSURL.URLWithString(url) ?: return
+    UIApplication.sharedApplication.openURL(u, options = emptyMap<Any?, Any>(), completionHandler = null)
+  }
+
   actual fun copy(text: String) {
     UIPasteboard.generalPasteboard.string = text
   }

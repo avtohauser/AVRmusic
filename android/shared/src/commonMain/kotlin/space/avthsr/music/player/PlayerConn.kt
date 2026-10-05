@@ -101,8 +101,20 @@ object PlayerConn {
     sync(true)
     val actions = pending.toList()
     pending.clear()
+    // a fresh start with nothing queued: back where the listener was
+    if (e.count == 0 && actions.isEmpty()) Session.saved()?.let { restore(e, it) }
     actions.forEach { it(e) }
     Jam.resync()
+  }
+
+  private fun restore(e: PlayerEngine, s: SavedSession) {
+    if (s.tracks.isEmpty() || Api.session.value == null) return
+    Queue.remember(s.tracks)
+    Queue.context.value = s.context
+    s.waveMode?.let { Queue.waveMode.value = it }
+    e.setTracks(s.tracks, s.index.coerceIn(0, s.tracks.size - 1))
+    e.prepare()
+    if (s.positionMs > 2000) e.seekTo(s.positionMs)
   }
 
   /** the platform's player is there (the app is in front, or always on iOS) */
@@ -148,6 +160,9 @@ object PlayerConn {
 
   fun position(): Long = engine?.positionMs ?: 0L
 
+  /** The queue's tracks read again (a catalogue song became the library's track). */
+  fun refresh() { if (engine != null) sync(true) }
+
   /** Plays a list starting at [index]; [context] says where it comes from (for the stats and the wave). */
   fun play(tracks: List<Track>, index: Int = 0, context: String? = null, shuffle: Boolean = false) {
     if (tracks.isEmpty()) return
@@ -180,6 +195,7 @@ object PlayerConn {
 
   /** Stops and empties the queue (signing out). */
   fun stop() {
+    Session.clear()
     if (Jam.active) Jam.leave()
     Queue.context.value = null
     engine?.let { it.stop(); it.clear() }

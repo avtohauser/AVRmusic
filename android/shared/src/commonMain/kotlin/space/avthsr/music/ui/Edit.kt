@@ -45,6 +45,7 @@ import space.avthsr.music.api.adminPatchArtist
 import space.avthsr.music.api.deletePlaylist
 import space.avthsr.music.api.editPlaylist
 import space.avthsr.music.api.playlistCover
+import space.avthsr.music.api.removeMember
 
 private fun textOrNull(s: String) = s.trim().takeIf { it.isNotEmpty() }?.let { JsonPrimitive(it) } ?: JsonNull
 
@@ -62,7 +63,12 @@ fun PlaylistOwnerMenu(p: Playlist, reload: () -> Unit) {
     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
       DropdownMenuItem(text = { Text(tr("Изменить")) }, onClick = { menu = false; edit = true })
       DropdownMenuItem(text = { Text(tr("Сменить обложку")) }, onClick = { menu = false; pickCover() })
-      DropdownMenuItem(text = { Text(tr("Удалить плейлист")) }, onClick = { menu = false; delete = true })
+      // only its creator deletes a playlist kept together; the other owners leave it
+      if (p.isCreator != false) DropdownMenuItem(text = { Text(tr("Удалить плейлист")) }, onClick = { menu = false; delete = true })
+      else DropdownMenuItem(text = { Text(tr("Выйти из владельцев")) }, onClick = {
+        menu = false
+        act(tr("Вы больше не владелец"), then = { nav.back() }) { Api.removeMember(p.id, Api.user!!.id) }
+      })
     }
   }
   if (edit) {

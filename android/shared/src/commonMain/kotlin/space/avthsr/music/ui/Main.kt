@@ -238,6 +238,7 @@ private fun Main() {
           screen("recap") { RecapScreen() }
           screen("recognize") { RecognizeScreen() }
           screen("alarm") { AlarmScreen() }
+          screen("transfer") { TransferScreen() }
           screen("admin") { AdminScreen() }
           screen("admin/user/{id}") { AdminUserScreen(it.arg("id")) }
           screen("admin/track/{id}") { AdminTrackScreen(it.arg("id")) }

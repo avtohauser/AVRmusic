@@ -26,6 +26,8 @@ expect object Platform {
   /** the system's share sheet with [text] */
   fun share(text: String, title: String)
   fun copy(text: String)
+  /** Opens a web page in the browser (signing in to Spotify). */
+  fun openUrl(url: String)
   /** Saves the file at [url] to the phone's downloads (Files on iOS); errors come back as text. */
   fun download(url: String, fileName: String, onError: (String) -> Unit)
 }

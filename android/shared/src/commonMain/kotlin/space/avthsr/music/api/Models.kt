@@ -112,6 +112,9 @@ data class PlaylistSummary(
   val isOwner: Boolean? = null,
   val canEdit: Boolean? = null,
   val mosaic: List<String> = emptyList(),
+  val isCreator: Boolean? = null,
+  /** "blend" / "radar": filled by the server */
+  val autoKind: String? = null,
 )
 
 @Serializable
@@ -130,6 +133,10 @@ data class Playlist(
   /** friends who may add and remove tracks too */
   val members: List<FriendRef> = emptyList(),
   val canEdit: Boolean? = null,
+  /** everyone who owns it, the creator first */
+  val owners: List<FriendRef> = emptyList(),
+  val isCreator: Boolean? = null,
+  val autoKind: String? = null,
 )
 
 @Serializable
@@ -148,6 +155,8 @@ data class SearchResult(
   val albums: List<AlbumSummary> = emptyList(),
   val artists: List<ArtistSummary> = emptyList(),
   val playlists: List<PlaylistSummary> = emptyList(),
+  /** songs found by a line of their lyrics */
+  val lyrics: List<LyricHit> = emptyList(),
 )
 
 @Serializable
@@ -234,6 +243,8 @@ data class CatalogAlbumPage(
 
 @Serializable
 data class CatalogArtistPage(
+  /** this listener follows the artist's new releases */
+  val following: Boolean = false,
   val artist: CatalogArtist,
   val topTracks: List<CatalogTrack> = emptyList(),
   val albums: List<CatalogAlbum> = emptyList(),

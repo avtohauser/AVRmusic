@@ -23,3 +23,7 @@ expect fun rememberRecorder(): Recorder
 /** Playing on another device: Google Cast devices on Android, AirPlay on iOS. */
 @Composable
 expect fun CastButton(tint: Color)
+
+/** Speech to text for the search (the system's recogniser); null where the keyboard's dictation does it (iOS). */
+@Composable
+expect fun rememberVoiceInput(onResult: (String) -> Unit): (() -> Unit)?

@@ -56,6 +56,8 @@ import kotlinx.coroutines.launch
 import space.avthsr.music.App
 import space.avthsr.music.res.*
 import space.avthsr.music.api.Api
+import space.avthsr.music.api.refreshPlaylist
+import space.avthsr.music.api.radar
 import space.avthsr.music.api.Likes
 import space.avthsr.music.api.Track
 import space.avthsr.music.player.Offline
@@ -107,6 +109,7 @@ fun LibraryScreen() {
   val nav = LocalNav.current
   var tab by rememberSaveable { mutableIntStateOf(0) }
   var create by remember { mutableStateOf(false) }
+  var blend by remember { mutableStateOf(false) }
   val playlists = rememberLoad(Unit) { Api.playlists() }
   val albumIds by Likes.of("album").collectAsStateWithLifecycle()
   val artistIds by Likes.of("artist").collectAsStateWithLifecycle()
@@ -125,6 +128,7 @@ fun LibraryScreen() {
     item {
       Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         FlowText(tr("Медиатека"), MaterialTheme.typography.headlineMedium, Modifier.weight(1f), maxLines = 1)
+        IconButton(onClick = { nav.route("transfer") }) { Ico(Res.drawable.ic_import, tr("Перенести музыку")) }
         IconButton(onClick = { create = true }) { Ico(Res.drawable.ic_add, tr("Новый плейлист")) }
       }
     }
@@ -180,6 +184,15 @@ fun LibraryScreen() {
     }
     when (tab) {
       0 -> {
+        // playlists the server fills: the release radar and blends with friends
+        item {
+          Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            AutoTile(tr("Радар новинок"), tr("Свежее от ваших исполнителей"), Res.drawable.ic_sparkle, Modifier.weight(1f)) {
+              act { val r = Api.radar(); nav.playlist(r.id) }
+            }
+            AutoTile(tr("Блендер"), tr("Смесь вкусов с друзьями"), Res.drawable.ic_group, Modifier.weight(1f)) { blend = true }
+          }
+        }
         val list = playlists.data.orEmpty()
         if (list.isEmpty()) item { Hint(if (playlists.state is Load.Loading) tr("Загрузка…") else tr("Плейлистов пока нет — создайте первый кнопкой +")) }
         items(list, key = { "p:" + it.id }) { p -> Box(Modifier.animateItem(Motion.expressive.defaultEffectsSpec(), Motion.expressive.defaultSpatialSpec(), Motion.expressive.fastEffectsSpec())) { ListRow(p.coverUrl ?: p.mosaic.firstOrNull(), p.title, listOfNotNull(p.owner?.displayName, tracksWord(p.trackCount)).joinToString(" · "), menu = { e, c -> PlaylistMenu(p, e, c) }, share = "playlist:${p.id}") { nav.playlist(p.id) } } }
@@ -202,6 +215,8 @@ fun LibraryScreen() {
     }
   }
 
+  if (blend) BlendDialog(onCreated = { playlists.reload(); nav.playlist(it) }) { blend = false }
+
   if (create) {
     var title by remember { mutableStateOf("") }
     AlertDialog(
@@ -219,6 +234,17 @@ fun LibraryScreen() {
       },
       dismissButton = { TextButton(onClick = { create = false }) { Text(tr("Отмена")) } },
     )
+  }
+}
+
+@Composable
+private fun AutoTile(title: String, subtitle: String, icon: org.jetbrains.compose.resources.DrawableResource, modifier: Modifier, onClick: () -> Unit) {
+  val cs = MaterialTheme.colorScheme
+  Column(modifier.clip(RoundedCornerShape(24.dp)).background(cs.tertiaryContainer).clickable(onClick = onClick).padding(14.dp)) {
+    Box(Modifier.size(36.dp).clip(LogoShape).background(cs.tertiary), contentAlignment = Alignment.Center) { Ico(icon, null, Modifier.size(20.dp), cs.onTertiary) }
+    Spacer(Modifier.height(8.dp))
+    Text(title, style = MaterialTheme.typography.titleSmall, color = cs.onTertiaryContainer, maxLines = 1)
+    Text(subtitle, style = MaterialTheme.typography.bodySmall, color = cs.onTertiaryContainer.copy(alpha = 0.8f), maxLines = 2)
   }
 }
 
@@ -368,13 +394,19 @@ fun PlaylistScreen(id: String) {
         item {
           Header(
             share = "playlist:${p.id}",
-            cover = p.coverUrl ?: p.mosaic.firstOrNull(), title = p.title, subtitle = p.owner?.displayName,
-            meta = listOfNotNull(p.description?.takeIf { it.isNotBlank() }, tracksWord(p.tracks.size)).joinToString(" · "),
+            cover = p.coverUrl ?: p.mosaic.firstOrNull(), title = p.title,
+            // a playlist of several owners names them all
+            subtitle = if (p.owners.size > 1) ownersLine(p.owners.map { it.displayName }) else p.owner?.displayName,
+            meta = listOfNotNull(
+              when (p.autoKind) { "blend" -> tr("Блендер · обновляется каждый день"); "radar" -> tr("Обновляется каждую неделю"); else -> null },
+              p.description?.takeIf { it.isNotBlank() && p.autoKind == null }, tracksWord(p.tracks.size),
+            ).joinToString(" · "),
           ) {
             PlayButtons(p.tracks, "playlist:${p.id}")
           }
           Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
             if (!own) LikeButton("playlist", p.id) else PlaylistOwnerMenu(p) { loader.reload() }
+            if (p.autoKind != null && canEdit) IconButton(onClick = { act(tr("Обновлено"), { loader.reload() }) { Api.refreshPlaylist(p.id) } }) { Ico(Res.drawable.ic_refresh, tr("Обновить подборку")) }
             // a playlist kept together with friends: their faces, a tap shows / invites them
             if (own || shared) MemberFaces(p) { members = true }
             OfflineButton(p.tracks)
@@ -385,7 +417,7 @@ fun PlaylistScreen(id: String) {
         if (p.tracks.isEmpty()) item { Hint(tr("Плейлист пуст. Добавляйте треки через меню ⋮ у любого трека.")) }
         itemsIndexed(p.tracks) { i, t ->
           TrackRow(t, onClick = { PlayerConn.play(p.tracks, i, "playlist:${p.id}") },
-            subtitle = t.addedBy?.takeIf { shared }?.let { tr("{} · добавил(а) {}", t.artists, it.displayName) },
+            subtitle = t.addedBy?.takeIf { shared }?.let { if (p.autoKind == "blend") tr("{} · вкус: {}", t.artists, it.displayName) else tr("{} · добавил(а) {}", t.artists, it.displayName) },
             menuExtra = { close ->
             if (canEdit) DropdownMenuItem(text = { Text(tr("Убрать из плейлиста")) }, leadingIcon = { Ico(Res.drawable.ic_close) }, onClick = {
               close()
@@ -431,4 +463,11 @@ fun GenreScreen(slug: String) {
       }
     }
   }
+}
+
+/** "Петя, Вася и Стёпа" */
+fun ownersLine(names: List<String>): String = when (names.size) {
+  0 -> ""
+  1 -> names[0]
+  else -> names.dropLast(1).joinToString(", ") + tr(" и ") + names.last()
 }

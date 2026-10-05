@@ -431,6 +431,7 @@ fun TrackMenu(t: Track, expanded: Boolean, close: () -> Unit, extra: (@Composabl
   val liked by Likes.tracks.collectAsStateWithLifecycle()
   var pick by remember { mutableStateOf(false) }
   var send by remember { mutableStateOf(false) }
+  var report by remember { mutableStateOf(false) }
   DropdownMenu(expanded = expanded, onDismissRequest = close) {
     DropdownMenuItem(text = { Text(tr("Играть следующим")) }, leadingIcon = { Ico(Res.drawable.ic_queue) }, onClick = { close(); PlayerConn.playNext(t) })
     DropdownMenuItem(text = { Text(tr("Добавить в очередь")) }, leadingIcon = { Ico(Res.drawable.ic_add) }, onClick = { close(); PlayerConn.enqueue(t) })
@@ -469,6 +470,7 @@ fun TrackMenu(t: Track, expanded: Boolean, close: () -> Unit, extra: (@Composabl
         close(); act(tr("Ищу клип — канвас появится через минуту")) { Api.requestCanvas(t.id) }
       })
     }
+    DropdownMenuItem(text = { Text(tr("Пожаловаться на трек")) }, leadingIcon = { Ico(Res.drawable.ic_campaign) }, onClick = { close(); report = true })
     if (Api.user?.isAdmin == true) {
       DropdownMenuItem(text = { Text(tr("Редактировать трек")) }, leadingIcon = { Ico(Res.drawable.ic_settings) }, onClick = { close(); nav.route("admin/track/${t.id.encodeURLParameter()}") })
     }
@@ -476,6 +478,7 @@ fun TrackMenu(t: Track, expanded: Boolean, close: () -> Unit, extra: (@Composabl
   }
   if (pick) PlaylistPicker(listOf(t.id)) { pick = false }
   if (send) SendDialog("track", t.id, "${t.artists} — ${t.title}") { send = false }
+  if (report) ReportDialog(t) { report = false }
 }
 
 fun toggleLike(type: String, id: String) {

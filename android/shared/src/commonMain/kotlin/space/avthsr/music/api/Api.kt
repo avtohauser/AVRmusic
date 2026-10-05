@@ -75,7 +75,8 @@ object Api {
   }
 
   /** iPhones can't play Opus / WebM: the iOS app asks for such tracks as AAC (compat=1). */
-  fun streamUrl(id: String) = "$BASE/api/stream/$id?t=${_session.value?.mediaToken.orEmpty()}" + if (Platform.name == "iOS") "&compat=1" else ""
+  fun streamUrl(id: String) = (if (id.startsWith("dz:")) "$BASE/api/catalog/stream/${id.removePrefix("dz:")}" else "$BASE/api/stream/$id") +
+    "?t=${_session.value?.mediaToken.orEmpty()}" + if (Platform.name == "iOS") "&compat=1" else ""
   fun canvasUrl(id: String) = "$BASE/api/canvas/$id?t=${_session.value?.mediaToken.orEmpty()}"
   /** File download links (the media token is accepted by /api/download/…). */
   fun downloadUrl(path: String) = "$BASE$path?t=${_session.value?.mediaToken.orEmpty()}"

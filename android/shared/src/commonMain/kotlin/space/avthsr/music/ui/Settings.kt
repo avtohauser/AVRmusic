@@ -42,6 +42,7 @@ import space.avthsr.music.player.AutoOffline
 import space.avthsr.music.player.EQ_FREQS
 import space.avthsr.music.player.Gain
 import space.avthsr.music.player.NowReport
+import space.avthsr.music.player.LockLyrics
 import space.avthsr.music.Platform
 import androidx.compose.material3.Slider
 import androidx.compose.foundation.layout.requiredWidth
@@ -108,6 +109,8 @@ fun SettingsScreen() {
       Group(tr("Плавные переходы между треками")) { Choices(Gain.fades, fade.toString()) { Gain.setFade(it.toInt()) } }
       val norm by Gain.normalize.collectAsStateWithLifecycle()
       SwitchRow(tr("Выравнивание громкости"), tr("Все треки звучат одинаково громко — без скачков между ними"), norm) { Gain.setNormalize(it) }
+      val lockLyrics by LockLyrics.enabled.collectAsStateWithLifecycle()
+      SwitchRow(tr("Текст на экране блокировки"), tr("Строчка, которая звучит, — в шторке и на заблокированном экране"), lockLyrics) { LockLyrics.set(it) }
       if (Platform.name == "Android") Equalizer()
 
       Spacer(Modifier.height(24.dp))

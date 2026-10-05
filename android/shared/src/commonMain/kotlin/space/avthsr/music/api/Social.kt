@@ -245,6 +245,8 @@ object Inbox {
       "artist" -> tr("исполнителя {}", str("name"))
       "playlist" -> if (s.message == "invite") tr("плейлист «{}» — вместе", str("title")) else tr("плейлист «{}»", str("title"))
       "jam" -> tr("слушать вместе")
+      "release" -> "${str("artist")} — ${str("title")}"
+      "report" -> tr("жалобу на «{}»", str("title"))
       else -> ""
     }
   }
@@ -262,8 +264,18 @@ object Inbox {
     if (fresh.isEmpty()) return true
     fresh.asReversed().forEach { s ->
       val who = s.from?.displayName ?: tr("Друг")
-      val title = if (s.kind == "jam") tr("{} зовёт слушать вместе", who) else tr("{} отправил(а) вам {}", who, what(s))
-      NewsAlerts.notify("share-${s.id}", title, s.message.takeIf { it.isNotBlank() && it != "invite" } ?: tr("Откройте, чтобы послушать"), "inbox")
+      val title = when (s.kind) {
+        "jam" -> tr("{} зовёт слушать вместе", who)
+        "release" -> tr("Новый релиз: {}", what(s))
+        "report" -> tr("{} пожаловался(ась) на трек", who)
+        else -> tr("{} отправил(а) вам {}", who, what(s))
+      }
+      val body = when (s.kind) {
+        "release" -> tr("Уже скачивается на сервер — откройте, чтобы послушать")
+        "report" -> what(s)
+        else -> s.message.takeIf { it.isNotBlank() && it != "invite" } ?: tr("Откройте, чтобы послушать")
+      }
+      NewsAlerts.notify("share-${s.id}", title, body, "inbox")
     }
     noted(fresh.first().createdAt)
     items.value = (fresh + items.value).distinctBy { it.id }

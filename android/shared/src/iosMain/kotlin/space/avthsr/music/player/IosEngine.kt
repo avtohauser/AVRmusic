@@ -62,6 +62,11 @@ class IosEngine : PlayerEngine {
   private var failedItem: AVPlayerItem? = null
   private var lastSnapshot = ""
 
+  // the line being sung, shown in place of the artist on the lock screen (a setting)
+  private var lyricLines: List<space.avthsr.music.api.LyricLine>? = null
+  private var lyricsFor: String? = null
+  private var shownLine: String? = null
+
   private var artwork: MPMediaItemArtwork? = null
   private var artworkFor: String? = null
 
@@ -89,7 +94,8 @@ class IosEngine : PlayerEngine {
   /* ---------- state ---------- */
 
   override val count get() = items.size
-  override fun trackAt(i: Int): Track = items[i]
+  // a song played straight from the catalogue reads as the library's track once it is fetched
+  override fun trackAt(i: Int): Track = Queue.track(items[i].id) ?: items[i]
   override val index get() = orderList.getOrNull(pos) ?: -1
   override val isPlaying get() = player.timeControlStatus == AVPlayerTimeControlStatusPlaying
   override val playWhenReady get() = wantPlay
@@ -415,8 +421,23 @@ class IosEngine : PlayerEngine {
     if (kotlin.math.abs(player.volume - v) > 0.005f) player.volume = v
   }
 
+  private fun lyricTick() {
+    val t = items.getOrNull(index)
+    if (!LockLyrics.enabled.value || t == null) { if (shownLine != null) { shownLine = null; nowPlaying() }; return }
+    val real = Queue.track(t.id) ?: t
+    if (lyricsFor != real.id) {
+      lyricsFor = real.id
+      lyricLines = null
+      App.scope.launch { val l = LockLyrics.lines(real.id); if (lyricsFor == real.id) lyricLines = l }
+    }
+    val line = lyricLines?.let { LockLyrics.lineAt(it, positionMs) }?.let { "♪ $it" }
+    if (line != shownLine) { shownLine = line; nowPlaying() }
+  }
+
   private fun tick() {
     ensureUpcoming()
+    lyricTick()
+    Session.notePosition(currentId, positionMs)
     val item = player.currentItem
     if (item != null && item.status == AVPlayerItemStatusFailed && failedItem != item) {
       failedItem = item
@@ -494,7 +515,7 @@ class IosEngine : PlayerEngine {
     if (t == null) { center.nowPlayingInfo = null; return }
     val info = mutableMapOf<Any?, Any?>(
       MPMediaItemPropertyTitle to t.title,
-      MPMediaItemPropertyArtist to t.artists,
+      MPMediaItemPropertyArtist to (shownLine ?: t.artists),
       MPMediaItemPropertyPlaybackDuration to NSNumber(double = durationMs / 1000.0),
       MPNowPlayingInfoPropertyElapsedPlaybackTime to NSNumber(double = positionMs / 1000.0),
       MPNowPlayingInfoPropertyPlaybackRate to NSNumber(double = if (isPlaying) rate.toDouble() else 0.0),

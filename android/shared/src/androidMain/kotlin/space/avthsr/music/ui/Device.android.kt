@@ -81,3 +81,20 @@ actual fun rememberRecorder(): Recorder {
     }
   }
 }
+
+@Composable
+actual fun rememberVoiceInput(onResult: (String) -> Unit): (() -> Unit)? {
+  val context = LocalContext.current
+  val available = remember { android.speech.SpeechRecognizer.isRecognitionAvailable(context) }
+  val result by rememberUpdatedState(onResult)
+  val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
+    r.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.takeIf { it.isNotBlank() }?.let { result(it) }
+  }
+  if (!available) return null
+  return {
+    val i = Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+      .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+      .putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, space.avthsr.music.tr("Что включить?"))
+    runCatching { launcher.launch(i) }
+  }
+}

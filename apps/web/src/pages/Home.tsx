@@ -14,6 +14,8 @@ import { EmptyState } from '@/components/EmptyState';
 import type { AlbumSummary, ArtistSummary, Genre, PlaylistSummary, Track } from '@avrmusic/shared';
 import { FlowText } from '@/components/FlowText';
 import { WaveCard } from '@/components/WaveCard';
+import { useFriends, useInbox, useTr } from '@/lib/social';
+import { Avatar } from '@/components/Social';
 
 export default function Home() {
   const { data, isLoading, error } = useHome();
@@ -56,8 +58,12 @@ export default function Home() {
   const empty = !data.sections.length;
   return (
     <div className="page pt-4">
-      <FlowText as="h1" text={`${greeting}${user ? `, ${user.displayName}` : ''}`} className="md-headline-lg emph mb-5 block" />
+      <div className="flex items-center gap-2 mb-5">
+        <FlowText as="h1" text={`${greeting}${user ? `, ${user.displayName}` : ''}`} className="md-headline-lg emph block min-w-0" />
+        {user && <InboxButton />}
+      </div>
       {user && !empty && <WaveCard />}
+      {user && <FriendsNow />}
       {empty && (
         <EmptyState icon="music_note" title={t('emptyLibrary')} hint={t('emptyLibraryHint')} action={user?.role === 'admin' ? <M3eButton variant="filled" href="/admin"><m3e-icon variant="rounded" slot="icon" name="upload" />{t('upload')}</M3eButton> : undefined} />
       )}
@@ -79,7 +85,39 @@ export default function Home() {
           {s.kind === 'genres' && (s.items as Genre[]).map((g) => <GenreCard key={g.slug} genre={g} />)}
         </Shelf>
       ))}
-      <span className="hidden">{String(Link)}</span>
     </div>
+  );
+}
+
+function InboxButton() {
+  const { data } = useInbox();
+  const tr = useTr();
+  const unread = (data ?? []).filter((s) => !s.seen).length;
+  return (
+    <Link to="/inbox" className={`ml-auto shrink-0 flex items-center gap-1.5 px-3 h-10 rounded-full state-layer ${unread ? 'bg-primary text-on-primary' : 'surface-low'}`} title={tr('Входящие', 'Inbox')}>
+      <m3e-icon variant="rounded" name="inbox" filled={unread > 0 || undefined} />{unread > 0 && <span className="md-label-lg">{unread}</span>}
+    </Link>
+  );
+}
+
+/** Friends listening right now: tap to see their page, or play the same song. */
+function FriendsNow() {
+  const { data } = useFriends();
+  const tr = useTr();
+  const play = usePlayer.getState().playTrack;
+  const live = (data ?? []).filter((f) => f.now);
+  if (!live.length) return null;
+  return (
+    <Shelf title={tr('Друзья сейчас слушают', 'Friends are listening')} to="/friends">
+      {live.map((f) => (
+        <div key={f.id} className="w-64 shrink-0 snap-start surface-low rounded-[24px] p-3 flex items-center gap-3">
+          <Link to={`/user/${f.id}`} className="relative shrink-0"><Avatar user={f} className="w-12 h-12" />{f.now!.playing && <span className="absolute -right-1 -bottom-1 w-5 h-5 rounded-full bg-primary flex items-center justify-center"><span className="eq scale-50"><i /><i /><i /></span></span>}</Link>
+          <button className="min-w-0 flex-1 text-left" onClick={() => play(f.now!.track, `friend:${f.id}`)} title={tr('Включить этот трек', 'Play this track')}>
+            <span className="block md-title-sm line-1">{f.displayName}</span>
+            <span className="block md-body-sm muted line-1">{f.now!.track.artist.name} — {f.now!.track.title}</span>
+          </button>
+        </div>
+      ))}
+    </Shelf>
   );
 }

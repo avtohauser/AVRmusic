@@ -296,6 +296,8 @@ export interface CatalogArtistPage {
   compilations: CatalogAlbum[];
   related: CatalogArtist[];
   appearsOn: CatalogTrack[];
+  /** does this listener follow the artist's new releases */
+  following?: boolean;
 }
 export interface CatalogAlbumPage extends CatalogAlbum {
   label: string | null;

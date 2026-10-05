@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { artistHref } from '@/lib/instant';
 import { M3eIconButton, M3eSlider, M3eSliderThumb } from '@/md';
 import { WavyProgress } from './WavyProgress';
 import { usePlayer } from '@/stores/player';
@@ -59,8 +60,8 @@ export function PlayerBar() {
           <div className="min-w-0">
             <div className="md-title-sm line-1"><button className="hover:underline text-left" onClick={() => setOpen(true)}>{track.title}</button></div>
             <div className="md-body-sm muted line-1">
-              <Link to={`/artist/${track.artist.id}`} className="hover:underline">{track.artist.name}</Link>
-              {track.featuring.map((f) => <span key={f.id}>, <Link to={`/artist/${f.id}`} className="hover:underline">{f.name}</Link></span>)}
+              <Link to={artistHref(track.artist)} className="hover:underline">{track.artist.name}</Link>
+              {track.featuring.map((f) => <span key={f.id || f.name}>, <Link to={artistHref(f)} className="hover:underline">{f.name}</Link></span>)}
             </div>
           </div>
           <LikeButton type="track" id={track.id} alwaysVisible />

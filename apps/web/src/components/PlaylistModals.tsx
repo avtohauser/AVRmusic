@@ -21,7 +21,7 @@ export function AddToPlaylistModal() {
   const qc = useQueryClient();
   const t = useT();
   const [busy, setBusy] = useState<string | null>(null);
-  const mine = (data ?? []).filter((p) => p.owner.id === user?.id);
+  const mine = (data ?? []).filter((p) => p.canEdit ?? p.owner.id === user?.id);
   const add = async (id: string) => {
     setBusy(id);
     try {

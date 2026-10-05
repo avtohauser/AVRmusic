@@ -17,6 +17,9 @@ interface Props {
   showAlbum?: boolean;
   showCover?: boolean;
   showAddedAt?: boolean;
+  /** shared playlists: who put each track in (a blend: whose taste it came from) */
+  showAddedBy?: boolean;
+  addedByTaste?: boolean;
   numbered?: boolean;
   playlistId?: string;
   canRemove?: boolean;
@@ -24,7 +27,7 @@ interface Props {
   header?: boolean;
 }
 
-export function TrackList({ tracks, context, showAlbum = true, showCover = true, showAddedAt = false, numbered = true, playlistId, canRemove, compact = false, header = true }: Props) {
+export function TrackList({ tracks, context, showAlbum = true, showCover = true, showAddedAt = false, showAddedBy = false, addedByTaste = false, numbered = true, playlistId, canRemove, compact = false, header = true }: Props) {
   const currentId = usePlayer((s) => s.queue[s.index]?.id);
   const playing = usePlayer((s) => s.playing);
   const openMenu = useUI((s) => s.openMenu);
@@ -83,12 +86,13 @@ export function TrackList({ tracks, context, showAlbum = true, showCover = true,
                   <Link to={`/artist/${track.artist.id}`} className="hover:underline hover:text-on-surface" onClick={(e) => e.stopPropagation()}>{track.artist.name}</Link>
                   {track.featuring.map((f) => (<span key={f.id}>, <Link to={`/artist/${f.id}`} className="hover:underline hover:text-on-surface" onClick={(e) => e.stopPropagation()}>{f.name}</Link></span>))}
                   {!showAlbum && track.album && <span className="md:hidden"> · {track.album.title}</span>}
+                  {showAddedBy && track.addedBy && <span className="md:hidden"> · {addedByTaste ? (lang === 'en' ? 'taste: ' : 'вкус: ') : ''}{track.addedBy.displayName}</span>}
                 </div>
               </div>
             </div>
             {showAlbum && (
               <div className="hidden md:block md-body-md muted line-1">
-                {showAddedAt && track.addedAt ? fmtDate(track.addedAt, lang) : track.album ? <Link to={`/album/${track.album.id}`} className="hover:underline hover:text-on-surface" onClick={(e) => e.stopPropagation()}>{track.album.title}</Link> : '—'}
+                {showAddedAt && track.addedAt ? <>{fmtDate(track.addedAt, lang)}{showAddedBy && track.addedBy ? <span> · {addedByTaste ? (lang === 'en' ? 'taste: ' : 'вкус: ') : ''}{track.addedBy.displayName}</span> : null}</> : track.album ? <Link to={`/album/${track.album.id}`} className="hover:underline hover:text-on-surface" onClick={(e) => e.stopPropagation()}>{track.album.title}</Link> : '—'}
               </div>
             )}
             <div className="hidden md:block md-body-md muted tabular-nums text-right pr-2">{fmtMs(track.durationMs)}</div>

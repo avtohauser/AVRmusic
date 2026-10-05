@@ -10,6 +10,7 @@ import { api, streamUrl } from './api';
 import { offlineSrc } from './offline';
 import { inNativeApp, nativeBridge, onNative } from './native';
 import { NativeAudio } from './nativeAudio';
+import { aliases } from './instant';
 
 let audio: HTMLAudioElement | null = null;
 let currentId: string | null = null;
@@ -20,6 +21,9 @@ let reported = false;
 /** A new track's source is being resolved: play() waits for it instead of restarting the old one. */
 let switching = false;
 let loadSeq = 0;
+/** where to start a track once its source is loaded (a restored queue, joining a session mid-song) */
+let resume: { id: string; sec: number } | null = null;
+export function resumeAt(trackId: string, sec: number) { resume = sec > 1 ? { id: trackId, sec } : null; }
 
 export function getAudio(): HTMLAudioElement {
   if (!audio && inNativeApp()) {
@@ -84,6 +88,12 @@ async function load(trackId: string) {
   }
   a.src = local ?? streamUrl(trackId);
   a.load();
+  if (resume?.id === trackId) {
+    const sec = resume.sec;
+    resume = null;
+    const go = () => { a.removeEventListener('loadedmetadata', go); try { a.currentTime = sec; } catch { /* not seekable yet */ } };
+    a.addEventListener('loadedmetadata', go);
+  }
 }
 
 /** App player: keep the shade's ♥ in sync and take its buttons (next / previous / like). */
@@ -110,12 +120,12 @@ function bindNativeControls() {
   });
 }
 
-function updateMediaSession() {
+export function updateMediaSession(line?: string) {
   if (!('mediaSession' in navigator) || inNativeApp()) return;
   const t = usePlayer.getState().current();
   if (!t) { navigator.mediaSession.metadata = null; return; }
   const art = t.coverUrl ? [{ src: t.coverUrl, sizes: '512x512', type: t.coverUrl.endsWith('.svg') ? 'image/svg+xml' : 'image/jpeg' }] : [];
-  navigator.mediaSession.metadata = new MediaMetadata({ title: t.title, artist: artistLine(t), album: t.album?.title ?? '', artwork: art });
+  navigator.mediaSession.metadata = new MediaMetadata({ title: t.title, artist: line || artistLine(t), album: t.album?.title ?? '', artwork: art });
 }
 
 export function initAudioEngine() {
@@ -139,6 +149,8 @@ export function initAudioEngine() {
   store.subscribe((st, prev) => {
     const cur = st.queue[st.index] ?? null;
     // Track change or restart
+    // a catalogue song that became the library's track while playing: the same audio, keep going
+    if (cur && currentId && cur.id !== currentId && aliases.get(currentId) === cur.id) currentId = cur.id;
     if (cur && (cur.id !== currentId || st.nonce !== currentNonce)) {
       if (cur.id !== currentId) {
         flush(); currentId = cur.id; switching = true;

@@ -11,6 +11,9 @@ import { usePlayer } from '@/stores/player';
 import { initAudioEngine } from '@/lib/audio';
 import { initWave } from '@/lib/wave';
 import { initShadeLike } from '@/lib/shadeLike';
+import { initSession, restoreSession } from '@/lib/session';
+import { initLockLyrics } from '@/lib/lockLyrics';
+import { resumeJam } from '@/lib/jam';
 import { inNativeApp } from '@/lib/native';
 import { useI18n } from '@/lib/i18n';
 import { getColorFromImage } from '@/md';
@@ -32,6 +35,11 @@ const Admin = lazy(() => import('@/pages/Admin'));
 const AdminTrack = lazy(() => import('@/pages/AdminTrack'));
 const CatalogArtist = lazy(() => import('@/pages/CatalogArtist'));
 const CatalogAlbum = lazy(() => import('@/pages/CatalogAlbum'));
+const Friends = lazy(() => import('@/pages/Friends'));
+const Friend = lazy(() => import('@/pages/Friend'));
+const Inbox = lazy(() => import('@/pages/Inbox'));
+const Recap = lazy(() => import('@/pages/Recap'));
+const Transfer = lazy(() => import('@/pages/Transfer'));
 
 const qc = new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false, staleTime: 15_000 } } });
 
@@ -56,6 +64,8 @@ function Boot() {
     initWave();
     init();
     initShadeLike();
+    initSession();
+    initLockLyrics();
     document.documentElement.lang = lang;
     const on = () => setOnline(true), off = () => setOnline(false);
     window.addEventListener('online', on); window.addEventListener('offline', off);
@@ -81,7 +91,9 @@ function Boot() {
     window.addEventListener('keydown', key);
     return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); window.removeEventListener('beforeinstallprompt', bip); window.removeEventListener('keydown', key); };
   }, []);
-  useEffect(() => { if (user) useLikes.getState().load(); else useLikes.getState().clear(); }, [user?.id]);
+  useEffect(() => {
+    if (user) { useLikes.getState().load(); restoreSession(); void resumeJam(); } else useLikes.getState().clear();
+  }, [user?.id]);
   return null;
 }
 
@@ -173,6 +185,11 @@ export default function App() {
               <Route path="/discover" element={<Navigate to="/" replace />} />
               <Route path="/history" element={<RequireAuth><History /></RequireAuth>} />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/friends" element={<RequireAuth><Friends /></RequireAuth>} />
+              <Route path="/user/:id" element={<RequireAuth><Friend /></RequireAuth>} />
+              <Route path="/inbox" element={<RequireAuth><Inbox /></RequireAuth>} />
+              <Route path="/recap" element={<RequireAuth><Recap /></RequireAuth>} />
+              <Route path="/transfer" element={<RequireAuth><Transfer /></RequireAuth>} />
               <Route path="/admin" element={<RequireAuth admin><Admin /></RequireAuth>} />
               <Route path="/admin/track/:id" element={<RequireAuth admin><AdminTrack /></RequireAuth>} />
               <Route path="*" element={<NotFound />} />

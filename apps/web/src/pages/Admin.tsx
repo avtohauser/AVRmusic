@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { AdminActivity, AdminStats, AdminUserDetail, AdminUserRow, Invite, NewsItem, Track, UploadResult } from '@avrmusic/shared';
 import { Modal } from '@/components/Modal';
 import { M3eButton, M3eFilterChip, M3eFilterChipSet, M3eFormField, M3eIconButton, M3eOption, M3eSelect } from '@/md';
+import { ReportsTab } from '@/components/AdminReports';
 import { WavyProgress } from '@/components/WavyProgress';
 import { api } from '@/lib/api';
 import { useUI } from '@/stores/ui';
@@ -12,7 +13,7 @@ import { fmtBytes, fmtDurationLong, fmtMs, fmtNumber } from '@/lib/format';
 import { Cover } from '@/components/Cover';
 import { useDebounced } from '@/lib/hooks';
 
-type Tab = 'overview' | 'upload' | 'import' | 'tracks' | 'users';
+type Tab = 'overview' | 'upload' | 'import' | 'tracks' | 'users' | 'reports';
 
 export interface ImportJob { id: string; kind: 'url' | 'lyrics' | 'acquire' | 'canvas'; url?: string; mode?: 'audio' | 'video'; title?: string; status: 'queued' | 'running' | 'done' | 'error'; progress: number; log: string[]; imported: Track[]; error?: string; createdAt: string; stats?: Record<string, number> }
 interface Capabilities { ytdlp: boolean; ytdlpVersion: string | null; ffmpeg: boolean; musicDir: string | null; mediaDir: string; sources?: Array<{ name: string; label: string; enabled: boolean; ok: boolean; reason?: string }> }
@@ -21,7 +22,7 @@ export default function Admin() {
   const [params, setParams] = useSearchParams();
   const tab = (params.get('tab') as Tab) || 'overview';
   const t = useT();
-  const tabs: Array<[Tab, string, string]> = [['overview', t('overview'), 'bar_chart'], ['upload', t('upload'), 'upload'], ['import', 'Импорт по ссылке', 'link'], ['tracks', t('manageTracks'), 'queue_music'], ['users', t('users'), 'group']];
+  const tabs: Array<[Tab, string, string]> = [['overview', t('overview'), 'bar_chart'], ['upload', t('upload'), 'upload'], ['import', 'Импорт по ссылке', 'link'], ['tracks', t('manageTracks'), 'queue_music'], ['users', t('users'), 'group'], ['reports', 'Жалобы и Spotify', 'flag']];
   return (
     <div className="page pt-4">
       <h1 className="md-headline-lg emph mb-4">{t('admin')}</h1>
@@ -33,6 +34,7 @@ export default function Admin() {
       {tab === 'import' && <ImportTab />}
       {tab === 'tracks' && <TracksTab />}
       {tab === 'users' && <UsersTab />}
+      {tab === 'reports' && <ReportsTab />}
     </div>
   );
 }

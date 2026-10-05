@@ -18,6 +18,7 @@ import { TopBarQueueIndicator } from './Catalog';
 import { lastSearchUrl } from '@/lib/nav';
 import { FlowText } from '@/components/FlowText';
 import { NewsBanner } from './NewsBanner';
+import { FriendPickerModal, JamBar, ReportModal } from './Social';
 
 export function Layout() {
   const user = useAuth((s) => s.user);
@@ -68,6 +69,7 @@ export function Layout() {
       <ContextMenu />
       <AddToPlaylistModal />
       <PlaylistEditorModal />
+      {user && <><JamBar /><FriendPickerModal /><ReportModal /></>}
     </div>
   );
 }
@@ -91,7 +93,7 @@ function Rail() {
     ['/search', 'search', t('search'), false],
     ['/library', 'library_music', t('library'), false],
   ];
-  if (user) items.push(['/downloads', 'download', t('downloads'), false]);
+  if (user) items.push(['/friends', 'group', t('friends'), false], ['/downloads', 'download', t('downloads'), false]);
   if (user?.role === 'admin') items.push(['/admin', 'shield', t('admin'), false]);
   const active = (path: string, end: boolean) => (end ? loc.pathname === path : loc.pathname.startsWith(path));
 
@@ -219,7 +221,7 @@ function BottomNav({ user }: { user: boolean }) {
   const loc = useLocation();
   const items: Array<[string, string, string, boolean]> = [
     ['/', 'home', t('home'), true], ['/search', 'search', t('search'), false], ['/library', 'library_music', t('library'), false],
-    user ? ['/downloads', 'download', t('downloads'), false] : ['/login', 'login', t('login'), false], ['/profile', 'person', t('profile'), false],
+    user ? ['/friends', 'group', t('friends'), false] : ['/login', 'login', t('login'), false], ['/profile', 'person', t('profile'), false],
   ];
   const active = (path: string, end: boolean) => (end ? loc.pathname === path : loc.pathname.startsWith(path));
   // Floating "island" navigation bar (Material 3 Expressive): inset from the edges, pill-shaped, elevated.

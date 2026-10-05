@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { M3eButton, M3eButtonSegment, M3eFormField, M3eSegmentedButton, M3eSwitch, M3eThemeIcon } from '@/md';
+import { useTr } from '@/lib/social';
+import { lockLyricsOn, setLockLyrics } from '@/lib/lockLyrics';
 import { useAuth } from '@/stores/auth';
 import { useUI } from '@/stores/ui';
 import { useLikes } from '@/stores/likes';
@@ -22,20 +24,27 @@ const VARIANTS: Array<[string, string]> = [['expressive', 'Expressive'], ['vibra
 /** Playback preferences: the "like" card in the notification shade. */
 function PlaybackSettings() {
   const t = useT();
+  const tr = useTr();
   const toast = useUI((s) => s.toast);
   const [on, setOn] = useState(shadeLikeSetting() === true && notificationsSupported() && Notification.permission === 'granted');
-  if (!notificationsSupported()) return null;
+  const [lyricsOn, setLyricsOn] = useState(lockLyricsOn);
   return (
     <section className="surface-low rounded-[28px] p-5 space-y-3">
       <h2 className="md-title-lg emph flex items-center gap-2"><m3e-icon variant="rounded" name="notifications" />{t('playback')}</h2>
+      {notificationsSupported() && (
+        <label className="flex items-center justify-between gap-3 md-body-lg">
+          <span className="min-w-0"><span className="block">{t('shadeLike')}</span><span className="block md-body-sm muted">{t('shadeLikeHint')}</span></span>
+          <M3eSwitch checked={on || undefined} icons="selected" onChange={async (e: Event) => {
+            const want = !!(e.target as any).checked;
+            const res = await setShadeLike(want);
+            setOn(res);
+            if (want && !res) { (e.target as any).checked = false; toast(t('notificationsDenied'), 'error'); }
+          }} />
+        </label>
+      )}
       <label className="flex items-center justify-between gap-3 md-body-lg">
-        <span className="min-w-0"><span className="block">{t('shadeLike')}</span><span className="block md-body-sm muted">{t('shadeLikeHint')}</span></span>
-        <M3eSwitch checked={on || undefined} icons="selected" onChange={async (e: Event) => {
-          const want = !!(e.target as any).checked;
-          const res = await setShadeLike(want);
-          setOn(res);
-          if (want && !res) { (e.target as any).checked = false; toast(t('notificationsDenied'), 'error'); }
-        }} />
+        <span className="min-w-0"><span className="block">{tr('Строка текста на экране блокировки', 'Lyric line on the lock screen')}</span><span className="block md-body-sm muted">{tr('Текущая строчка песни вместо имени исполнителя — в шторке, на экране блокировки и в наушниках', 'The current line instead of the artist — in notifications, on the lock screen and in headphones')}</span></span>
+        <M3eSwitch checked={lyricsOn || undefined} icons="selected" onChange={(e: Event) => { const v = !!(e.target as any).checked; setLockLyrics(v); setLyricsOn(v); }} />
       </label>
     </section>
   );
@@ -150,6 +159,7 @@ export default function Profile() {
           <m3e-icon variant="rounded" name="chevron_right" />
         </Link>
       )}
+      <ProfileLinks />
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
           <div className="surface-low rounded-[24px] p-4"><div className="md-label-md muted uppercase">{t('listened')}</div><div className="md-headline-md emph">{fmtDurationLong(stats.msListened, lang)}</div></div>
@@ -179,6 +189,26 @@ export default function Profile() {
           {installPrompt && <M3eButton variant="outlined" className="w-full" onClick={() => installPrompt.prompt()}><m3e-icon variant="rounded" slot="icon" name="download_for_offline" />{t('installApp')}</M3eButton>}
         </section>
       </div>
+    </div>
+  );
+}
+
+function ProfileLinks() {
+  const tr = useTr();
+  const links: Array<[string, string, string, string]> = [
+    ['/friends', 'group', tr('Друзья', 'Friends'), tr('Кто что слушает, вместе, блендер', 'Who plays what, together, blends')],
+    ['/inbox', 'inbox', tr('Входящие', 'Inbox'), tr('Что прислали и новинки', 'What was sent and new releases')],
+    ['/recap', 'leaderboard', tr('Мои итоги', 'My recap'), tr('Месяц и год в цифрах', 'Your month and year in numbers')],
+    ['/transfer', 'swap_horiz', tr('Перенести музыку', 'Move your music'), tr('Из Spotify, Яндекс Музыки, списком', 'From Spotify, Yandex Music, a list')],
+  ];
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+      {links.map(([to, icon, title, sub]) => (
+        <Link key={to} to={to} className="surface-low rounded-[24px] hover:rounded-[32px] spring p-4 flex items-center gap-3 state-layer">
+          <span className="w-11 h-11 rounded-[14px] bg-secondary-container text-on-secondary-container flex items-center justify-center shrink-0"><m3e-icon variant="rounded" name={icon} /></span>
+          <span className="min-w-0"><span className="block md-title-sm">{title}</span><span className="block md-body-sm muted line-1">{sub}</span></span>
+        </Link>
+      ))}
     </div>
   );
 }

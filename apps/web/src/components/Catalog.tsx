@@ -13,6 +13,8 @@ import { usePreview } from '@/stores/preview';
 import { Cover } from './Cover';
 import { Mascot } from './Mascot';
 import { useAcquireJobs } from '@/lib/queries';
+import { usePlayer } from '@/stores/player';
+import { playCatalog } from '@/lib/instant';
 
 const cardBase = 'group relative w-36 sm:w-40 md:w-44 shrink-0 snap-start';
 
@@ -58,11 +60,28 @@ export function PreviewButton({ url, className = '' }: { url: string | null; siz
   );
 }
 
-export function CatalogTrackRow({ track, index, showAlbum = true }: { track: CatalogTrack; index?: number; showAlbum?: boolean }) {
+/** Plays a catalogue song in full at once (the server fetches it meanwhile); the rest of [list] follows it. */
+export function CatalogPlayButton({ track, list, index = 0, context }: { track: CatalogTrack; list?: CatalogTrack[]; index?: number; context?: string }) {
+  const user = useAuth((s) => s.user);
+  const active = usePlayer((s) => { const c = s.queue[s.index]; return !!c && (c.id === `dz:${track.id}` || (!!track.libraryTrackId && c.id === track.libraryTrackId)); });
+  const playing = usePlayer((s) => s.playing);
+  const t = useT();
+  if (!user) return <PreviewButton url={track.previewUrl} />;
+  return (
+    <M3eIconButton size="small" variant={active ? 'filled' : 'tonal'} title={t('play')} onClick={(e: any) => {
+      e.preventDefault(); e.stopPropagation();
+      if (active) usePlayer.getState().toggle(); else void playCatalog(list ?? [track], list ? index : 0, context);
+    }}>
+      {active && playing ? <span className="eq"><i /><i /><i /></span> : <m3e-icon variant="rounded" name="play_arrow" filled />}
+    </M3eIconButton>
+  );
+}
+
+export function CatalogTrackRow({ track, index, showAlbum = true, list, context }: { track: CatalogTrack; index?: number; showAlbum?: boolean; list?: CatalogTrack[]; context?: string }) {
   const t = useT();
   return (
-    <div className={`track-row ${showAlbum ? '' : 'no-album'} group`}>
-      <div className="flex items-center justify-center"><PreviewButton url={track.previewUrl} /></div>
+    <div className={`track-row ${showAlbum ? '' : 'no-album'} group`} onDoubleClick={() => void playCatalog(list ?? [track], list ? index ?? 0 : 0, context)}>
+      <div className="flex items-center justify-center"><CatalogPlayButton track={track} list={list} index={index} context={context} /></div>
       <div className="flex items-center gap-3 min-w-0">
         {track.album?.coverUrl && showAlbum && <Cover src={track.album.coverUrl} className="w-11 h-11 !rounded-[12px]" />}
         <div className="min-w-0">

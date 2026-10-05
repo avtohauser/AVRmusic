@@ -6,12 +6,16 @@ import { fmtDurationLong, tracksWord } from '@/lib/format';
 import { Hero } from '@/components/Hero';
 import { TrackListSkeleton } from '@/components/Skeleton';
 import { AcquireButton, CatalogTrackRow } from '@/components/Catalog';
+import { PlayButton } from '@/components/PlayButton';
+import { playCatalog } from '@/lib/instant';
+import { useAuth } from '@/stores/auth';
 import { EmptyState } from '@/components/EmptyState';
 
 export default function CatalogAlbum() {
   const { id } = useParams();
   const { data: al, isLoading, error } = useCatalogAlbum(id ? Number(id) : undefined);
   const t = useT();
+  const user = useAuth((s) => s.user);
   const lang = useI18n((s) => s.lang);
   if (error) return <div className="page pt-10"><EmptyState icon="error" title={(error as any).message} /></div>;
   if (isLoading || !al) return <div className="page pt-8"><TrackListSkeleton /></div>;
@@ -27,11 +31,12 @@ export default function CatalogAlbum() {
           {al.genres.length > 0 && <span>· {al.genres.join(', ')}</span>}
           {al.inLibrary > 0 && <span className="text-tertiary">· {t('inLibrary')}: {al.inLibrary}/{al.tracks.length}</span>}
         </>}>
+        {user && al.tracks.length > 0 && <PlayButton size="lg" onClick={() => void playCatalog(al.tracks, 0, `catalog-album:${al.id}`)} />}
         <AcquireButton kind="album" id={al.id} title={`${al.artist.name} — ${al.title} (альбом)`} done={full} label />
         {al.libraryAlbumId && <M3eButton variant="tonal" href={`/album/${al.libraryAlbumId}`}><m3e-icon variant="rounded" slot="icon" name="library_music" />{t('openInLibrary')}</M3eButton>}
       </Hero>
       <div className="page">
-        {al.tracks.map((tr, i) => <CatalogTrackRow key={tr.id} track={tr} index={i} showAlbum={false} />)}
+        {al.tracks.map((tr, i) => <CatalogTrackRow key={tr.id} track={tr} index={i} showAlbum={false} list={al.tracks} context={`catalog-album:${al.id}`} />)}
         {al.label && <p className="md-body-sm muted mt-6">© {al.label}</p>}
       </div>
     </div>

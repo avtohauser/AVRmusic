@@ -13,6 +13,14 @@ export const WAVE_MODES: Array<{ id: WaveMode; label: string; icon: string; hint
   { id: 'popular', label: 'Популярное', icon: 'local_fire_department', hint: 'Что слушают друзья' },
 ];
 
+/** moods and activities: the wave picks by tempo, energy and genre */
+export const WAVE_MOODS: Array<{ id: WaveMode; label: string; icon: string; hint: string }> = [
+  { id: 'run', label: 'Бег', icon: 'directions_run', hint: 'Быстро и бодро — под шаг' },
+  { id: 'focus', label: 'Фокус', icon: 'center_focus_strong', hint: 'Спокойное, без лишних слов — для работы и учёбы' },
+  { id: 'evening', label: 'Вечер', icon: 'wb_twilight', hint: 'Медленное и тёплое' },
+  { id: 'party', label: 'Вечеринка', icon: 'celebration', hint: 'Танцевальное и громкое' },
+];
+
 interface WaveState { mode: WaveMode; reasons: Record<string, string>; loading: boolean; setMode: (m: WaveMode) => void }
 export const useWave = create<WaveState>((set) => ({
   mode: (() => { try { return (localStorage.getItem('avr.waveMode') as WaveMode) || 'mix'; } catch { return 'mix'; } })(),

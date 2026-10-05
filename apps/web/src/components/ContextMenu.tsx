@@ -12,6 +12,7 @@ import { api, albumZipUrl, downloadUrl, playlistZipUrl } from '@/lib/api';
 import { isOffline, removeOffline, saveOffline } from '@/lib/offline';
 import { useMediaQuery } from '@/lib/hooks';
 import { useState } from 'react';
+import { askReport, sendToFriends, trNow } from '@/lib/social';
 
 interface Item { icon: string; label: string; onClick: () => void; danger?: boolean }
 
@@ -90,7 +91,12 @@ export function ContextMenu() {
         items.push({ icon: 'edit', label: t('editTrack'), onClick: () => nav(`/admin/track/${track.id}`) });
       }
     }
+    const lib = !track.id.startsWith('dz:');
+    if (user && lib) items.push({ icon: 'send', label: trNow('Отправить другу', 'Send to a friend'), onClick: () => sendToFriends('track', track.id, track.title) });
     items.push({ icon: 'share', label: t('share'), onClick: () => share(track.album ? `/album/${track.album.id}?track=${track.id}` : `/artist/${track.artist.id}`) });
+    if (user && lib) items.push({ icon: 'flag', label: trNow('Пожаловаться на трек', 'Report the track'), onClick: () => askReport(track) });
+    // a catalogue song still on its way to the server: only what works before it lands
+    if (!lib) items.splice(0, items.length, ...items.filter((it) => ['playlist_play', 'queue_music', 'favorite'].includes(it.icon)));
   } else if (menu?.target.kind === 'album') {
     const { album } = menu.target;
     const load = () => api.get<{ tracks: Track[] }>(`/api/albums/${album.id}`).then((a) => a.tracks);
@@ -102,6 +108,7 @@ export function ContextMenu() {
       items.push({ icon: 'download', label: t('downloadAll'), onClick: () => { location.href = albumZipUrl(album.id); } });
     }
     items.push({ icon: 'artist', label: t('goToArtist'), onClick: () => nav(`/artist/${album.artist.id}`) });
+    if (user) items.push({ icon: 'send', label: trNow('Отправить другу', 'Send to a friend'), onClick: () => sendToFriends('album', album.id, album.title) });
     items.push({ icon: 'share', label: t('share'), onClick: () => share(`/album/${album.id}`) });
   } else if (menu?.target.kind === 'playlist') {
     const { playlist } = menu.target;
@@ -109,11 +116,13 @@ export function ContextMenu() {
     items.push({ icon: 'playlist_play', label: t('playNext'), onClick: async () => player.playNext(await load()) });
     items.push({ icon: 'queue_music', label: t('addToQueue'), onClick: async () => player.addToQueue(await load()) });
     if (user) {
-      if (playlist.owner.id !== user.id) items.push({ icon: 'favorite', label: likes.has('playlist', playlist.id) ? t('unlike') : t('like'), onClick: () => { likes.toggle('playlist', playlist.id); qc.invalidateQueries({ queryKey: ['playlists'] }); } });
-      if (playlist.owner.id === user.id || user.role === 'admin') {
-        items.push({ icon: 'edit', label: t('editPlaylist'), onClick: () => setPlaylistEditor({ id: playlist.id, initial: { title: playlist.title, description: playlist.description, isPublic: playlist.isPublic } }) });
-        items.push({ icon: 'delete', label: t('deletePlaylist'), danger: true, onClick: async () => { if (!confirm(t('confirmDelete'))) return; await api.del(`/api/playlists/${playlist.id}`); qc.invalidateQueries({ queryKey: ['playlists'] }); toast(t('removed')); if (location.pathname.includes(playlist.id)) nav('/library'); } });
-      }
+      const owner = playlist.canEdit ?? playlist.owner.id === user.id;
+      const creator = playlist.isCreator ?? playlist.owner.id === user.id;
+      if (!owner) items.push({ icon: 'favorite', label: likes.has('playlist', playlist.id) ? t('unlike') : t('like'), onClick: () => { likes.toggle('playlist', playlist.id); qc.invalidateQueries({ queryKey: ['playlists'] }); } });
+      if (owner || user.role === 'admin') items.push({ icon: 'edit', label: t('editPlaylist'), onClick: () => setPlaylistEditor({ id: playlist.id, initial: { title: playlist.title, description: playlist.description, isPublic: playlist.isPublic } }) });
+      if (owner && !creator) items.push({ icon: 'person_remove', label: trNow('Выйти из владельцев', 'Stop owning it'), danger: true, onClick: async () => { await api.del(`/api/playlists/${playlist.id}/members/${user.id}`); qc.invalidateQueries({ queryKey: ['playlists'] }); qc.invalidateQueries({ queryKey: ['playlist', playlist.id] }); toast(trNow('Вы больше не владелец', 'You no longer own it')); } });
+      if (creator || user.role === 'admin') items.push({ icon: 'delete', label: t('deletePlaylist'), danger: true, onClick: async () => { if (!confirm(t('confirmDelete'))) return; await api.del(`/api/playlists/${playlist.id}`); qc.invalidateQueries({ queryKey: ['playlists'] }); toast(t('removed')); if (location.pathname.includes(playlist.id)) nav('/library'); } });
+      items.push({ icon: 'send', label: trNow('Отправить другу', 'Send to a friend'), onClick: () => sendToFriends('playlist', playlist.id, playlist.title) });
       items.push({ icon: 'download', label: t('downloadAll'), onClick: () => { location.href = playlistZipUrl(playlist.id); } });
     }
     items.push({ icon: 'share', label: t('share'), onClick: () => share(`/playlist/${playlist.id}`) });

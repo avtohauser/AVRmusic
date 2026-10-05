@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { artistHref } from '@/lib/instant';
 import { M3eButtonSegment, M3eIconButton, M3eSegmentedButton, M3eSlider, M3eSliderThumb } from '@/md';
 import { usePlayer } from '@/stores/player';
 import { useUI } from '@/stores/ui';
@@ -20,6 +21,9 @@ import { M3eAssistChip } from '@/md';
 import { useLikes } from '@/stores/likes';
 import { FlowText } from '@/components/FlowText';
 import { WAVE_CONTEXT, dislikeInWave, useWave } from '@/lib/wave';
+import { ReactButton, ReactionBubbles, ReactionMarks } from './Reactions';
+import { listenTogether, useJam } from '@/lib/jam';
+import { useTr } from '@/lib/social';
 
 type Tab = 'cover' | 'lyrics' | 'queue';
 const thumbValue = (e: Event) => Number((e.target as any)?.value ?? 0);
@@ -63,6 +67,8 @@ export function NowPlaying() {
   useEffect(() => { if (track && !track.hasLyrics && tab === 'lyrics') setTab('cover'); }, [track?.id]);
 
   const inWave = usePlayer((s) => s.context === WAVE_CONTEXT);
+  const jam = useJam((s) => s.view);
+  const tr = useTr();
   const waveReason = useWave((s) => (track ? s.reasons[track.id] : undefined));
   if (!open || !track) return null;
   const pos = seeking ?? position;
@@ -83,12 +89,15 @@ export function NowPlaying() {
         <div className="flex items-center justify-between">
           <M3eIconButton aria-label={t('close')} onClick={() => setOpen(false)}><m3e-icon variant="rounded" name="keyboard_arrow_down" /></M3eIconButton>
           <div className="text-center min-w-0 flex flex-col items-center">
-            <div className="md-label-md uppercase tracking-widest opacity-80 flex items-center gap-2"><Mascot mood={playing ? 'dance' : 'sleep'} burst={burst} className="w-5 h-5" />{inWave ? 'Моя волна' : t('nowPlaying')}</div>
+            <div className="md-label-md uppercase tracking-widest opacity-80 flex items-center gap-2"><Mascot mood={playing ? 'dance' : 'sleep'} burst={burst} className="w-5 h-5" />{jam ? tr(`Вместе · ${jam.members.length}`, `Together · ${jam.members.length}`) : inWave ? 'Моя волна' : t('nowPlaying')}</div>
             {inWave && waveReason
               ? <div className="md-title-sm line-1 wave-reason" key={track.id}>{waveReason}</div>
               : track.album && <Link to={`/album/${track.album.id}`} onClick={() => setOpen(false)} className="md-title-sm line-1 hover:underline">{track.album.title}</Link>}
           </div>
-          <M3eIconButton aria-label="menu" onClick={(e: any) => openMenu(e.clientX, e.clientY, { kind: 'track', track })}><m3e-icon variant="rounded" name="more_vert" /></M3eIconButton>
+          <div className="flex items-center">
+            {user && <M3eIconButton toggle selected={!!jam || undefined} title={jam ? tr('Позвать ещё', 'Invite more') : tr('Слушать вместе', 'Listen together')} onClick={() => void listenTogether(tr)}><m3e-icon variant="rounded" name="groups" /><m3e-icon variant="rounded" slot="selected" name="groups" filled /></M3eIconButton>}
+            <M3eIconButton aria-label="menu" onClick={(e: any) => openMenu(e.clientX, e.clientY, { kind: 'track', track })}><m3e-icon variant="rounded" name="more_vert" /></M3eIconButton>
+          </div>
         </div>
 
         <div className="flex justify-center mt-3">
@@ -106,6 +115,7 @@ export function NowPlaying() {
                 <div className="hidden md:block canvas-box overflow-hidden elev-3 relative" style={{ borderRadius: 28 }}>
                   <CanvasView track={track} className="w-full h-full" />
                   <div className="absolute left-3 bottom-3"><Cover src={track.coverUrl} className="w-12 h-12 elev-2" /></div>
+                  <ReactionBubbles track={track} />
                 </div>
                 <div className="md:hidden flex-1" />
               </>
@@ -113,6 +123,7 @@ export function NowPlaying() {
               <div className="relative flex items-center justify-center">
                 <div className="np-aura" data-playing={playing} />
                 <Cover src={track.coverUrl} alt={track.title} className="cover-box elev-3 !rounded-[28px] relative" />
+                <ReactionBubbles track={track} />
               </div>
             )}
           </div>
@@ -130,12 +141,13 @@ export function NowPlaying() {
             <div className="min-w-0 flex-1">
               <FlowText as="div" text={track.title} className="md-headline-sm emph line-1" />
               <div className="md-body-lg opacity-80 line-1">
-                <Link to={`/artist/${track.artist.id}`} onClick={() => setOpen(false)} className="hover:underline">{track.artist.name}</Link>
-                {track.featuring.map((f) => <span key={f.id}>, <Link to={`/artist/${f.id}`} onClick={() => setOpen(false)} className="hover:underline">{f.name}</Link></span>)}
+                <Link to={artistHref(track.artist)} onClick={() => setOpen(false)} className="hover:underline">{track.artist.name}</Link>
+                {track.featuring.map((f) => <span key={f.id || f.name}>, <Link to={artistHref(f)} onClick={() => setOpen(false)} className="hover:underline">{f.name}</Link></span>)}
               </div>
             </div>
             {track.hasLyrics && <M3eIconButton toggle selected={tab === 'lyrics' || undefined} aria-label={t('lyrics')} onClick={() => setTab(tab === 'lyrics' ? 'cover' : 'lyrics')}><m3e-icon variant="rounded" name="lyrics" /><m3e-icon variant="rounded" slot="selected" name="lyrics" filled /></M3eIconButton>}
             {inWave && <M3eIconButton aria-label="Не нравится" title="Не нравится — больше не попадётся в волне" onClick={() => void dislikeInWave(track.id)}><m3e-icon variant="rounded" name="thumb_down" /></M3eIconButton>}
+            <ReactButton track={track} />
             <LikeButton type="track" id={track.id} alwaysVisible buttonSize="medium" />
           </div>
           {offerShade && (
@@ -147,6 +159,7 @@ export function NowPlaying() {
             </div>
           )}
           <div className="mt-3">
+            <ReactionMarks track={track} duration={duration} />
             <M3eSlider className="seek" size="small" min={0} max={Math.max(1, duration || 1)} step={0.1} onInput={(e: Event) => setSeeking(thumbValue(e))} onChange={(e: Event) => { p.seek(thumbValue(e)); setSeeking(null); }}>
               <M3eSliderThumb value={pos} />
             </M3eSlider>

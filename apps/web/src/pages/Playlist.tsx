@@ -18,6 +18,8 @@ import { OfflineToggle } from '@/components/OfflineToggle';
 import { EmptyState } from '@/components/EmptyState';
 import { TrackListSkeleton } from '@/components/Skeleton';
 import { Cover } from '@/components/Cover';
+import { Avatar } from '@/components/Social';
+import { pickFriends, refreshPlaylist, sendToFriends, useTr } from '@/lib/social';
 
 export default function Playlist() {
   const { id } = useParams();
@@ -37,11 +39,24 @@ export default function Playlist() {
   const [q, setQ] = useState('');
   const dq = useDebounced(q, 250);
   const { data: found } = useSearch(dq, 'track');
+  const tr = useTr();
+  const [refreshing, setRefreshing] = useState(false);
 
   if (error) return <div className="page pt-10"><EmptyState title={(error as any).message} /></div>;
   if (isLoading || !pl) return <div className="page pt-8"><TrackListSkeleton /></div>;
   const isThis = context === `playlist:${id}` && !!current;
-  const isOwner = !!user && (pl.owner.id === user.id || user.role === 'admin');
+  const isOwner = !!user && (pl.canEdit === true || pl.owner.id === user.id || user.role === 'admin');
+  const owners = pl.owners?.length ? pl.owners : [{ id: pl.owner.id, displayName: pl.owner.displayName, avatarUrl: null }];
+  const autoLine = pl.autoKind === 'blend' ? tr('Блендер — обновляется каждый день', 'Blend — refreshes every day') : pl.autoKind === 'radar' ? tr('Радар новинок — обновляется каждую неделю', 'Release radar — refreshes every week') : null;
+  const invite = () => pickFriends({
+    title: tr('Добавить совладельца', 'Add a co-owner'), button: tr('Добавить', 'Add'), exclude: owners.map((o) => o.id),
+    run: async ([userId]) => { await api.post(`/api/playlists/${pl.id}/members`, { userId }); qc.invalidateQueries({ queryKey: ['playlist', pl.id] }); toast(tr('Теперь это и его/её плейлист', 'Now they own it too'), 'success'); },
+  });
+  const refresh = async () => {
+    setRefreshing(true);
+    try { await refreshPlaylist(pl.id); await qc.invalidateQueries({ queryKey: ['playlist', pl.id] }); toast(tr('Обновлено', 'Refreshed'), 'success'); }
+    catch (e: any) { toast(e.message, 'error'); } finally { setRefreshing(false); }
+  };
   const uploadCover = async (f: File) => {
     const fd = new FormData(); fd.append('file', f);
     await api.upload(`/api/playlists/${pl.id}/cover`, fd);
@@ -59,7 +74,11 @@ export default function Playlist() {
     <div>
       <Hero kind={t('playlist')} title={pl.title} cover={pl.coverUrl} mosaic={pl.mosaic} description={pl.description}
         meta={<>
-          <span className="md-title-sm">{pl.owner.displayName}</span>
+          <span className="flex items-center gap-1.5">
+            <span className="flex -space-x-2">{owners.slice(0, 4).map((o) => <Avatar key={o.id} user={o} className="w-6 h-6 md-label-sm" />)}</span>
+            <span className="md-title-sm">{owners.length <= 3 ? owners.map((o) => o.displayName).join(', ') : `${owners.slice(0, 2).map((o) => o.displayName).join(', ')} ${tr(`и ещё ${owners.length - 2}`, `and ${owners.length - 2} more`)}`}</span>
+          </span>
+          {autoLine && <span>· {autoLine}</span>}
           <span>· {tracksWord(pl.trackCount, lang)}{pl.durationMs ? `, ${fmtDurationLong(pl.durationMs, lang)}` : ''}</span>
           <m3e-icon variant="rounded" name={pl.isPublic ? 'public' : 'lock'} className="muted" style={{ ['--m3e-icon-size' as any]: '16px' }} />
         </>}>
@@ -67,13 +86,16 @@ export default function Playlist() {
         {pl.tracks.length > 0 && <M3eIconButton variant="tonal" size="medium" title={t('shuffle')} onClick={() => { if (!p.shuffle) p.toggleShuffle(); p.playTracks(pl.tracks, Math.floor(Math.random() * pl.tracks.length), `playlist:${pl.id}`); }}><m3e-icon variant="rounded" name="shuffle" /></M3eIconButton>}
         {user && !isOwner && <LikeButton type="playlist" id={pl.id} alwaysVisible buttonSize="medium" />}
         {isOwner && <M3eIconButton size="medium" title={t('editPlaylist')} onClick={() => setEditor({ id: pl.id, initial: { title: pl.title, description: pl.description, isPublic: pl.isPublic } })}><m3e-icon variant="rounded" name="edit" /></M3eIconButton>}
+        {isOwner && pl.autoKind && <M3eButton variant="tonal" disabled={refreshing || undefined} onClick={refresh}><m3e-icon variant="rounded" slot="icon" name="refresh" />{tr('Обновить', 'Refresh')}</M3eButton>}
+        {isOwner && pl.autoKind !== 'radar' && <M3eIconButton size="medium" title={tr('Добавить совладельца', 'Add a co-owner')} onClick={invite}><m3e-icon variant="rounded" name="group_add" /></M3eIconButton>}
+        {user && <M3eIconButton size="medium" title={tr('Отправить другу', 'Send to a friend')} onClick={() => sendToFriends('playlist', pl.id, pl.title)}><m3e-icon variant="rounded" name="send" /></M3eIconButton>}
         {isOwner && <><M3eButton variant="tonal" onClick={() => fileRef.current?.click()}><m3e-icon variant="rounded" slot="icon" name="image" />{t('uploadCover')}</M3eButton><input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => e.target.files?.[0] && uploadCover(e.target.files[0])} /></>}
         {user && pl.tracks.length > 0 && <M3eIconButton variant="outlined" size="medium" href={playlistZipUrl(pl.id)} title={t('downloadAll')}><m3e-icon variant="rounded" name="download" /></M3eIconButton>}
         <OfflineToggle tracks={pl.tracks} />
         <M3eIconButton size="medium" aria-label="menu" onClick={(e: any) => openMenu(e.clientX, e.clientY, { kind: 'playlist', playlist: pl })}><m3e-icon variant="rounded" name="more_vert" /></M3eIconButton>
       </Hero>
       <div className="page">
-        {pl.tracks.length ? <TrackList tracks={pl.tracks} context={`playlist:${pl.id}`} showAddedAt playlistId={pl.id} canRemove={isOwner} /> : <EmptyState icon="queue_music" title={t('emptyPlaylist')} hint={t('emptyPlaylistHint')} />}
+        {pl.tracks.length ? <TrackList tracks={pl.tracks} context={`playlist:${pl.id}`} showAddedAt showAddedBy={owners.length > 1 || pl.autoKind === 'blend'} addedByTaste={pl.autoKind === 'blend'} playlistId={pl.id} canRemove={isOwner} /> : <EmptyState icon="queue_music" title={t('emptyPlaylist')} hint={t('emptyPlaylistHint')} />}
         {isOwner && (
           <section className="mt-10 max-w-3xl">
             <h2 className="md-headline-sm emph mb-3">{t('addToPlaylist')}</h2>

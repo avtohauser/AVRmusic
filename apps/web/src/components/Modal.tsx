@@ -7,8 +7,8 @@ export function Modal({ open, onClose, title, children, width = 'max-w-md' }: { 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    if (open && !el.open) el.show?.();
-    if (!open && el.open) el.hide?.();
+    // the property (not show()/hide()) keeps the element's own open state in step, so closing from code works
+    el.open = open;
   }, [open]);
   useEffect(() => {
     const el = ref.current;

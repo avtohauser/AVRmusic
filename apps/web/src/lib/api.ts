@@ -118,7 +118,7 @@ export function mediaUrl(path: string): string {
   const t = getMediaToken();
   return t ? `${path}${path.includes('?') ? '&' : '?'}t=${encodeURIComponent(t)}` : path;
 }
-export const streamUrl = (trackId: string) => mediaUrl(`/api/stream/${trackId}`);
+export const streamUrl = (trackId: string) => mediaUrl(trackId.startsWith('dz:') ? `/api/catalog/stream/${trackId.slice(3)}` : `/api/stream/${trackId}`);
 export const downloadUrl = (trackId: string) => mediaUrl(`/api/download/${trackId}`);
 export const albumZipUrl = (albumId: string) => mediaUrl(`/api/download/album/${albumId}`);
 export const playlistZipUrl = (playlistId: string) => mediaUrl(`/api/download/playlist/${playlistId}`);

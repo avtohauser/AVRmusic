@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { M3eAssistChip, M3eButton, M3eButtonSegment, M3eFilterChip, M3eFilterChipSet, M3eSearchBar, M3eSegmentedButton } from '@/md';
+import { M3eAssistChip, M3eButton, M3eButtonSegment, M3eIconButton, M3eFilterChip, M3eFilterChipSet, M3eSearchBar, M3eSegmentedButton } from '@/md';
 import { useCatalogSearch, useGenres, useSearch } from '@/lib/queries';
 import { useDebounced } from '@/lib/hooks';
 import { useT } from '@/lib/i18n';
@@ -17,12 +17,15 @@ import { EmptyState } from '@/components/EmptyState';
 import { TrackListSkeleton } from '@/components/Skeleton';
 import type { AlbumSummary, ArtistSummary, PlaylistSummary, Track } from '@avrmusic/shared';
 import { rememberSearch } from '@/lib/nav';
+import { useTr } from '@/lib/social';
+import { playCatalog } from '@/lib/instant';
+import { useVoiceInput } from '@/lib/voice';
 
 const RECENT_KEY = 'avr.recentSearches';
 const loadRecent = (): string[] => { try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); } catch { return []; } };
 const SCOPE_KEY = 'avr.searchScope';
 const loadScope = (): 'library' | 'catalog' => { try { return localStorage.getItem(SCOPE_KEY) === 'catalog' ? 'catalog' : 'library'; } catch { return 'library'; } };
-type Type = 'all' | 'track' | 'album' | 'artist' | 'playlist';
+type Type = 'all' | 'track' | 'album' | 'artist' | 'playlist' | 'lyrics';
 
 export default function Search() {
   const [params, setParams] = useSearchParams();
@@ -38,8 +41,10 @@ export default function Search() {
   const isFetching = scope === 'library' ? libFetching : catFetching;
   const { data: genres } = useGenres();
   const t = useT();
+  const tr = useTr();
   const inputRef = useRef<HTMLInputElement>(null);
   const [recent, setRecent] = useState<string[]>(loadRecent);
+  const voice = useVoiceInput((text) => setQ(text));
 
   useEffect(() => { if (initial !== q) setQ(initial); }, [initial]);
   useEffect(() => { if (!initial) inputRef.current?.focus(); }, []);
@@ -55,8 +60,8 @@ export default function Search() {
     rememberSearch(`?${sp.toString()}`);
   }, [dq, scope]);
 
-  const tabs: Array<[Type, string]> = [['all', t('all')], ['track', t('tracks')], ['artist', t('artists')], ['album', t('albums')], ['playlist', t('playlists')]];
-  const hasResults = !!data && !!(data.tracks.length || data.albums.length || data.artists.length || data.playlists.length);
+  const tabs: Array<[Type, string]> = [['all', t('all')], ['track', t('tracks')], ['artist', t('artists')], ['album', t('albums')], ['playlist', t('playlists')], ['lyrics', tr('По тексту', 'By lyrics')]];
+  const hasResults = !!data && !!(data.tracks.length || data.albums.length || data.artists.length || data.playlists.length || data.lyrics?.length);
 
   return (
     <div className="page pt-2">
@@ -64,6 +69,7 @@ export default function Search() {
         <M3eSearchBar clearable className="!max-w-none" onClear={() => { setQ(''); inputRef.current?.focus(); }}>
           <m3e-icon variant="rounded" slot="leading" name="search" />
           <input ref={inputRef} slot="input" className="md-input md-body-lg" placeholder={t('searchPlaceholder')} value={q} onChange={(e) => setQ(e.target.value)} enterKeyHint="search" />
+          {voice.supported && <M3eIconButton slot="trailing" toggle selected={voice.listening || undefined} title={tr('Сказать голосом', 'Say it')} onClick={voice.start}><m3e-icon variant="rounded" name="mic" /><m3e-icon variant="rounded" slot="selected" name="mic" filled style={{ color: 'var(--md-sys-color-error)' }} /></M3eIconButton>}
         </M3eSearchBar>
         {info?.catalog && (
           <div className="mt-3">
@@ -117,10 +123,12 @@ export default function Search() {
           {data.artists.length > 0 && <Shelf title={t('artists')}>{data.artists.map((a) => <ArtistCard key={a.id} artist={a} />)}</Shelf>}
           {data.albums.length > 0 && <Shelf title={t('albums')}>{data.albums.map((a) => <AlbumCard key={a.id} album={a} />)}</Shelf>}
           {data.playlists.length > 0 && <Shelf title={t('playlists')}>{data.playlists.map((p) => <PlaylistCard key={p.id} playlist={p} />)}</Shelf>}
+          {!!data.lyrics?.length && <LyricsHits hits={data.lyrics.slice(0, 5)} q={dq} />}
         </div>
       )}
+      {data && type === 'lyrics' && (data.lyrics?.length ? <LyricsHits hits={data.lyrics} q={dq} /> : <EmptyState icon="lyrics" title={tr('Ни в одной песне нет такой строчки', 'No song has that line')} hint={tr('Попробуйте пару слов из припева', 'Try a couple of words from the chorus')} />)}
       {data && type === 'track' && <TrackList tracks={data.tracks} context={`search:${dq}`} />}
-      {data && type !== 'all' && type !== 'track' && (
+      {data && type !== 'all' && type !== 'track' && type !== 'lyrics' && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2 fade-in [&>*]:w-full">
           {type === 'artist' && data.artists.map((a) => <ArtistCard key={a.id} artist={a} />)}
           {type === 'album' && data.albums.map((a) => <AlbumCard key={a.id} album={a} />)}
@@ -175,7 +183,7 @@ function CatalogResults({ q, data, fetching }: { q: string; data: ReturnType<typ
               <div className="mt-4">
                 {top.kind === 'artist' && <AcquireButton kind="artist" id={top.item.id} title={`${top.item.name} — дискография`} label />}
                 {top.kind === 'album' && <AcquireButton kind="album" id={top.item.id} title={`${top.item.artist.name} — ${top.item.title} (альбом)`} done={top.item.trackCount > 0 && top.item.inLibrary >= top.item.trackCount} label />}
-                {top.kind === 'track' && <AcquireButton kind="track" id={top.item.id} title={`${top.item.artist.name} — ${top.item.title}`} done={!!top.item.libraryTrackId} label />}
+                {top.kind === 'track' && <div className="flex flex-wrap gap-2"><M3eButton variant="filled" onClick={(e: any) => { e.preventDefault(); void playCatalog([top.item], 0); }}><m3e-icon variant="rounded" slot="icon" name="play_arrow" filled />{t('play')}</M3eButton><AcquireButton kind="track" id={top.item.id} title={`${top.item.artist.name} — ${top.item.title}`} done={!!top.item.libraryTrackId} label /></div>}
               </div>
             </Link>
           </div>
@@ -183,13 +191,39 @@ function CatalogResults({ q, data, fetching }: { q: string; data: ReturnType<typ
         {data.tracks.length > 0 && (
           <div>
             <h2 className="md-title-lg emph mb-2">{t('tracks')}</h2>
-            {data.tracks.slice(0, 6).map((tr) => <CatalogTrackRow key={tr.id} track={tr} />)}
+            {data.tracks.slice(0, 6).map((x, i) => <CatalogTrackRow key={x.id} track={x} index={i} list={data.tracks} context={`catalog-search:${q}`} />)}
           </div>
         )}
       </div>
       {data.artists.length > 0 && <Shelf title={t('artists')}>{data.artists.map((a) => <CatalogArtistCard key={a.id} artist={a} />)}</Shelf>}
       {data.albums.length > 0 && <Shelf title={t('albums')}>{data.albums.map((a) => <CatalogAlbumCard key={a.id} album={a} />)}</Shelf>}
-      {data.tracks.length > 6 && <><h2 className="md-title-lg emph mb-2">{t('tracks')}</h2>{data.tracks.slice(6).map((tr) => <CatalogTrackRow key={tr.id} track={tr} />)}</>}
+      {data.tracks.length > 6 && <><h2 className="md-title-lg emph mb-2">{t('tracks')}</h2>{data.tracks.slice(6).map((x, i) => <CatalogTrackRow key={x.id} track={x} index={i + 6} list={data.tracks} context={`catalog-search:${q}`} />)}</>}
     </div>
+  );
+}
+
+/** Songs found by a line of their lyrics: the line, with the words searched for marked. */
+function LyricsHits({ hits, q }: { hits: Array<{ track: Track; line: string }>; q: string }) {
+  const tr = useTr();
+  const play = usePlayer.getState().playTracks;
+  const words = q.toLowerCase().split(/\s+/).filter((w) => w.length > 1);
+  const mark = (line: string) => line.split(/(\s+)/).map((w, i) => (words.some((x) => w.toLowerCase().includes(x)) ? <mark key={i} className="bg-transparent text-primary font-semibold">{w}</mark> : w));
+  const list = hits.map((h) => h.track);
+  return (
+    <section className="mb-8">
+      <h2 className="md-title-lg emph mb-2 flex items-center gap-2"><m3e-icon variant="rounded" name="lyrics" />{tr('По строчке из песни', 'By a line of the song')}</h2>
+      <div className="space-y-1">
+        {hits.map((h, i) => (
+          <button key={h.track.id} className="w-full flex items-center gap-3 p-2 rounded-[20px] state-layer text-left" onClick={() => play(list, i, `search-lyrics:${q}`)}>
+            <Cover src={h.track.coverUrl} className="w-12 h-12 !rounded-[12px]" />
+            <span className="min-w-0 flex-1">
+              <span className="block md-body-lg italic line-1">«{mark(h.line)}»</span>
+              <span className="block md-body-sm muted line-1">{h.track.artist.name} — {h.track.title}</span>
+            </span>
+            <m3e-icon variant="rounded" name="play_arrow" filled />
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }

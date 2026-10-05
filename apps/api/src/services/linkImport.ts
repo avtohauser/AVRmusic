@@ -3,12 +3,12 @@
 // soon as it is in. Runs as a fetch job, so it shows in "Загрузки на сервер" with its progress.
 import type { DB } from '../lib/db.js';
 import type { Job, JobApi } from './jobs.js';
-import { findLibraryTrack, rawSearchTracks } from './catalog.js';
+import { findLibraryTrack, rawSearchTracks, rawTrackByIsrc } from './catalog.js';
 import { acquireTrack, type AcquireOutcome } from './acquire.js';
 import { addTracks, createPlaylist } from './playlists.js';
 import { indexPlaylist } from './search.js';
 
-export interface LinkTrack { artist: string; title: string; durationSec?: number | null }
+export interface LinkTrack { artist: string; title: string; durationSec?: number | null; isrc?: string | null }
 export interface LinkList { source: 'spotify' | 'yandex'; title: string; tracks: LinkTrack[] }
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
@@ -19,7 +19,7 @@ async function getText(url: string): Promise<string> {
   return r.text();
 }
 
-async function getJson(url: string): Promise<any> {
+export async function getJson(url: string): Promise<any> {
   return JSON.parse(await getText(url));
 }
 
@@ -92,7 +92,9 @@ export async function readLink(raw: string): Promise<LinkList> {
 const norm = (s: string) => s.toLowerCase().replace(/\([^)]*\)|\[[^\]]*\]/g, ' ').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 
 /** The catalogue's recording for a song from another service. */
-async function findInCatalogue(db: DB, t: LinkTrack): Promise<any | null> {
+export async function findInCatalogue(db: DB, t: LinkTrack): Promise<any | null> {
+  // the exact recording, when the other service told its ISRC
+  if (t.isrc) { const exact = await rawTrackByIsrc(db, t.isrc); if (exact) return exact; }
   const results = await rawSearchTracks(db, `artist:"${t.artist}" track:"${t.title.replace(/\s*\(.*$/, '')}"`, 10).catch(() => [] as any[]);
   const more = results.length ? results : await rawSearchTracks(db, `${t.artist} ${t.title}`, 10).catch(() => [] as any[]);
   const wantT = norm(t.title), wantA = norm(t.artist);

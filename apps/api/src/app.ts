@@ -22,9 +22,12 @@ import catalogRoutes from './routes/catalog.js';
 import waveRoutes from './routes/wave.js';
 import newsRoutes from './routes/news.js';
 import socialRoutes from './routes/social.js';
+import transferRoutes from './routes/transfer.js';
 import recognizeRoutes from './routes/recognize.js';
 import { registerRunners } from './services/runners.js';
 import { startAnalysis } from './services/analyze.js';
+import { startAutoPlaylists } from './services/blend.js';
+import { startReleaseWatch } from './services/releases.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -42,6 +45,8 @@ export async function buildApp(opts: { db?: DB; logger?: boolean } = {}): Promis
   app.decorate('db', opts.db ?? openDatabase());
   registerRunners(app.db);
   if (process.env.ANALYZE !== 'false') startAnalysis(app.db);
+  // blends and release radars refill themselves; new releases of followed artists are watched for
+  if (process.env.BACKGROUND !== 'false') { startAutoPlaylists(app.db); startReleaseWatch(app.db); }
 
   // set before the routes: route plugins take the error handler that exists when they are registered
   app.setErrorHandler((err: any, req, reply) => {
@@ -74,6 +79,7 @@ export async function buildApp(opts: { db?: DB; logger?: boolean } = {}): Promis
   await app.register(waveRoutes);
   await app.register(newsRoutes);
   await app.register(socialRoutes);
+  await app.register(transferRoutes);
   await app.register(recognizeRoutes);
 
   app.get('/api/health', async () => ({ ok: true, version: config.version }));

@@ -6,7 +6,7 @@ import { nowIso } from '../lib/db.js';
 import { forbidden, notFound } from '../lib/errors.js';
 
 export const PLAYLIST_SELECT = `
-  p.id, p.title, p.description, p.cover_path, p.is_public, p.created_at, p.updated_at,
+  p.id, p.title, p.description, p.cover_path, p.is_public, p.created_at, p.updated_at, p.auto_kind, p.auto_at,
   u.id AS owner_id, u.username AS owner_username, u.display_name AS owner_name,
   (SELECT COUNT(*) FROM playlist_tracks pt WHERE pt.playlist_id = p.id) AS track_count,
   (SELECT COALESCE(SUM(t.duration_ms),0) FROM playlist_tracks pt JOIN tracks t ON t.id = pt.track_id WHERE pt.playlist_id = p.id) AS duration_ms
@@ -32,11 +32,14 @@ export function mapPlaylistSummary(db: DB, r: any, userId?: string | null): Play
     durationMs: r.duration_ms,
     updatedAt: r.updated_at,
     mosaic: mosaicFor(db, r.id),
+    autoKind: r.auto_kind ?? null,
   };
   if (userId) {
     s.liked = isLiked(db, userId, 'playlist', r.id);
-    s.isOwner = r.owner_id === userId;
-    s.canEdit = s.isOwner || isMember(db, r.id, userId);
+    // everyone who keeps a playlist together owns it; only its creator can delete it
+    s.isCreator = r.owner_id === userId;
+    s.isOwner = s.isCreator || isMember(db, r.id, userId);
+    s.canEdit = s.isOwner;
   }
   return s;
 }
@@ -67,7 +70,9 @@ export function getPlaylist(db: DB, id: string, userId?: string | null): Playlis
     for (const u of db.prepare('SELECT id, display_name, avatar_path FROM users').all() as any[]) people.set(u.id, { id: u.id, displayName: u.display_name, avatarUrl: avatarUrl(u.avatar_path) });
     tracks.forEach((t, i) => { t.addedBy = rows[i].added_by ? people.get(rows[i].added_by) ?? null : null; });
   }
-  return { ...mapPlaylistSummary(db, r, userId), tracks, members, canEdit: !!userId && (r.owner_id === userId || member) };
+  const creator = db.prepare('SELECT id, display_name, avatar_path FROM users WHERE id = ?').get(r.owner_id) as any;
+  const owners: FriendRef[] = [...(creator ? [{ id: creator.id, displayName: creator.display_name, avatarUrl: avatarUrl(creator.avatar_path) }] : []), ...members];
+  return { ...mapPlaylistSummary(db, r, userId), tracks, members, owners, canEdit: !!userId && (r.owner_id === userId || member) };
 }
 
 export function listUserPlaylists(db: DB, userId: string): PlaylistSummary[] {

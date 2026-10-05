@@ -1,5 +1,5 @@
 import type { DB } from '../lib/db.js';
-import type { SearchResult, PlaylistSummary } from '@avrmusic/shared';
+import type { SearchResult, PlaylistSummary, Track } from '@avrmusic/shared';
 import { ALBUM_FROM, ALBUM_SELECT, TRACK_FROM, TRACK_SELECT, mapAlbumSummary, mapArtistSummary, mapTracks } from './library.js';
 import { PLAYLIST_FROM, PLAYLIST_SELECT, mapPlaylistSummary } from './playlists.js';
 
@@ -81,6 +81,7 @@ export function search(db: DB, q: string, userId: string | null, opts: { limit?:
   const type = opts.type ?? 'all';
   const want = (k: Kind) => type === 'all' || type === k;
   const empty: SearchResult = { query: q, top: null, tracks: [], albums: [], artists: [], playlists: [] };
+  if ((type as string) === 'lyrics') return { ...empty, lyrics: searchLyrics(db, q.trim(), userId, 30) };
   q = q.trim();
   if (!q) return empty;
 
@@ -133,7 +134,39 @@ export function search(db: DB, q: string, userId: string | null, opts: { limit?:
   else if (result.tracks[0]) result.top = { kind: 'track', item: result.tracks[0] };
   else if (result.albums[0]) result.top = { kind: 'album', item: result.albums[0] };
   else if (result.playlists[0]) result.top = { kind: 'playlist', item: result.playlists[0] };
+  if (type === 'all' || (type as string) === 'lyrics') result.lyrics = searchLyrics(db, q, userId, type === 'all' ? 6 : 30);
   return result;
+}
+
+/** Songs whose lyrics have these words, with the line they are in ("по строчке из песни"). */
+export function searchLyrics(db: DB, q: string, userId: string | null, limit = 8): Array<{ track: Track; line: string }> {
+  const words = q.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length > 1);
+  // a line of a song: at least two words or one long one
+  if (!words.length || (words.length < 2 && words[0].length < 5)) return [];
+  let rows: any[] = [];
+  try {
+    rows = db.prepare(`SELECT track_id, text FROM lyrics_index WHERE lyrics_index MATCH ? ORDER BY bm25(lyrics_index) LIMIT ?`)
+      .all(words.map((w) => `"${w}"*`).join(' '), limit * 3) as any[];
+  } catch { return []; }
+  const norm = (s: string) => s.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const out: Array<{ id: string; line: string; score: number }> = [];
+  for (const r of rows) {
+    // the line with the most of the words (timestamps of synced lyrics left out)
+    const lines = String(r.text).split(/\r?\n/).map((l) => l.replace(/\[[^\]]*\]|<[^>]*>/g, '').trim()).filter(Boolean);
+    let best = '', bestScore = 0;
+    for (const l of lines) {
+      const n = norm(l);
+      const score = words.filter((w) => n.includes(w)).length;
+      if (score > bestScore) { best = l; bestScore = score; }
+    }
+    if (bestScore) out.push({ id: r.track_id, line: best, score: bestScore });
+  }
+  out.sort((a, b) => b.score - a.score);
+  const ids = [...new Set(out.map((o) => o.id))].slice(0, limit);
+  if (!ids.length) return [];
+  const trackRows = db.prepare(`SELECT ${TRACK_SELECT} ${TRACK_FROM} WHERE t.id IN (${ids.map(() => '?').join(',')})`).all(...ids) as any[];
+  const byId = new Map(mapTracks(db, trackRows, userId).map((t) => [t.id, t]));
+  return ids.map((id) => ({ track: byId.get(id)!, line: out.find((o) => o.id === id)!.line })).filter((x) => x.track);
 }
 
 export function suggest(db: DB, q: string, limit = 8): Array<{ kind: Kind; id: string; title: string; subtitle: string }> {

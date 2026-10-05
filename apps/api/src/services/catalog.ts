@@ -256,6 +256,12 @@ export async function rawArtistFeatures(db: DB, artist: { id: number | string; n
   return out;
 }
 export const rawTrack = (db: DB, id: number) => dz(db, `/track/${id}`);
+/** The catalogue's recording with this ISRC (null when there is none). */
+export const rawTrackByIsrc = async (db: DB, isrc: string): Promise<any | null> => {
+  const r = await dz(db, `/track/isrc:${encodeURIComponent(isrc)}`).catch(() => null);
+  return r && r.id && !r.error ? r : null;
+};
+export const rawSearchArtists = async (db: DB, q: string, limit = 5): Promise<any[]> => ((await dz(db, `/search/artist?q=${encodeURIComponent(q)}&limit=${limit}`, TTL_MS.search).catch(() => ({ data: [] }))).data ?? []);
 /** Raw catalogue track search (used by the acquisition dry run). */
 export const rawSearchTracks = async (db: DB, q: string, limit = 25): Promise<any[]> => ((await dz(db, `/search/track?q=${encodeURIComponent(q)}&limit=${limit}`, TTL_MS.search)).data ?? []);
 

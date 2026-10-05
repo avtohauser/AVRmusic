@@ -5,6 +5,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { badRequest, forbidden, notFound } from '../lib/errors.js';
 import { newId } from '../lib/util.js';
+import { enqueue } from '../services/jobs.js';
 import { ALBUM_FROM, ALBUM_SELECT, avatarUrl, getTrack, mapAlbumSummary, mapArtistSummary } from '../services/library.js';
 import { PLAYLIST_FROM, PLAYLIST_SELECT, mapPlaylistSummary } from '../services/playlists.js';
 import { applyJam, friendRef, getJam, jamOf, jamView, joinJam, leaveJam, listJams, nowPlaying, setNowPlaying, startJam, waitJam, type JamOp } from '../services/social.js';
@@ -63,8 +64,16 @@ export default async function socialRoutes(app: FastifyInstance) {
 
   /* ---------- sending things to friends ---------- */
 
-  const resolveRef = (kind: string, refId: string, viewer: string): any => {
+  const resolveRef = (kind: string, refId: string, viewer: string, message = ''): any => {
     switch (kind) {
+      // a new release announced by the server: what the catalogue said, and the library album once it is fetched
+      case 'release': {
+        let info: any = {};
+        try { info = JSON.parse(message); } catch { /* old */ }
+        const lib = db.prepare('SELECT id FROM albums WHERE deezer_id = ?').get(Number(refId)) as any;
+        return { id: Number(refId), title: info.title ?? '', artist: info.artist ?? '', coverUrl: info.coverUrl ?? null, type: info.type ?? 'album', year: info.year ?? null, libraryAlbumId: lib?.id ?? null };
+      }
+      case 'report': return getTrack(db, refId, viewer);
       case 'track': return getTrack(db, refId, viewer);
       case 'album': { const r = db.prepare(`SELECT ${ALBUM_SELECT} ${ALBUM_FROM} WHERE al.id = ?`).get(refId); return r ? mapAlbumSummary(r) : null; }
       case 'artist': { const r = db.prepare('SELECT id, name, image_path FROM artists WHERE id = ?').get(refId); return r ? mapArtistSummary(r) : null; }
@@ -75,8 +84,8 @@ export default async function socialRoutes(app: FastifyInstance) {
     }
   };
   const mapShare = (r: any, viewer: string) => ({
-    id: r.id, from: friendRef(db, r.from_user), kind: r.kind, refId: r.ref_id, item: resolveRef(r.kind, r.ref_id, viewer),
-    message: r.message, seen: !!r.seen, createdAt: r.created_at,
+    id: r.id, from: r.from_user ? friendRef(db, r.from_user) : null, kind: r.kind, refId: r.ref_id, item: resolveRef(r.kind, r.ref_id, viewer, r.message),
+    message: r.kind === 'release' ? 'release' : r.message, seen: !!r.seen, createdAt: r.created_at,
   });
 
   app.post('/api/shares', auth, async (req) => {
@@ -135,6 +144,67 @@ export default async function socialRoutes(app: FastifyInstance) {
     if (r.user_id !== req.userId && req.userRole !== 'admin') throw forbidden('Это не ваша реакция');
     db.prepare('DELETE FROM reactions WHERE id = ?').run(r.id);
     return { ok: true };
+  });
+
+  /* ---------- reports of wrong tracks ---------- */
+
+  const REASONS = ['wrong', 'quality', 'cut', 'other'] as const;
+  const resolveTrack = (id: string): string | null => {
+    if (id.startsWith('dz:')) return (db.prepare('SELECT id FROM tracks WHERE deezer_id = ?').get(Number(id.slice(3))) as any)?.id ?? null;
+    return db.prepare('SELECT 1 FROM tracks WHERE id = ?').get(id) ? id : null;
+  };
+
+  /** "Не та версия", "плохой звук", "обрезан": the admin sees it and fetches the track again in one tap. */
+  app.post('/api/tracks/:id/report', auth, async (req) => {
+    const trackId = resolveTrack((req.params as any).id);
+    if (!trackId) throw notFound('Трек не найден');
+    const b = z.object({ reason: z.enum(REASONS), note: z.string().trim().max(500).default('') }).parse(req.body ?? {});
+    const open = db.prepare("SELECT id FROM track_reports WHERE track_id = ? AND user_id = ? AND status = 'open'").get(trackId, req.userId!) as any;
+    if (open) { db.prepare('UPDATE track_reports SET reason = ?, note = ? WHERE id = ?').run(b.reason, b.note, open.id); return { ok: true }; }
+    db.prepare('INSERT INTO track_reports (id, track_id, user_id, reason, note) VALUES (?,?,?,?,?)').run(newId(), trackId, req.userId!, b.reason, b.note);
+    // the admins get a notification
+    for (const a of db.prepare("SELECT id FROM users WHERE role = 'admin' AND disabled = 0 AND id <> ?").all(req.userId!) as any[]) {
+      db.prepare('INSERT INTO shares (id, from_user, to_user, kind, ref_id, message) VALUES (?,?,?,?,?,?)').run(newId(), req.userId!, a.id, 'report', trackId, b.reason);
+    }
+    return { ok: true };
+  });
+
+  app.get('/api/admin/reports', { preHandler: app.requireAdmin }, async (req) => {
+    const rows = db.prepare(`SELECT r.*, u.display_name reporter FROM track_reports r LEFT JOIN users u ON u.id = r.user_id
+      WHERE r.status = 'open' ORDER BY r.created_at DESC LIMIT 200`).all() as any[];
+    return rows.map((r) => ({ id: r.id, reason: r.reason, note: r.note, createdAt: r.created_at, reporter: r.reporter ?? null, track: getTrack(db, r.track_id, req.userId) })).filter((r) => r.track);
+  });
+
+  /** Fetch the reported track again (another source); the report is closed. */
+  app.post('/api/admin/reports/:id/refetch', { preHandler: app.requireAdmin }, async (req) => {
+    const r = db.prepare('SELECT * FROM track_reports WHERE id = ?').get((req.params as any).id) as any;
+    if (!r) throw notFound('Жалоба не найдена');
+    const t = db.prepare('SELECT t.title, a.name artist FROM tracks t JOIN artists a ON a.id = t.artist_id WHERE t.id = ?').get(r.track_id) as any;
+    const job = enqueue({ kind: 'acquire', title: `Перекачать: ${t?.artist ?? ''} — ${t?.title ?? ''}`, requestedBy: req.userId }, { kind: 'refetch', trackIds: [r.track_id] });
+    db.prepare("UPDATE track_reports SET status = 'fixed', resolved_at = ? WHERE track_id = ? AND status = 'open'").run(new Date().toISOString(), r.track_id);
+    return { jobId: job.id };
+  });
+
+  app.post('/api/admin/reports/:id/dismiss', { preHandler: app.requireAdmin }, async (req) => {
+    db.prepare("UPDATE track_reports SET status = 'dismissed', resolved_at = ? WHERE id = ?").run(new Date().toISOString(), (req.params as any).id);
+    return { ok: true };
+  });
+
+  /* ---------- following catalogue artists (new releases) ---------- */
+
+  app.get('/api/me/follows', auth, async (req) =>
+    (db.prepare('SELECT deezer_artist_id id, name, created_at FROM artist_follows WHERE user_id = ? ORDER BY created_at DESC').all(req.userId!) as any[]));
+
+  app.put('/api/catalog/artists/:id/follow', auth, async (req) => {
+    const id = Number((req.params as any).id);
+    const b = z.object({ name: z.string().max(200).default('') }).parse(req.body ?? {});
+    db.prepare('INSERT OR IGNORE INTO artist_follows (user_id, deezer_artist_id, name) VALUES (?,?,?)').run(req.userId!, id, b.name);
+    return { following: true };
+  });
+
+  app.delete('/api/catalog/artists/:id/follow', auth, async (req) => {
+    db.prepare('DELETE FROM artist_follows WHERE user_id = ? AND deezer_artist_id = ?').run(req.userId!, Number((req.params as any).id));
+    return { following: false };
   });
 
   /* ---------- listen together ---------- */

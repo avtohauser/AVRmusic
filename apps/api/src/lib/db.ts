@@ -308,6 +308,73 @@ const MIGRATIONS: string[] = [
   ALTER TABLE tracks ADD COLUMN bpm REAL;
   ALTER TABLE tracks ADD COLUMN loudness REAL;
   `,
+  // 14: notices from the server itself in the inbox (a share with no sender: new releases), reports of
+  //     wrong tracks, followed catalogue artists and the releases already announced, likes waiting for
+  //     a song still being fetched, playlists filled by the server (a blend of friends, the release radar)
+  `
+  CREATE TABLE shares_new (
+    id TEXT PRIMARY KEY,
+    from_user TEXT REFERENCES users(id) ON DELETE CASCADE,
+    to_user TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL,
+    ref_id TEXT NOT NULL,
+    message TEXT NOT NULL DEFAULT '',
+    seen INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+  );
+  INSERT INTO shares_new SELECT id, from_user, to_user, kind, ref_id, message, seen, created_at FROM shares;
+  DROP TABLE shares;
+  ALTER TABLE shares_new RENAME TO shares;
+  CREATE INDEX idx_shares_to ON shares(to_user, created_at);
+  CREATE TABLE track_reports (
+    id TEXT PRIMARY KEY,
+    track_id TEXT NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
+    user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+    reason TEXT NOT NULL,
+    note TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'open',
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    resolved_at TEXT
+  );
+  CREATE INDEX idx_reports_status ON track_reports(status, created_at);
+  CREATE TABLE artist_follows (
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    deezer_artist_id INTEGER NOT NULL,
+    name TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    PRIMARY KEY (user_id, deezer_artist_id)
+  );
+  CREATE TABLE release_seen (
+    artist_deezer_id INTEGER NOT NULL,
+    album_deezer_id INTEGER NOT NULL,
+    seen_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    PRIMARY KEY (artist_deezer_id, album_deezer_id)
+  );
+  CREATE TABLE pending_likes (
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    deezer_id INTEGER NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    PRIMARY KEY (user_id, deezer_id)
+  );
+  ALTER TABLE playlists ADD COLUMN auto_kind TEXT;
+  ALTER TABLE playlists ADD COLUMN auto_at TEXT;
+  ALTER TABLE playlist_tracks ADD COLUMN auto INTEGER NOT NULL DEFAULT 0;
+  `,
+  // 15: search by a line of the lyrics, kept up to date by triggers whenever a track's lyrics change
+  `
+  CREATE VIRTUAL TABLE lyrics_index USING fts5(track_id UNINDEXED, text, tokenize = 'unicode61 remove_diacritics 2');
+  INSERT INTO lyrics_index(track_id, text) SELECT id, COALESCE(lyrics_plain, lyrics_synced) FROM tracks WHERE COALESCE(lyrics_plain, lyrics_synced) IS NOT NULL;
+  CREATE TRIGGER tracks_lyrics_ins AFTER INSERT ON tracks WHEN COALESCE(NEW.lyrics_plain, NEW.lyrics_synced) IS NOT NULL BEGIN
+    INSERT INTO lyrics_index(track_id, text) VALUES (NEW.id, COALESCE(NEW.lyrics_plain, NEW.lyrics_synced));
+  END;
+  CREATE TRIGGER tracks_lyrics_upd AFTER UPDATE OF lyrics_plain, lyrics_synced ON tracks BEGIN
+    DELETE FROM lyrics_index WHERE track_id = OLD.id;
+    INSERT INTO lyrics_index(track_id, text) SELECT NEW.id, COALESCE(NEW.lyrics_plain, NEW.lyrics_synced) WHERE COALESCE(NEW.lyrics_plain, NEW.lyrics_synced) IS NOT NULL;
+  END;
+  CREATE TRIGGER tracks_lyrics_del AFTER DELETE ON tracks BEGIN
+    DELETE FROM lyrics_index WHERE track_id = OLD.id;
+  END;
+  `,
 ];
 
 export function openDatabase(dbPath = config.dbPath): DB {

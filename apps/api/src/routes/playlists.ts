@@ -8,6 +8,7 @@ import { newId } from '../lib/util.js';
 import { indexPlaylist, removeFromIndex } from '../services/search.js';
 import { saveUploadedImage } from '../lib/uploads.js';
 import { config } from '../config.js';
+import { createBlend, radarOf, refreshAuto } from '../services/blend.js';
 
 export default async function playlistRoutes(app: FastifyInstance) {
   const db = app.db;
@@ -31,7 +32,7 @@ export default async function playlistRoutes(app: FastifyInstance) {
 
   app.patch('/api/playlists/:id', { preHandler: app.authenticate }, async (req) => {
     const id = (req.params as any).id;
-    assertOwner(db, id, req.userId!, req.userRole!);
+    assertCanEdit(db, id, req.userId!, req.userRole!);
     const body = z.object({ title: z.string().min(1).max(120).optional(), description: z.string().max(500).nullable().optional(), isPublic: z.boolean().optional() }).parse(req.body ?? {});
     if (body.title !== undefined) db.prepare('UPDATE playlists SET title = ? WHERE id = ?').run(body.title, id);
     if (body.description !== undefined) db.prepare('UPDATE playlists SET description = ? WHERE id = ?').run(body.description, id);
@@ -76,7 +77,7 @@ export default async function playlistRoutes(app: FastifyInstance) {
 
   app.post('/api/playlists/:id/cover', { preHandler: app.authenticate }, async (req) => {
     const id = (req.params as any).id;
-    const p = assertOwner(db, id, req.userId!, req.userRole!);
+    const p = assertCanEdit(db, id, req.userId!, req.userRole!);
     const file = await req.file();
     if (!file) throw badRequest('Файл не передан');
     const name = await saveUploadedImage(file, config.coversDir);
@@ -88,12 +89,12 @@ export default async function playlistRoutes(app: FastifyInstance) {
 
   /* ---------- edited together ---------- */
 
-  /** The owner invites a friend to edit the playlist (they get it in their inbox). */
+  /** An owner invites a friend to own the playlist too (they get it in their inbox). */
   app.post('/api/playlists/:id/members', { preHandler: app.authenticate }, async (req) => {
     const id = (req.params as any).id;
-    assertOwner(db, id, req.userId!, req.userRole!);
+    const pl = assertCanEdit(db, id, req.userId!, req.userRole!);
     const body = z.object({ userId: z.string() }).parse(req.body ?? {});
-    if (body.userId === req.userId) throw badRequest('Вы и так владелец');
+    if (body.userId === req.userId || body.userId === pl.owner_id) throw badRequest('Он(а) и так владелец');
     if (!db.prepare('SELECT 1 FROM users WHERE id = ? AND disabled = 0').get(body.userId)) throw notFound('Пользователь не найден');
     const r = db.prepare('INSERT OR IGNORE INTO playlist_members (playlist_id, user_id) VALUES (?, ?)').run(id, body.userId);
     if (r.changes) db.prepare(`INSERT INTO shares (id, from_user, to_user, kind, ref_id, message) VALUES (?,?,?,?,?,?)`).run(newId(), req.userId!, body.userId, 'playlist', id, 'invite');
@@ -101,7 +102,27 @@ export default async function playlistRoutes(app: FastifyInstance) {
     return getPlaylist(db, id, req.userId);
   });
 
-  /** The owner removes a member, or a member leaves. */
+  /** A blend: a playlist of several owners the server fills from each one's taste, every day. */
+  app.post('/api/playlists/blend', { preHandler: app.authenticate }, async (req) => {
+    const b = z.object({ userIds: z.array(z.string()).min(1).max(5) }).parse(req.body ?? {});
+    for (const u of b.userIds) if (!db.prepare('SELECT 1 FROM users WHERE id = ? AND disabled = 0').get(u)) throw notFound('Пользователь не найден');
+    const id = createBlend(db, req.userId!, b.userIds);
+    return getPlaylist(db, id, req.userId);
+  });
+
+  /** Fill a blend or a release radar anew right now. */
+  app.post('/api/playlists/:id/refresh', { preHandler: app.authenticate }, async (req) => {
+    const id = (req.params as any).id;
+    const p = assertCanEdit(db, id, req.userId!, req.userRole!);
+    if (!p.auto_kind) throw badRequest('Этот плейлист не обновляется сам');
+    refreshAuto(db, id);
+    return getPlaylist(db, id, req.userId);
+  });
+
+  /** The listener's release radar (made the first time). */
+  app.get('/api/me/radar', { preHandler: app.authenticate }, async (req) => getPlaylist(db, radarOf(db, req.userId!), req.userId));
+
+  /** The creator removes an owner, or an owner leaves. */
   app.delete('/api/playlists/:id/members/:userId', { preHandler: app.authenticate }, async (req) => {
     const { id, userId } = req.params as any;
     if (userId !== req.userId) assertOwner(db, id, req.userId!, req.userRole!);

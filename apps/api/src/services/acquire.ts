@@ -224,7 +224,7 @@ async function acquireTrackNow(db: DB, deezerTrackId: number, api: JobApi, cance
   // Same recording already in the library (same ISRC, or same artist + title + featured artists + length)?
   // A solo version and a "feat." version of a song are different tracks and are both imported.
   const same = findLibraryTrack(db, { isrc: t.isrc ?? null, artist: artistName, title, featuring: rawFeaturing(t), durationSec: Number(t.duration ?? 0) || null });
-  if (same) { db.prepare('UPDATE tracks SET deezer_id = COALESCE(deezer_id, ?), isrc = COALESCE(isrc, ?) WHERE id = ?').run(deezerTrackId, t.isrc ?? null, same); return { status: 'exists', trackId: same }; }
+  if (same) { db.prepare('UPDATE tracks SET deezer_id = COALESCE(deezer_id, ?), isrc = COALESCE(isrc, ?) WHERE id = ?').run(deezerTrackId, t.isrc ?? null, same); applyPendingLikes(db, deezerTrackId, same); return { status: 'exists', trackId: same }; }
 
   const want = wantOf(t);
   const guests = wantedGuests(want);
@@ -253,6 +253,7 @@ async function acquireTrackNow(db: DB, deezerTrackId: number, api: JobApi, cance
       if (match === false) { fs.rmSync(dir, { recursive: true, force: true }); continue; }
       const trackId = await importAcquired(db, file, t, album, c, typeof match === 'number' ? match : null, addedBy);
       fs.rmSync(dir, { recursive: true, force: true });
+      applyPendingLikes(db, deezerTrackId, trackId);
       // lyrics arrive in the background: the next track doesn't wait for them
       fetchLyricsForTrack(db, trackId).then((ok) => { if (ok) api.log(`   ♪ текст найден: ${title}`); }).catch(() => { /* optional */ });
       return { status: 'imported', trackId };
@@ -265,6 +266,13 @@ async function acquireTrackNow(db: DB, deezerTrackId: number, api: JobApi, cance
     } finally { inFlight.delete(sourceKey(c)); }
   }
   return { status: 'error', message: lastError || 'не удалось скачать' };
+}
+
+/** Likes left on a song while it was playing straight from the catalogue land on the library's track. */
+export function applyPendingLikes(db: DB, deezerId: number, trackId: string) {
+  const rows = db.prepare('SELECT user_id FROM pending_likes WHERE deezer_id = ?').all(deezerId) as any[];
+  for (const r of rows) db.prepare("INSERT OR IGNORE INTO likes(user_id, entity_type, entity_id) VALUES (?, 'track', ?)").run(r.user_id, trackId);
+  if (rows.length) db.prepare('DELETE FROM pending_likes WHERE deezer_id = ?').run(deezerId);
 }
 
 /** What a catalogue track wants from a source: title, main artist, every other credited artist, album, length. */

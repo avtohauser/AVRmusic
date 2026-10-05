@@ -10,6 +10,7 @@ process.env.PUBLIC_LIBRARY = 'false';
 process.env.AUTO_HEAL = 'false';
 process.env.WAVE_DISCOVERY = 'false';
 process.env.ANALYZE = 'false';
+process.env.BACKGROUND = 'false';
 
 const { buildApp } = await import('../src/app.js');
 const { openDatabase } = await import('../src/lib/db.js');
@@ -443,4 +444,69 @@ test('listen together: start, join, ops and long-poll', async () => {
   await app.inject({ method: 'POST', url: '/api/jam/leave', headers: hp });
   await app.inject({ method: 'POST', url: '/api/jam/leave', headers: h });
   assert.equal((await app.inject({ method: 'GET', url: '/api/jam', headers: h })).json(), null);
+});
+
+test('co-owners, blend, radar, reports, follows, lyrics search and lists to move', async () => {
+  const h = { authorization: `Bearer ${access}` };
+  const hp = { authorization: `Bearer ${(await app.inject({ method: 'POST', url: '/api/auth/login', payload: { login: 'petya', password: 'secret1' } })).json().accessToken}` };
+  const petya = (await app.inject({ method: 'GET', url: '/api/users', headers: h })).json().find((u: any) => u.username === 'petya');
+  const song = await uploadSong('Owners Song');
+
+  // a co-owner renames the playlist and invites others; only the creator deletes it
+  const pl = (await app.inject({ method: 'POST', url: '/api/playlists', headers: h, payload: { title: 'Наш' } })).json();
+  await app.inject({ method: 'POST', url: `/api/playlists/${pl.id}/members`, headers: h, payload: { userId: petya.id } });
+  const renamed = await app.inject({ method: 'PATCH', url: `/api/playlists/${pl.id}`, headers: hp, payload: { title: 'Наш общий' } });
+  assert.equal(renamed.statusCode, 200, renamed.body);
+  assert.equal(renamed.json().title, 'Наш общий');
+  assert.equal(renamed.json().isOwner, true);
+  assert.equal(renamed.json().isCreator, false);
+  assert.equal(renamed.json().owners.length, 2);
+  assert.equal((await app.inject({ method: 'DELETE', url: `/api/playlists/${pl.id}`, headers: hp })).statusCode, 403);
+
+  // a blend of two people, filled from their tastes
+  await app.inject({ method: 'PUT', url: `/api/me/likes/track/${song}`, headers: hp });
+  const blend = await app.inject({ method: 'POST', url: '/api/playlists/blend', headers: h, payload: { userIds: [petya.id] } });
+  assert.equal(blend.statusCode, 200, blend.body);
+  assert.equal(blend.json().autoKind, 'blend');
+  assert.ok(blend.json().tracks.some((t: any) => t.id === song), 'a liked song of an owner is in the blend');
+  assert.equal((await app.inject({ method: 'POST', url: `/api/playlists/${blend.json().id}/refresh`, headers: hp })).statusCode, 200);
+  const radar = await app.inject({ method: 'GET', url: '/api/me/radar', headers: h });
+  assert.equal(radar.json().autoKind, 'radar');
+
+  // a report reaches the admin, who closes it
+  assert.equal((await app.inject({ method: 'POST', url: `/api/tracks/${song}/report`, headers: hp, payload: { reason: 'quality', note: 'хрипит' } })).statusCode, 200);
+  const reports = (await app.inject({ method: 'GET', url: '/api/admin/reports', headers: h })).json();
+  assert.equal(reports[0].track.id, song);
+  assert.equal(reports[0].reason, 'quality');
+  assert.equal((await app.inject({ method: 'GET', url: '/api/admin/reports', headers: hp })).statusCode, 403);
+  await app.inject({ method: 'POST', url: `/api/admin/reports/${reports[0].id}/dismiss`, headers: h });
+  assert.equal((await app.inject({ method: 'GET', url: '/api/admin/reports', headers: h })).json().length, 0);
+
+  // following a catalogue artist
+  assert.equal((await app.inject({ method: 'PUT', url: '/api/catalog/artists/27/follow', headers: h, payload: { name: 'Daft Punk' } })).json().following, true);
+  assert.equal((await app.inject({ method: 'GET', url: '/api/me/follows', headers: h })).json()[0].id, 27);
+  await app.inject({ method: 'DELETE', url: '/api/catalog/artists/27/follow', headers: h });
+  assert.equal((await app.inject({ method: 'GET', url: '/api/me/follows', headers: h })).json().length, 0);
+
+  // a like on a song still being fetched waits for it
+  const pending = await app.inject({ method: 'PUT', url: '/api/me/likes/track/dz:777', headers: h });
+  assert.equal(pending.json().pending, true);
+  app.db.prepare('UPDATE tracks SET deezer_id = 777 WHERE id = ?').run(song);
+  const { applyPendingLikes } = await import('../src/services/acquire.js');
+  applyPendingLikes(app.db, 777, song);
+  assert.ok((await app.inject({ method: 'GET', url: '/api/me/likes/ids', headers: h })).json().track.includes(song));
+
+  // found by a line of its lyrics
+  app.db.prepare('UPDATE tracks SET lyrics_plain = ? WHERE id = ?').run('Первая строка\nМы идём по ночному городу\nКонец', song);
+  const byLine = (await app.inject({ method: 'GET', url: `/api/search?q=${encodeURIComponent('ночному городу')}&type=lyrics`, headers: h })).json();
+  assert.equal(byLine.lyrics[0].track.id, song);
+  assert.equal(byLine.lyrics[0].line, 'Мы идём по ночному городу');
+
+  // lists to move: plain lines and a CSV export
+  const { parseList } = await import('../src/services/transfer.js');
+  assert.deepEqual(parseList('1. Daft Punk — One More Time\nMuse - Uprising').map((t) => t.title), ['One More Time', 'Uprising']);
+  const csv = parseList('"Track Name","Artist Name(s)","ISRC","Duration (ms)"\n"Get Lucky","Daft Punk, Pharrell Williams","USQX91300108","369626"');
+  assert.equal(csv[0].artist, 'Daft Punk');
+  assert.equal(csv[0].isrc, 'USQX91300108');
+  assert.equal(csv[0].durationSec, 370);
 });

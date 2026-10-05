@@ -46,15 +46,20 @@ let userRunning = 0;
 const MAX_USER = 2;
 /** plus one slot for a single track or album, so it never waits hours behind whole discographies */
 let expressRunning = 0;
+/** and two for songs someone is listening to right now (instant play): they never wait at all */
+let instantRunning = 0;
+const MAX_INSTANT = 2;
 
 /** Background upkeep (self-healing, canvases) that always lets the users' own downloads go first. */
 const BACKGROUND: JobKind[] = ['heal', 'canvas', 'discover'];
 const isSmall = (j: Job) => j.kind === 'acquire' && ['track', 'album'].includes((j.payload as any)?.kind);
 const isUser = (j: Job) => !BACKGROUND.includes(j.kind);
+const isInstant = (j: Job) => (j.payload as any)?.instant === true;
 
 /** Queued users' jobs in the order they will start: tracks and albums first, then by request time. */
 function userOrder(): Job[] {
-  return queue.filter(isUser).map((j, i) => ({ j, i })).sort((a, b) => (isSmall(a.j) ? 0 : 1) - (isSmall(b.j) ? 0 : 1) || a.i - b.i).map((x) => x.j);
+  const rank = (j: Job) => (isInstant(j) ? 0 : isSmall(j) ? 1 : 2);
+  return queue.filter(isUser).map((j, i) => ({ j, i })).sort((a, b) => rank(a.j) - rank(b.j) || a.i - b.i).map((x) => x.j);
 }
 
 /** The next user job: small requests first; among the rest, someone who has nothing running yet. */
@@ -114,6 +119,10 @@ export function listJobs(): Job[] {
   return [...jobs.values()].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
     .map((j) => ({ ...publicJob(j), position: j.status === 'queued' && isUser(j) ? order.indexOf(j) + 1 : undefined }));
 }
+/** A job by what it is about (its payload included), newest first. */
+export function findJob(pred: (j: Job) => boolean): Job | undefined {
+  return [...jobs.values()].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)).find(pred);
+}
 export function getJob(id: string): Job | undefined {
   return jobs.get(id);
 }
@@ -150,8 +159,10 @@ async function pump() {
   const next = nextUserJob();
   let job: Job | undefined;
   let express = false;
+  let instant = false;
   if (next) {
-    if (userRunning >= MAX_USER) {
+    if (isInstant(next) && instantRunning < MAX_INSTANT) instant = true;
+    else if (userRunning >= MAX_USER) {
       if (!isSmall(next) || expressRunning >= 1) return;
       express = true;
     }
@@ -165,7 +176,8 @@ async function pump() {
   if (!job) return;
   const user = isUser(job);
   running++;
-  if (express) expressRunning++;
+  if (instant) instantRunning++;
+  else if (express) expressRunning++;
   else if (user) userRunning++;
   void pump(); // another slot may be free
   job.status = 'running';
@@ -193,7 +205,8 @@ async function pump() {
     job.cancel = undefined;
     save(job);
     running--;
-    if (express) expressRunning--;
+    if (instant) instantRunning--;
+    else if (express) expressRunning--;
     else if (user) userRunning--;
     void pump();
   }

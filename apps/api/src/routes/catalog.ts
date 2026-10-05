@@ -3,9 +3,12 @@ import { z } from 'zod';
 import { config } from '../config.js';
 import { badRequest, forbidden, notFound } from '../lib/errors.js';
 import { catalogAlbum, catalogArtist, catalogTrack, rawAlbum, rawArtist, rawTrack, searchCatalog } from '../services/catalog.js';
-import { enqueue, getJob, listJobs, removeJob } from '../services/jobs.js';
+import { enqueue, findJob, getJob, listJobs, removeJob } from '../services/jobs.js';
 import { clamp, parseIntSafe } from '../lib/util.js';
 import { enqueueCanvasJob } from '../services/canvas.js';
+import { Readable } from 'node:stream';
+import { getTrack } from '../services/library.js';
+import { forgetLive, liveSource } from '../services/live.js';
 
 export default async function catalogRoutes(app: FastifyInstance) {
   const db = app.db;
@@ -17,7 +20,15 @@ export default async function catalogRoutes(app: FastifyInstance) {
     const q = z.object({ q: z.string().default(''), limit: z.string().optional() }).parse(req.query);
     return searchCatalog(db, q.q, clamp(parseIntSafe(q.limit, 10), 1, 50));
   });
-  app.get('/api/catalog/artists/:id', guard, async (req) => { await enabled(); return catalogArtist(db, Number((req.params as any).id)); });
+  app.get('/api/catalog/artists/:id', guard, async (req) => {
+    await enabled();
+    const id = Number((req.params as any).id);
+    const page = await catalogArtist(db, id);
+    // is this listener following the artist's new releases
+    const following = !!req.userId && !!(db.prepare('SELECT 1 FROM artist_follows WHERE user_id = ? AND deezer_artist_id = ?').get(req.userId, id)
+      || db.prepare("SELECT 1 FROM likes l JOIN artists a ON a.id = l.entity_id WHERE l.user_id = ? AND l.entity_type = 'artist' AND a.deezer_id = ?").get(req.userId, id));
+    return { ...page, following };
+  });
   app.get('/api/catalog/albums/:id', guard, async (req) => { await enabled(); return catalogAlbum(db, Number((req.params as any).id)); });
   app.get('/api/catalog/tracks/:id', guard, async (req) => { await enabled(); const { raw: _r, ...t } = await catalogTrack(db, Number((req.params as any).id)); return t; });
 
@@ -38,6 +49,76 @@ export default async function catalogRoutes(app: FastifyInstance) {
     if (dup) return { jobId: dup.id, job: dup, duplicate: true };
     const job = enqueue({ kind: 'acquire', title, requestedBy: req.userId }, { kind: body.kind, id: body.id });
     return { jobId: job.id, job };
+  });
+
+  /* ---------- instant play: a catalogue song plays in full at once, and is fetched meanwhile ---------- */
+
+  const mayAcquire = (userId: string, role: string) => {
+    if (config.acquireRole === 'off' || (config.acquireRole === 'admin' && role !== 'admin')) return false;
+    return role === 'admin' || (db.prepare('SELECT can_acquire FROM users WHERE id = ?').get(userId) as any)?.can_acquire !== 0;
+  };
+  const libraryId = (deezerId: number) => (db.prepare('SELECT id FROM tracks WHERE deezer_id = ?').get(deezerId) as any)?.id as string | undefined;
+  /** the fetching of this song, if one is queued or running (or finished in the last minutes) */
+  const fetchJob = (deezerId: number) => findJob((j) => j.kind === 'acquire' && (j.payload as any)?.kind === 'track' && (j.payload as any)?.id === deezerId);
+
+  /** Starts playing a catalogue song: the library's track when it is there, otherwise a live stream ("dz:<id>"). */
+  app.post('/api/catalog/play', { preHandler: app.authenticate }, async (req) => {
+    await enabled();
+    const { id } = z.object({ id: z.number().int().positive() }).parse(req.body ?? {});
+    const have = libraryId(id);
+    if (have) return { track: getTrack(db, have, req.userId), ready: true };
+    const t = await rawTrack(db, id);
+    if (mayAcquire(req.userId!, req.userRole!) && !fetchJob(id)) {
+      enqueue({ kind: 'acquire', title: `${t.artist?.name ?? ''} — ${t.title}`, requestedBy: req.userId }, { kind: 'track', id, instant: true });
+    }
+    const contributors = ((t.contributors ?? []) as any[]).filter((c) => c.id !== t.artist?.id).map((c) => ({ id: '', name: c.name, imageUrl: null }));
+    return {
+      ready: false,
+      track: {
+        id: `dz:${id}`, title: t.title, durationMs: Number(t.duration ?? 0) * 1000, explicit: !!t.explicit_lyrics,
+        coverUrl: t.album?.cover_xl ?? t.album?.cover_big ?? null, mimeType: null,
+        artist: { id: '', name: t.artist?.name ?? '', imageUrl: t.artist?.picture_big ?? null }, featuring: contributors,
+        album: t.album ? { id: '', title: t.album.title } : null, hasCanvas: false, hasLyrics: false, hasSyncedLyrics: false,
+      },
+    };
+  });
+
+  /** Is the song in the library yet? (the apps then use the library's track for likes, lyrics, reactions) */
+  app.get('/api/catalog/play/:id/status', { preHandler: app.authenticate }, async (req) => {
+    const id = Number((req.params as any).id);
+    const have = libraryId(id);
+    if (have) return { status: 'ready', track: getTrack(db, have, req.userId) };
+    const j = fetchJob(id);
+    return { status: !j ? 'idle' : j.status === 'error' || j.status === 'done' ? 'failed' : 'fetching', job: j ? { status: j.status, progress: j.progress } : null };
+  });
+
+  /** The full song, passed through from its source (with seeking) until it is in the library. */
+  app.get('/api/catalog/stream/:id', { preHandler: app.mediaAuth }, async (req, reply) => {
+    await enabled();
+    const id = Number((req.params as any).id);
+    const q = req.query as any;
+    const have = libraryId(id);
+    if (have) return reply.redirect(`/api/stream/${have}?t=${encodeURIComponent(q.t ?? '')}${q.compat ? '&compat=1' : ''}`);
+    const aac = q.compat === '1';
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const src = await liveSource(db, id, aac);
+      if (!src) throw notFound('Не нашлось, откуда играть этот трек');
+      const abort = new AbortController();
+      req.raw.on('close', () => abort.abort());
+      const headers: Record<string, string> = { 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' };
+      if (req.headers.range) headers.range = req.headers.range;
+      let up: Response;
+      try { up = await fetch(src.url, { headers, signal: abort.signal, redirect: 'follow' }); } catch { forgetLive(id); continue; }
+      if (up.status === 403 || up.status === 410 || up.status >= 500) { forgetLive(id); try { await up.body?.cancel(); } catch { /* closed */ } continue; }
+      reply.code(up.status === 206 ? 206 : up.ok ? 200 : up.status);
+      reply.header('Content-Type', src.mime);
+      reply.header('Accept-Ranges', 'bytes');
+      reply.header('Cache-Control', 'no-store');
+      for (const h of ['content-length', 'content-range']) { const v = up.headers.get(h); if (v) reply.header(h, v); }
+      if (!up.body) return reply.send();
+      return reply.send(Readable.fromWeb(up.body as any));
+    }
+    throw notFound('Источник не отвечает — попробуйте ещё раз');
   });
 
   /** A playlist from a Yandex Music or Spotify link: found in the library or fetched, song by song. */

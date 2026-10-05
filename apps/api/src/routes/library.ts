@@ -24,8 +24,8 @@ export default async function libraryRoutes(app: FastifyInstance) {
   });
 
   app.get('/api/search', guard, async (req) => {
-    const q = z.object({ q: z.string().default(''), type: z.enum(['all', 'track', 'album', 'artist', 'playlist']).default('all'), limit: z.string().optional() }).parse(req.query);
-    return search(db, q.q, req.userId, { type: q.type, limit: clamp(parseIntSafe(q.limit, 10), 1, 100) });
+    const q = z.object({ q: z.string().default(''), type: z.enum(['all', 'track', 'album', 'artist', 'playlist', 'lyrics']).default('all'), limit: z.string().optional() }).parse(req.query);
+    return search(db, q.q, req.userId, { type: q.type as any, limit: clamp(parseIntSafe(q.limit, 10), 1, 100) });
   });
 
   app.get('/api/search/suggest', guard, async (req) => {

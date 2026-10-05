@@ -124,12 +124,18 @@ export interface PlaylistSummary {
   isOwner?: boolean;
   /** may this user add / remove tracks (the owner, or a member of a shared playlist) */
   canEdit?: boolean;
+  /** did this user create it (only the creator deletes it) */
+  isCreator?: boolean;
+  /** filled by the server: 'blend' (several owners' tastes) or 'radar' (new releases) */
+  autoKind?: string | null;
 }
 
 export interface Playlist extends PlaylistSummary {
   tracks: Track[];
   /** people who may add and remove tracks besides the owner */
   members?: FriendRef[];
+  /** everyone who owns it: the creator first, then the others */
+  owners?: FriendRef[];
   /** First 4 track covers, used for mosaic when no custom cover is set */
   mosaic: string[];
 }
@@ -151,6 +157,8 @@ export interface SearchResult {
   albums: AlbumSummary[];
   artists: ArtistSummary[];
   playlists: PlaylistSummary[];
+  /** songs found by a line of their lyrics */
+  lyrics?: Array<{ track: Track; line: string }>;
 }
 
 export interface HomeSection {

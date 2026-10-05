@@ -76,6 +76,22 @@ export function homeFeed(db: DB, userId: string | null): HomeFeed {
     const recent = recentlyPlayedTracks(db, userId, 12);
     if (recent.length) sections.push({ id: 'recent', title: 'Недавно слушали', kind: 'tracks', items: recent });
 
+    // what kept coming back this week
+    const repeatIds = (db.prepare(`SELECT track_id, COUNT(*) n FROM plays WHERE user_id = ? AND played_at > datetime('now','-7 days') AND ms_played >= 30000
+      GROUP BY track_id HAVING n >= 2 ORDER BY n DESC, MAX(played_at) DESC LIMIT 20`).all(userId) as any[]).map((r) => r.track_id as string);
+    const repeat = byIds(db, repeatIds, userId);
+    if (repeat.length >= 3) sections.push({ id: 'repeat', title: 'Повтор недели', subtitle: 'Что крутилось у вас чаще всего', kind: 'tracks', items: repeat });
+
+    // loved once, then left: many plays (or a like) but nothing for a month and a half
+    const forgottenIds = (db.prepare(`SELECT t.id, COUNT(p.id) n FROM tracks t LEFT JOIN plays p ON p.track_id = t.id AND p.user_id = ? AND p.ms_played >= 30000
+      WHERE t.id IN (SELECT track_id FROM plays WHERE user_id = ? UNION SELECT entity_id FROM likes WHERE user_id = ? AND entity_type = 'track')
+      GROUP BY t.id
+      HAVING (n >= 4 OR t.id IN (SELECT entity_id FROM likes WHERE user_id = ? AND entity_type = 'track'))
+        AND COALESCE(MAX(p.played_at), '') < datetime('now','-45 days')
+      ORDER BY n DESC, RANDOM() LIMIT 20`).all(userId, userId, userId, userId) as any[]).map((r) => r.id as string);
+    const forgotten = byIds(db, forgottenIds, userId);
+    if (forgotten.length >= 3) sections.push({ id: 'forgotten', title: 'Забытые любимые', subtitle: 'Вы много это слушали — давно не возвращались', kind: 'tracks', items: forgotten });
+
     const rec = recommendTracks(db, userId, 12, recent.map((t) => t.id));
     if (rec.length) sections.push({ id: 'for-you', title: 'Подобрано для вас', subtitle: 'На основе ваших лайков и истории', kind: 'tracks', items: rec });
   }
@@ -102,4 +118,12 @@ export function homeFeed(db: DB, userId: string | null): HomeFeed {
   if (discover.length) sections.push({ id: 'discover', title: 'Открой для себя', subtitle: 'Случайная подборка из библиотеки', kind: 'tracks', items: discover });
 
   return { greeting: greeting(), quickPicks, sections };
+}
+
+/** Tracks by id, in the given order. */
+function byIds(db: DB, ids: string[], userId: string): Track[] {
+  if (!ids.length) return [];
+  const rows = db.prepare(`SELECT ${TRACK_SELECT} ${TRACK_FROM} WHERE t.id IN (${ids.map(() => '?').join(',')})`).all(...ids) as any[];
+  const map = new Map(mapTracks(db, rows, userId).map((t) => [t.id, t]));
+  return ids.map((i) => map.get(i)).filter((t): t is Track => !!t);
 }

@@ -37,8 +37,21 @@ export default async function meRoutes(app: FastifyInstance) {
     return out;
   });
 
+  /** "dz:<catalogue id>": a song playing straight from the catalogue — the library's track once it is fetched */
+  const libraryOf = (id: string): string | null => {
+    if (!id.startsWith('dz:')) return id;
+    return (db.prepare('SELECT id FROM tracks WHERE deezer_id = ?').get(Number(id.slice(3))) as any)?.id ?? null;
+  };
+
   app.put('/api/me/likes/:type/:id', auth, async (req) => {
-    const { type, id } = z.object({ type: LikeType, id: z.string() }).parse(req.params);
+    const p = z.object({ type: LikeType, id: z.string() }).parse(req.params);
+    const type = p.type;
+    // a song still being fetched: the like waits for it
+    if (type === 'track' && p.id.startsWith('dz:') && !libraryOf(p.id)) {
+      db.prepare('INSERT OR IGNORE INTO pending_likes (user_id, deezer_id) VALUES (?, ?)').run(req.userId, Number(p.id.slice(3)));
+      return { liked: true, pending: true };
+    }
+    const id = type === 'track' ? libraryOf(p.id) ?? p.id : p.id;
     const table = type === 'track' ? 'tracks' : type === 'album' ? 'albums' : type === 'artist' ? 'artists' : 'playlists';
     if (!db.prepare(`SELECT 1 FROM ${table} WHERE id = ?`).get(id)) throw notFound();
     db.prepare('INSERT OR IGNORE INTO likes(user_id, entity_type, entity_id) VALUES (?,?,?)').run(req.userId, type, id);
@@ -46,13 +59,17 @@ export default async function meRoutes(app: FastifyInstance) {
   });
 
   app.delete('/api/me/likes/:type/:id', auth, async (req) => {
-    const { type, id } = z.object({ type: LikeType, id: z.string() }).parse(req.params);
+    const p = z.object({ type: LikeType, id: z.string() }).parse(req.params);
+    const type = p.type;
+    if (type === 'track' && p.id.startsWith('dz:')) db.prepare('DELETE FROM pending_likes WHERE user_id = ? AND deezer_id = ?').run(req.userId, Number(p.id.slice(3)));
+    const id = type === 'track' ? libraryOf(p.id) ?? p.id : p.id;
     db.prepare('DELETE FROM likes WHERE user_id = ? AND entity_type = ? AND entity_id = ?').run(req.userId, type, id);
     return { liked: false };
   });
 
   app.post('/api/me/plays', auth, async (req) => {
     const body = z.object({ trackId: z.string(), msPlayed: z.number().int().min(0).default(0), context: z.string().max(120).optional() }).parse(req.body);
+    body.trackId = libraryOf(body.trackId) ?? body.trackId;
     if (!db.prepare('SELECT 1 FROM tracks WHERE id = ?').get(body.trackId)) throw notFound('Трек не найден');
     db.prepare('INSERT INTO plays(user_id, track_id, ms_played, context) VALUES (?,?,?,?)').run(req.userId, body.trackId, body.msPlayed, body.context ?? null);
     // Count as a play once >= 30s or >= half the track was heard (Spotify-like rule).

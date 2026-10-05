@@ -273,7 +273,7 @@ private fun Main() {
         CompositionLocalProvider(LocalAnimScope provides this) {
           Box(
             Modifier.fillMaxSize().graphicsLayer {
-              val p = back
+              val p = back.coerceIn(0f, 1f)
               scaleX = 1f - 0.1f * p
               scaleY = 1f - 0.1f * p
               translationY = 40.dp.toPx() * p

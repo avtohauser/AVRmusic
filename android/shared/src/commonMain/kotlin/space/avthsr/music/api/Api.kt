@@ -209,6 +209,8 @@ object Api {
   suspend fun track(id: String): Track = get("/api/tracks/${enc(id)}")
   suspend fun album(id: String): Album = get("/api/albums/${enc(id)}")
   suspend fun artist(id: String): ArtistPage = get("/api/artists/${enc(id)}")
+  /** every track of the artist, album by album */
+  suspend fun artistTracks(id: String): List<Track> = get("/api/artists/${enc(id)}/tracks")
   suspend fun playlist(id: String): Playlist = get("/api/playlists/${enc(id)}")
   suspend fun genre(slug: String): GenrePage = get("/api/genres/${enc(slug)}")
   suspend fun playlists(): List<PlaylistSummary> = get("/api/playlists")

@@ -409,6 +409,16 @@ test('friends: now playing, shares, reactions, shared playlists, recap and compa
   assert.equal((await app.inject({ method: 'POST', url: '/api/wave/next', headers: h, payload: { mode: 'bogus' } })).statusCode, 400);
 });
 
+test('an artist\'s whole discography plays as one list', async () => {
+  const h = { authorization: `Bearer ${access}` };
+  const id = await uploadSong('Deep Cut');
+  const t = (await app.inject({ method: 'GET', url: `/api/tracks/${id}`, headers: h })).json();
+  const all = await app.inject({ method: 'GET', url: `/api/artists/${t.artist.id}/tracks`, headers: h });
+  assert.equal(all.statusCode, 200, all.body);
+  assert.ok(all.json().some((x: any) => x.id === id));
+  assert.equal((await app.inject({ method: 'GET', url: '/api/artists/nope/tracks', headers: h })).statusCode, 404);
+});
+
 test('listen together: start, join, ops and long-poll', async () => {
   const h = { authorization: `Bearer ${access}` };
   const hp = { authorization: `Bearer ${(await app.inject({ method: 'POST', url: '/api/auth/login', payload: { login: 'petya', password: 'secret1' } })).json().accessToken}` };

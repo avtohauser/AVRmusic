@@ -223,6 +223,14 @@ export function getArtist(db: DB, id: string, userId?: string | null): (Artist &
   return artist;
 }
 
+/** Every track of an artist (their own and the ones they are featured on): album by album, newest album first, in disc and track order; tracks without an album last. */
+export function artistTracks(db: DB, id: string, userId?: string | null): Track[] {
+  const rows = db.prepare(`SELECT ${TRACK_SELECT} ${TRACK_FROM}
+    WHERE t.artist_id = ? OR t.id IN (SELECT track_id FROM track_artists WHERE artist_id = ?)
+    ORDER BY al.id IS NULL, al.year DESC NULLS LAST, al.created_at DESC, al.id, t.disc_no, t.track_no, t.created_at`).all(id, id) as any[];
+  return mapTracks(db, rows, userId);
+}
+
 export function listGenres(db: DB): Genre[] {
   const rows = db
     .prepare(`SELECT t.genre AS name, COUNT(*) c, (SELECT COALESCE(t2.cover_path, al2.cover_path) FROM tracks t2 LEFT JOIN albums al2 ON al2.id=t2.album_id WHERE t2.genre = t.genre AND COALESCE(t2.cover_path, al2.cover_path) IS NOT NULL ORDER BY t2.play_count DESC LIMIT 1) cover FROM tracks t WHERE t.genre IS NOT NULL AND t.genre <> '' GROUP BY t.genre ORDER BY c DESC`)

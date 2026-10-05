@@ -4,7 +4,7 @@ import type { Lyrics } from '@avrmusic/shared';
 import { notFound } from '../lib/errors.js';
 import { parseLrc } from '../lib/lyrics.js';
 import { clamp, parseIntSafe } from '../lib/util.js';
-import { getAlbum, getArtist, getGenre, getTrack, getTrackRaw, getTracksByIds, listAlbums, listArtists, listGenres, listTracks, trackRadio } from '../services/library.js';
+import { artistTracks, getAlbum, getArtist, getGenre, getTrack, getTrackRaw, getTracksByIds, listAlbums, listArtists, listGenres, listTracks, trackRadio } from '../services/library.js';
 import { homeFeed } from '../services/home.js';
 import { search, suggest } from '../services/search.js';
 
@@ -73,6 +73,13 @@ export default async function libraryRoutes(app: FastifyInstance) {
     const a = getArtist(db, (req.params as any).id, req.userId);
     if (!a) throw notFound('Исполнитель не найден');
     return a;
+  });
+
+  /** The whole discography as one list (to play everything, not only the popular tracks). */
+  app.get('/api/artists/:id/tracks', guard, async (req) => {
+    const id = (req.params as any).id as string;
+    if (!db.prepare('SELECT 1 FROM artists WHERE id = ?').get(id)) throw notFound('Исполнитель не найден');
+    return artistTracks(db, id, req.userId);
   });
 
   app.get('/api/genres', guard, async () => listGenres(db));

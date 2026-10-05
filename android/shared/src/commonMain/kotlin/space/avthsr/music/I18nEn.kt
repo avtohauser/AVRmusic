@@ -713,4 +713,6 @@ internal val EN: Map<String, String> = hashMapOf(
   "Музыка, подобранная для вас" to "Music picked for you",
   "Волна по настроению" to "Wave by mood",
   "Недавние" to "Recent",
+  "Все треки" to "All tracks",
+  "Показать" to "Show",
 )

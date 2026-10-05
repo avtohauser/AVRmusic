@@ -467,7 +467,7 @@ private fun BoxScope.PersonaStory(r: Recap, active: Boolean) {
     Spacer(Modifier.height(26.dp))
     Box(
       Modifier.fillMaxWidth(0.62f).aspectRatio(1f).graphicsLayer { rotationZ = angle }
-        .clip(MorphShape(morph, m.value)).background(Brush.linearGradient(listOf(cs.primary, cs.tertiary))),
+        .clip(MorphShape(morph, m.value.coerceIn(0f, 1f))).background(Brush.linearGradient(listOf(cs.primary, cs.tertiary))),
     )
     Spacer(Modifier.height(26.dp))
     FlowText(p.title, MaterialTheme.typography.displaySmall, Modifier.rise(active, 1), textAlign = TextAlign.Center, maxLines = 2)

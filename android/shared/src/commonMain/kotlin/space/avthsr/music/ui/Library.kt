@@ -293,16 +293,25 @@ fun AlbumScreen(id: String) {
 fun ArtistScreen(id: String) {
   val nav = LocalNav.current
   val loader = rememberLoad(id) { Api.artist(id) }
+  // the whole discography: "Слушать" plays all of it, a popular track goes on into the rest
+  val discography = rememberLoad("tracks", id) { Api.artistTracks(id) }
+  var showAll by rememberSaveable { mutableStateOf(false) }
   Page {
     Loaded(loader) { a ->
+      val all = discography.data ?: a.topTracks
+      // the popular ones first, then everything else of the artist
+      val fromTop = a.topTracks + all.filter { t -> a.topTracks.none { it.id == t.id } }
       LazyColumn(Modifier.fillMaxSize(), contentPadding = screenPadding(bottom = 24.dp, hero = true)) {
         item {
           Header(
             share = "artist:${a.id}",
             cover = a.imageUrl ?: a.headerUrl, title = a.name, circle = true,
-            meta = if (a.monthlyListeners > 0) tr("{} слушателей за месяц", a.monthlyListeners) else "",
+            meta = listOfNotNull(
+              tracksWord(all.size).takeIf { all.isNotEmpty() },
+              tr("{} слушателей за месяц", a.monthlyListeners).takeIf { a.monthlyListeners > 0 },
+            ).joinToString(" · "),
           ) {
-            PlayButtons(a.topTracks, "artist:${a.id}")
+            PlayButtons(all, "artist:${a.id}")
           }
           Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
             LikeButton("artist", a.id)
@@ -312,7 +321,17 @@ fun ArtistScreen(id: String) {
         }
         if (a.topTracks.isNotEmpty()) {
           item { SectionTitle(tr("Популярные треки")) }
-          itemsIndexed(a.topTracks.take(10)) { i, t -> TrackRow(t, onClick = { PlayerConn.play(a.topTracks, i, "artist:${a.id}") }) }
+          itemsIndexed(a.topTracks.take(10)) { i, t -> TrackRow(t, onClick = { PlayerConn.play(fromTop, i, "artist:${a.id}") }) }
+        }
+        if (all.size > a.topTracks.size) {
+          item {
+            SectionTitle(tr("Все треки"), tracksWord(all.size)) {
+              TextButton(onClick = { showAll = !showAll }) { Text(if (showAll) tr("Свернуть") else tr("Показать")) }
+            }
+          }
+          if (showAll) itemsIndexed(all, key = { _, t -> "all:" + t.id }) { i, t ->
+            TrackRow(t, onClick = { PlayerConn.play(all, i, "artist:${a.id}") }, subtitle = listOfNotNull(t.artists, t.album?.title).joinToString(" · "))
+          }
         }
         if (a.albums.isNotEmpty()) item {
           SectionTitle(tr("Альбомы и синглы"))

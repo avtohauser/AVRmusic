@@ -598,3 +598,88 @@ test('daily mixes, smart playlists, the week chart, the digest and the home sect
   assert.equal(digest.item.myTop.id, ids[0]);
   assert.ok(digest.item.minutes >= 4);
 });
+
+test('listen together votes, guess the melody, and devices controlling each other', async () => {
+  const h = { authorization: `Bearer ${access}` };
+  const hp = { authorization: `Bearer ${(await app.inject({ method: 'POST', url: '/api/auth/login', payload: { login: 'petya', password: 'secret1' } })).json().accessToken}` };
+  const songs = [await uploadSong('Eclipse'), await uploadSong('Firefly Night'), await uploadSong('Glacier'), await uploadSong('Harbor Lights Song')];
+
+  // suggestions: the one with most votes waits right after the current song
+  const jam = (await app.inject({ method: 'POST', url: '/api/jam', headers: h, payload: { trackIds: [songs[0], songs[1]], index: 0 } })).json();
+  await app.inject({ method: 'POST', url: `/api/jam/${jam.id}/join`, headers: hp });
+  const op = async (hh: any, payload: any) => (await app.inject({ method: 'POST', url: `/api/jam/${jam.id}/op`, headers: hh, payload })).json();
+  let v = await op(h, { op: 'suggest', trackIds: [songs[2]] });
+  assert.equal(v.queue[1].id, songs[2]);
+  assert.equal(v.suggestions[0].next, true);
+  v = await op(hp, { op: 'suggest', trackIds: [songs[3]] });
+  assert.equal(v.queue[1].id, songs[2], 'equal votes: the earlier one');
+  v = await op(h, { op: 'vote', trackId: songs[3], up: true });
+  assert.deepEqual(v.queue.map((t: any) => t.id), [songs[0], songs[3], songs[1]]);
+  assert.equal(v.suggestions[0].votes, 2);
+  assert.equal(v.suggestions[0].voted, true);
+  v = await op(hp, { op: 'next' });
+  assert.equal(v.queue[v.index].id, songs[3]);
+  assert.equal(v.queue[v.index + 1].id, songs[2]);
+  assert.equal(v.suggestions.length, 1);
+  await app.inject({ method: 'POST', url: '/api/jam/leave', headers: h });
+  await app.inject({ method: 'POST', url: '/api/jam/leave', headers: hp });
+
+  // guess the melody: a round, answers, the reveal, the end
+  app.db.prepare(`UPDATE tracks SET duration_ms = 120000 WHERE id IN (${songs.map(() => '?').join(',')})`).run(...songs);
+  const { getGame } = await import('../src/services/game.js');
+  let g = (await app.inject({ method: 'POST', url: '/api/games', headers: h, payload: { source: 'library', rounds: 3 } })).json();
+  assert.equal(g.state, 'lobby');
+  await app.inject({ method: 'POST', url: `/api/games/${g.id}/join`, headers: hp });
+  assert.equal((await app.inject({ method: 'POST', url: `/api/games/${g.id}/next`, headers: hp })).statusCode, 403);
+  g = (await app.inject({ method: 'POST', url: `/api/games/${g.id}/next`, headers: h })).json();
+  assert.equal(g.state, 'round');
+  assert.equal(g.round, 1);
+  assert.equal(g.options.length, 4);
+  assert.ok(!JSON.stringify(g.options).includes(getGame(g.id)!.current!.trackId), 'the song stays hidden');
+  const clip = await app.inject({ method: 'GET', url: g.clipUrl, headers: hp });
+  assert.equal(clip.statusCode, 200);
+  const right = getGame(g.id)!.current!.correct;
+  g = (await app.inject({ method: 'POST', url: `/api/games/${g.id}/answer`, headers: h, payload: { n: right } })).json();
+  assert.equal(g.state, 'round');
+  assert.equal(g.myChoice, right);
+  g = (await app.inject({ method: 'POST', url: `/api/games/${g.id}/answer`, headers: hp, payload: { n: (right + 1) % 4 } })).json();
+  assert.equal(g.state, 'reveal');
+  assert.equal(g.answer.n, right);
+  const top = g.players[0];
+  assert.ok(top.correct && top.points >= 100 && top.score === top.points);
+  assert.equal(g.players[1].points, 0);
+  for (let i = 0; i < 2; i++) {
+    g = (await app.inject({ method: 'POST', url: `/api/games/${g.id}/next`, headers: hp })).json();
+    assert.equal(g.round, i + 2);
+    await app.inject({ method: 'POST', url: `/api/games/${g.id}/answer`, headers: h, payload: { n: 0 } });
+    g = (await app.inject({ method: 'POST', url: `/api/games/${g.id}/answer`, headers: hp, payload: { n: 0 } })).json();
+  }
+  assert.equal(g.state, 'done');
+  assert.equal(g.played.length, 3);
+  assert.equal(new Set(g.played.map((t: any) => t.id)).size, 3);
+  await app.inject({ method: 'POST', url: `/api/games/${g.id}/leave`, headers: h });
+  await app.inject({ method: 'POST', url: `/api/games/${g.id}/leave`, headers: hp });
+
+  // devices: the site pauses the phone, then hands its music over to it
+  const beat = (payload: any) => app.inject({ method: 'POST', url: '/api/me/devices/heartbeat', headers: h, payload });
+  await beat({ id: 'phone-1', name: 'Pixel', kind: 'android', trackId: songs[0], positionMs: 1000, playing: true, queue: [songs[0], songs[1]], index: 0 });
+  const list = (await beat({ id: 'web-1', name: 'Chrome', kind: 'web', playing: false })).json();
+  assert.deepEqual(list.map((d: any) => d.id), ['phone-1', 'web-1']);
+  assert.equal(list[0].track.id, songs[0]);
+  assert.equal(list[1].current, true);
+  const waiting = app.inject({ method: 'GET', url: '/api/me/devices/phone-1/commands?after=0', headers: h });
+  await new Promise((r) => setTimeout(r, 50));
+  const after = (await app.inject({ method: 'POST', url: '/api/me/devices/phone-1/command?from=web-1', headers: h, payload: { type: 'pause' } })).json();
+  assert.equal(after.find((d: any) => d.id === 'phone-1').playing, false);
+  const got = (await waiting).json();
+  assert.equal(got.commands[0].type, 'pause');
+  assert.equal(got.commands[0].from, 'web-1');
+  const q = (await app.inject({ method: 'GET', url: '/api/me/devices/phone-1/queue', headers: h })).json();
+  assert.deepEqual(q.tracks.map((t: any) => t.id), [songs[0], songs[1]]);
+  await app.inject({ method: 'POST', url: '/api/me/devices/phone-1/command', headers: h, payload: { type: 'transfer', trackIds: [songs[2]], index: 0, positionMs: 5000 } });
+  const next = (await app.inject({ method: 'GET', url: `/api/me/devices/phone-1/commands?after=${got.seq}`, headers: h })).json();
+  assert.equal(next.commands.length, 1);
+  assert.equal(next.commands[0].type, 'transfer');
+  assert.deepEqual(next.commands[0].trackIds, [songs[2]]);
+  assert.equal((await app.inject({ method: 'POST', url: '/api/me/devices/nope/command', headers: h, payload: { type: 'play' } })).statusCode, 404);
+});

@@ -24,6 +24,7 @@ import newsRoutes from './routes/news.js';
 import socialRoutes from './routes/social.js';
 import transferRoutes from './routes/transfer.js';
 import recognizeRoutes from './routes/recognize.js';
+import togetherRoutes from './routes/together.js';
 import { registerRunners } from './services/runners.js';
 import { startAnalysis } from './services/analyze.js';
 import { startAutoPlaylists } from './services/blend.js';
@@ -83,6 +84,7 @@ export async function buildApp(opts: { db?: DB; logger?: boolean } = {}): Promis
   await app.register(socialRoutes);
   await app.register(transferRoutes);
   await app.register(recognizeRoutes);
+  await app.register(togetherRoutes);
 
   app.get('/api/health', async () => ({ ok: true, version: config.version }));
 

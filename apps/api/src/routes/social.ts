@@ -11,6 +11,7 @@ import { ALBUM_FROM, ALBUM_SELECT, avatarUrl, getTrack, mapAlbumSummary, mapArti
 import { PLAYLIST_FROM, PLAYLIST_SELECT, mapPlaylistSummary } from '../services/playlists.js';
 import { applyJam, friendRef, getJam, jamOf, jamView, joinJam, leaveJam, listJams, nowPlaying, setNowPlaying, startJam, waitJam, type JamOp } from '../services/social.js';
 import { compatibility, profileStats, recap } from '../services/stats.js';
+import { getGame } from '../services/game.js';
 
 export default async function socialRoutes(app: FastifyInstance) {
   const db = app.db;
@@ -84,6 +85,8 @@ export default async function socialRoutes(app: FastifyInstance) {
       case 'artist': { const r = db.prepare('SELECT id, name, image_path FROM artists WHERE id = ?').get(refId); return r ? mapArtistSummary(r) : null; }
       case 'playlist': { const r = db.prepare(`SELECT ${PLAYLIST_SELECT} ${PLAYLIST_FROM} WHERE p.id = ?`).get(refId) as any; return r ? mapPlaylistSummary(db, r, viewer) : null; }
       // an invitation to listen together: gone once the session ends
+      // an invitation to a game of "guess the melody": gone once it ends
+      case 'game': { const g = getGame(refId); if (!g || g.state === 'done') return null; return { id: g.id, host: friendRef(db, g.hostId), players: g.players.size, state: g.state, rounds: g.rounds }; }
       case 'jam': { const j = getJam(refId); if (!j) return null; const v = jamView(db, j, viewer); return { id: v.id, host: v.host, members: v.members, track: v.queue[v.index] ?? null, playing: v.playing }; }
       default: return null;
     }
@@ -96,7 +99,7 @@ export default async function socialRoutes(app: FastifyInstance) {
   app.post('/api/shares', auth, async (req) => {
     const b = z.object({
       to: z.array(z.string()).min(1).max(20),
-      kind: z.enum(['track', 'album', 'artist', 'playlist', 'jam']),
+      kind: z.enum(['track', 'album', 'artist', 'playlist', 'jam', 'game']),
       refId: z.string().min(1),
       message: z.string().trim().max(500).default(''),
     }).parse(req.body ?? {});
@@ -263,7 +266,10 @@ export default async function socialRoutes(app: FastifyInstance) {
       z.object({ op: z.literal('remove'), index: z.number().int().min(0) }),
       z.object({ op: z.literal('move'), from: z.number().int().min(0), to: z.number().int().min(0) }),
       z.object({ op: z.literal('replace'), trackIds: z.array(z.string()).min(1).max(500), index: z.number().int().min(0), positionMs: z.number().min(0).optional() }),
+      z.object({ op: z.literal('suggest'), trackIds: z.array(z.string()).min(1).max(20) }),
+      z.object({ op: z.literal('vote'), trackId: z.string().min(1), up: z.boolean() }),
     ]).parse(req.body ?? {}) as JamOp;
+    if (o.op === 'suggest') o.trackIds = o.trackIds.filter((id) => getTrack(db, id, req.userId!));
     applyJam(j, req.userId!, o);
     return jamView(db, j, req.userId!);
   });

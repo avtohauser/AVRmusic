@@ -48,6 +48,10 @@ export interface Jam {
   /** who did the last thing, and what ("added", "skipped" …), for a line in the apps */
   lastBy: string | null;
   lastAction: string | null;
+  /** songs people want to hear, with who voted for each; the leader waits right after the current song */
+  suggestions: Array<{ trackId: string; by: string; votes: Set<string>; at: number }>;
+  /** the suggestion placed after the current song (moves when the votes change) */
+  upNext: string | null;
 }
 
 const jams = new Map<string, Jam>();
@@ -101,7 +105,31 @@ export function jamView(db: DB, j: Jam, viewerId?: string) {
     serverNow: Date.now(),
     lastBy: j.lastBy ? friendRef(db, j.lastBy) : null,
     lastAction: j.lastAction,
+    suggestions: ranked(j).map((s) => ({
+      track: getTrack(db, s.trackId, viewerId), by: friendRef(db, s.by), votes: s.votes.size,
+      voted: !!viewerId && s.votes.has(viewerId), next: s.trackId === j.upNext,
+    })).filter((s) => s.track),
   };
+}
+
+/** Suggestions by votes, the earliest of equals first. */
+function ranked(j: Jam) {
+  return [...j.suggestions].sort((a, b) => b.votes.size - a.votes.size || a.at - b.at);
+}
+
+/** Keeps the suggestion with most votes right after the current song (and only that one). */
+function arrange(j: Jam) {
+  const cur = j.queue[j.index];
+  if (cur) j.suggestions = j.suggestions.filter((s) => s.trackId !== cur);
+  if (j.upNext && j.upNext !== cur) {
+    const at = j.queue.indexOf(j.upNext, j.index + 1);
+    if (at > j.index) j.queue.splice(at, 1);
+  }
+  j.upNext = null;
+  const top = ranked(j)[0];
+  if (!top) return;
+  j.queue.splice(j.index + 1, 0, top.trackId);
+  j.upNext = top.trackId;
 }
 
 export function startJam(userId: string, queue: string[], index: number, positionMs: number, playing: boolean): Jam {
@@ -109,6 +137,7 @@ export function startJam(userId: string, queue: string[], index: number, positio
   const j: Jam = {
     id: newId(), hostId: userId, members: new Map([[userId, Date.now()]]), queue: queue.slice(0, 500),
     index: Math.max(0, Math.min(index, queue.length - 1)), positionMs, playing, updatedAt: Date.now(), version: 1, lastBy: userId, lastAction: 'started',
+    suggestions: [], upNext: null,
   };
   jams.set(j.id, j);
   return j;
@@ -136,7 +165,8 @@ export type JamOp =
   | { op: 'play' } | { op: 'pause' } | { op: 'seek'; positionMs: number }
   | { op: 'skip'; index: number } | { op: 'next' } | { op: 'prev' }
   | { op: 'add'; trackIds: string[]; next?: boolean } | { op: 'remove'; index: number } | { op: 'move'; from: number; to: number }
-  | { op: 'replace'; trackIds: string[]; index: number; positionMs?: number };
+  | { op: 'replace'; trackIds: string[]; index: number; positionMs?: number }
+  | { op: 'suggest'; trackIds: string[] } | { op: 'vote'; trackId: string; up: boolean };
 
 /** Anyone in the session changes it for everyone. */
 export function applyJam(j: Jam, userId: string, o: JamOp) {
@@ -158,7 +188,8 @@ export function applyJam(j: Jam, userId: string, o: JamOp) {
     }
     case 'remove':
       if (o.index >= 0 && o.index < j.queue.length && o.index !== j.index) {
-        j.queue.splice(o.index, 1);
+        const [id] = j.queue.splice(o.index, 1);
+        if (id === j.upNext) { j.upNext = null; j.suggestions = j.suggestions.filter((s) => s.trackId !== id); }
         if (o.index < j.index) j.index--;
       }
       break;
@@ -166,14 +197,33 @@ export function applyJam(j: Jam, userId: string, o: JamOp) {
       if (o.from < 0 || o.from >= j.queue.length || o.to < 0 || o.to >= j.queue.length) break;
       const [id] = j.queue.splice(o.from, 1);
       j.queue.splice(o.to, 0, id);
+      // moved by hand: an ordinary song of the queue now
+      if (id === j.upNext) { j.upNext = null; j.suggestions = j.suggestions.filter((s) => s.trackId !== id); }
       const cur = j.index;
       if (o.from === cur) j.index = o.to;
       else if (o.from < cur && o.to >= cur) j.index--;
       else if (o.from > cur && o.to <= cur) j.index++;
       break;
     }
-    case 'replace': j.queue = o.trackIds.slice(0, 500); restart(o.index); if (o.positionMs) j.positionMs = o.positionMs; j.playing = true; break;
+    case 'replace': j.queue = o.trackIds.slice(0, 500); j.upNext = null; restart(o.index); if (o.positionMs) j.positionMs = o.positionMs; j.playing = true; break;
+    case 'suggest': {
+      const coming = new Set(j.queue.slice(j.index).filter((id) => id !== j.upNext));
+      for (const id of o.trackIds.slice(0, 20)) {
+        const had = j.suggestions.find((s) => s.trackId === id);
+        if (had) had.votes.add(userId);
+        else if (!coming.has(id) && j.suggestions.length < 50) j.suggestions.push({ trackId: id, by: userId, votes: new Set([userId]), at: Date.now() });
+      }
+      break;
+    }
+    case 'vote': {
+      const s = j.suggestions.find((x) => x.trackId === o.trackId);
+      if (!s) break;
+      if (o.up) s.votes.add(userId); else s.votes.delete(userId);
+      if (!s.votes.size) j.suggestions = j.suggestions.filter((x) => x !== s);
+      break;
+    }
   }
+  arrange(j);
   j.lastBy = userId;
   j.lastAction = o.op;
   notify(j);

@@ -509,4 +509,15 @@ test('co-owners, blend, radar, reports, follows, lyrics search and lists to move
   assert.equal(csv[0].artist, 'Daft Punk');
   assert.equal(csv[0].isrc, 'USQX91300108');
   assert.equal(csv[0].durationSec, 370);
+
+  // a library the app read from Yandex Music becomes one transfer job
+  const empty = await app.inject({ method: 'POST', url: '/api/transfer/import', headers: h, payload: { source: 'yandex' } });
+  assert.equal(empty.statusCode, 400);
+  const moved = await app.inject({ method: 'POST', url: '/api/transfer/import', headers: h, payload: {
+    source: 'yandex', liked: [{ title: 'Uprising', artist: 'Muse', durationSec: 304 }],
+    playlists: [{ title: 'В дорогу', tracks: [{ title: 'One More Time', artist: 'Daft Punk' }] }, { title: 'Пустой', tracks: [] }],
+    artists: ['Muse'], albums: [{ title: 'Discovery', artist: 'Daft Punk' }],
+  } });
+  assert.equal(moved.statusCode, 200, moved.body);
+  assert.deepEqual({ ...moved.json(), jobId: undefined }, { jobId: undefined, liked: 1, playlists: 1, artists: 1, albums: 1 });
 });

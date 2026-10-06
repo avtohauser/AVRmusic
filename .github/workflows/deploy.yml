@@ -121,16 +121,6 @@ jobs:
           sshpass -e ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o ConnectTimeout=20 "$TARGET_USER@$TARGET_HOST" \
             "cd /opt/avrmusic && timeout 120 docker compose -f docker-compose.prod.yml exec -T avrmusic node /app/api/dist/scripts/report.js" || echo "(report failed)"
 
-      - name: Yandex Music probe
-        if: ${{ hashFiles('deploy/yandex-probe.mjs') != '' && env.TARGET_PASSWORD != '' }}
-        continue-on-error: true
-        env:
-          SSHPASS: ${{ env.TARGET_PASSWORD }}
-        run: |
-          command -v sshpass >/dev/null || { sudo apt-get update -qq >/dev/null; sudo apt-get install -y -qq sshpass >/dev/null; }
-          sshpass -e ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o ConnectTimeout=20 "$TARGET_USER@$TARGET_HOST" \
-            "cd /opt/avrmusic && timeout 60 docker compose -f docker-compose.prod.yml exec -T avrmusic node --input-type=module" < deploy/yandex-probe.mjs || echo "(probe failed)"
-
       - name: Acquisition self-check
         if: ${{ hashFiles('deploy/acquire-check.txt') != '' && env.TARGET_PASSWORD != '' }}
         continue-on-error: true

@@ -15,6 +15,8 @@ const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
 
 async function getText(url: string): Promise<string> {
   const r = await fetch(url, { headers: { 'User-Agent': UA, 'Accept-Language': 'ru,en;q=0.8' }, signal: AbortSignal.timeout(20_000) });
+  // Yandex Music shuts its API to servers abroad: the apps read such links on the phone instead
+  if (r.status === 451) throw new Error('Яндекс Музыка не пускает сервер (он за границей) — вставьте эту ссылку в приложении AVRmusic на телефоне: там она откроется');
   if (!r.ok) throw new Error(`Сервис ответил ${r.status}`);
   return r.text();
 }

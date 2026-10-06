@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { config } from '../config.js';
 import { badRequest } from '../lib/errors.js';
 import { enqueue } from '../services/jobs.js';
-import { parseList, setSpotifyApp, spotifyApp, spotifyAuthorizeUrl, spotifyCallback, yandexLogin, yandexPayload, yandexProfile } from '../services/transfer.js';
+import { parseList, setSpotifyApp, spotifyApp, spotifyAuthorizeUrl, spotifyCallback, yandexLoginPoll, yandexLoginStart } from '../services/transfer.js';
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
 
@@ -66,20 +66,32 @@ export default async function transferRoutes(app: FastifyInstance) {
     return { ok: true };
   });
 
-  /* ---------- Yandex Music ---------- */
+  /* ---------- Yandex Music: a sign-in code, then the app sends the lists ---------- */
 
-  app.get('/api/transfer/yandex', auth, async (req) => {
-    const q = z.object({ user: z.string().min(1).max(300) }).parse(req.query ?? {});
-    try { return await yandexProfile(yandexLogin(q.user)); } catch (e: any) { throw badRequest(e.message); }
+  app.post('/api/transfer/yandex/login', auth, async (req) => {
+    try { return await yandexLoginStart(req.userId!); } catch (e: any) { throw badRequest(e.message); }
   });
 
-  app.post('/api/transfer/yandex', auth, async (req) => {
-    const b = z.object({ user: z.string().min(1).max(300), kinds: z.array(z.number().int()).max(300).default([]), likes: z.boolean().default(true) }).parse(req.body ?? {});
-    const login = yandexLogin(b.user);
-    const data = await yandexPayload(login, b.kinds, b.likes);
-    if (!(data.liked?.length) && !(data.playlists?.length)) throw badRequest('Нечего переносить: выберите плейлисты или откройте «Мне нравится»');
-    const job = enqueue({ kind: 'acquire', title: 'Перенос из Яндекс Музыки', requestedBy: req.userId }, { kind: 'transfer', source: 'yandex', userId: req.userId, canAcquire: mayAcquire(req), ...data });
-    return { jobId: job.id, liked: data.liked?.length ?? 0, playlists: data.playlists?.length ?? 0 };
+  app.get('/api/transfer/yandex/login/:id', auth, async (req) => {
+    try { return await yandexLoginPoll((req.params as any).id, req.userId!); } catch (e: any) { throw badRequest(e.message); }
+  });
+
+  /** A library the listener's app read from another service: likes, playlists, artists, albums. */
+  const track = z.object({ title: z.string().trim().min(1).max(300), artist: z.string().trim().min(1).max(300), durationSec: z.number().nullish(), isrc: z.string().max(20).nullish() });
+  app.post('/api/transfer/import', { ...auth, bodyLimit: 32 * 1024 * 1024 }, async (req) => {
+    const b = z.object({
+      source: z.enum(['yandex']),
+      liked: z.array(track).max(50_000).default([]),
+      playlists: z.array(z.object({ title: z.string().trim().max(120).default(''), tracks: z.array(track).max(20_000) })).max(1000).default([]),
+      artists: z.array(z.string().trim().min(1).max(300)).max(5000).default([]),
+      albums: z.array(z.object({ title: z.string().trim().min(1).max(300), artist: z.string().trim().max(300).default('') })).max(5000).default([]),
+    }).parse(req.body ?? {});
+    const playlists = b.playlists.filter((p) => p.tracks.length).map((p) => ({ title: p.title || 'Яндекс Музыка', tracks: p.tracks }));
+    if (!b.liked.length && !playlists.length && !b.artists.length && !b.albums.length) throw badRequest('Нечего переносить');
+    const job = enqueue({ kind: 'acquire', title: 'Перенос из Яндекс Музыки', requestedBy: req.userId }, {
+      kind: 'transfer', source: b.source, userId: req.userId, canAcquire: mayAcquire(req), liked: b.liked, playlists, artists: b.artists, albums: b.albums,
+    });
+    return { jobId: job.id, liked: b.liked.length, playlists: playlists.length, artists: b.artists.length, albums: b.albums.length };
   });
 
   /* ---------- a list or a CSV ---------- */

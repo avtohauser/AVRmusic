@@ -43,6 +43,8 @@ import kotlinx.coroutines.launch
 import space.avthsr.music.App
 import space.avthsr.music.res.*
 import space.avthsr.music.api.Api
+import space.avthsr.music.api.Yandex
+import space.avthsr.music.api.importLibrary
 import space.avthsr.music.api.Likes
 import space.avthsr.music.api.changePassword
 import space.avthsr.music.api.clearHistory
@@ -231,6 +233,10 @@ fun ImportLinkDialog(onDone: () -> Unit) {
     val url = v[0].trim()
     if (!url.startsWith("http")) { App.say(tr("Вставьте ссылку из Яндекс Музыки или Spotify")); return@FormDialog }
     onDone()
-    act(tr("Импорт начат — плейлист появится в медиатеке"), { nav.jobs() }) { Api.importLink(url) }
+    act(tr("Импорт начат — плейлист появится в медиатеке"), { nav.jobs() }) {
+      // Yandex keeps its music closed to the server abroad: the phone reads the playlist itself
+      if ("music.yandex." in url) Api.importLibrary(emptyList(), listOf(Yandex.byLink(url)), emptyList(), emptyList())
+      else Api.importLink(url)
+    }
   }
 }

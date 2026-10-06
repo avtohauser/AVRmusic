@@ -30,12 +30,6 @@ data class TransferStatus(val spotify: Boolean = false)
 data class UrlBox(val url: String)
 
 @Serializable
-data class YandexPlaylist(val kind: Int, val title: String = "", val count: Int = 0, val cover: String? = null)
-
-@Serializable
-data class YandexProfile(val login: String, val likes: Int? = null, val playlists: List<YandexPlaylist> = emptyList())
-
-@Serializable
 data class SpotifySettings(val clientId: String = "", val hasSecret: Boolean = false, val redirectUri: String = "")
 
 /** A catalogue track as a queue item: the library's when it is there, otherwise a live stream ("dz:<id>"). */
@@ -89,12 +83,6 @@ suspend fun Api.searchLyrics(q: String): List<LyricHit> = get<SearchResult>("/ap
 
 suspend fun Api.transferStatus(): TransferStatus = get("/api/transfer/status")
 suspend fun Api.spotifyStart(): UrlBox = get("/api/transfer/spotify/start")
-suspend fun Api.yandexProfile(user: String): YandexProfile = get("/api/transfer/yandex?user=${enc(user)}")
-suspend fun Api.yandexTransfer(user: String, kinds: List<Int>, likes: Boolean) {
-  call("POST", "/api/transfer/yandex", buildJsonObject {
-    put("user", user); put("likes", likes); put("kinds", JsonArray(kinds.map { JsonPrimitive(it) }))
-  }.toString())
-}
 suspend fun Api.listTransfer(text: String, target: String, title: String) {
   call("POST", "/api/transfer/list", buildJsonObject { put("text", text); put("target", target); put("title", title.trim()) }.toString())
 }

@@ -1,7 +1,8 @@
 // Moving a whole music library here from another service:
 //  - Spotify: the listener signs in to Spotify (the admin sets up a Spotify app once); the liked songs,
 //    every playlist, the followed artists and the saved albums come over — songs found by their ISRC;
-//  - Yandex Music: by the listener's public profile — every public playlist and "Мне нравится";
+//  - Yandex Music: the listener signs in with a code; their app reads "Мне нравится", every playlist, the
+//    liked artists and albums and sends the lists (Yandex keeps its API closed to servers abroad);
 //  - any service: a pasted list ("Artist — Title" per line) or a CSV export (e.g. Exportify).
 // Liked songs become likes, playlists become playlists, followed artists are followed here (their new
 // releases come in). Songs not in the library are fetched from the catalogue. Runs as one fetch job.
@@ -12,7 +13,7 @@ import { findLibraryTrack, rawSearchArtists } from './catalog.js';
 import { acquireTrack, type AcquireOutcome } from './acquire.js';
 import { addTracks, createPlaylist } from './playlists.js';
 import { indexPlaylist } from './search.js';
-import { findInCatalogue, getJson, type LinkTrack } from './linkImport.js';
+import { findInCatalogue, type LinkTrack } from './linkImport.js';
 
 export interface TransferPlaylist { title: string; tracks: LinkTrack[] }
 export interface TransferPayload {
@@ -117,44 +118,46 @@ export async function spotifyCallback(db: DB, code: string, state: string): Prom
   return { userId: s.userId, payload: { kind: 'transfer', source: 'spotify', userId: s.userId, liked, playlists, artists, albums } };
 }
 
-/* ---------- Yandex Music: a public profile ---------- */
+/* ---------- Yandex Music: signing in with a code ---------- */
 
-const YA = 'https://api.music.yandex.net';
+// Public profiles are gone and Yandex keeps the music API closed to servers abroad (451), so: the server
+// asks Yandex for a sign-in code (the listener confirms it at ya.ru/device), hands the token to the
+// listener's own app, and the app — at home, where Yandex lets it in — reads the library and sends the
+// lists here (POST /api/transfer/import). The client is the Yandex Music app's own (as the open-source
+// Yandex Music clients use): Yandex offers no other way to read one's library. Nothing is stored.
+const YA_CLIENT = '23cabbbdc6cd418abb4b39c32c41195d';
+const YA_SECRET = '53bc75238f0c4d08a118e51fe9203300';
+interface YaLogin { userId: string; deviceCode: string; expires: number; token?: string }
+const yaLogins = new Map<string, YaLogin>();
 
-/** "https://music.yandex.ru/users/<login>/…" or just the login. */
-export function yandexLogin(raw: string): string {
-  const v = raw.trim();
-  const m = /\/users\/([^/?#]+)/.exec(v);
-  return decodeURIComponent(m ? m[1] : v.replace(/^@/, ''));
+const yaForm = (url: string, body: Record<string, string>) => fetch(url, {
+  method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(body), signal: AbortSignal.timeout(20_000),
+});
+
+/** A code for ya.ru/device. */
+export async function yandexLoginStart(userId: string): Promise<{ id: string; userCode: string; url: string; interval: number; expiresIn: number }> {
+  for (const [k, v] of yaLogins) if (Date.now() > v.expires) yaLogins.delete(k);
+  const r = await yaForm('https://oauth.yandex.ru/device/code', { client_id: YA_CLIENT, device_id: crypto.randomBytes(16).toString('hex'), device_name: 'AVRmusic' });
+  const j = await r.json().catch(() => ({})) as any;
+  if (!r.ok || !j.device_code) throw new Error(`Яндекс не дал код входа (${j.error_description ?? r.status})`);
+  const id = crypto.randomBytes(12).toString('hex');
+  const expiresIn = Number(j.expires_in ?? 300);
+  yaLogins.set(id, { userId, deviceCode: j.device_code, expires: Date.now() + expiresIn * 1000 });
+  return { id, userCode: String(j.user_code), url: String(j.verification_url ?? 'https://ya.ru/device'), interval: Number(j.interval ?? 5), expiresIn };
 }
 
-const yaTracks = (items: any[]): LinkTrack[] => items.map((x) => x?.track ?? x).filter(Boolean).map((t: any) => ({
-  title: [t.title, t.version ? `(${t.version})` : ''].filter(Boolean).join(' '),
-  artist: t.artists?.[0]?.name ?? '',
-  durationSec: t.durationMs ? Math.round(t.durationMs / 1000) : null,
-})).filter((t: LinkTrack) => t.title && t.artist);
-
-/** The public playlists of a Yandex Music profile (and whether "Мне нравится" is open). */
-export async function yandexProfile(login: string): Promise<{ login: string; likes: number | null; playlists: Array<{ kind: number; title: string; count: number; cover: string | null }> }> {
-  const list = (await getJson(`${YA}/users/${encodeURIComponent(login)}/playlists/list`).catch(() => null))?.result;
-  if (!Array.isArray(list)) throw new Error('Профиль не открылся: проверьте логин и что профиль публичный (Яндекс Музыка → Настройки → Публичный профиль)');
-  const likes = (await getJson(`${YA}/users/${encodeURIComponent(login)}/playlists/3`).catch(() => null))?.result;
-  const cover = (c: any) => (c?.uri ? `https://${String(c.uri).replace('%%', '400x400')}` : null);
-  return {
-    login,
-    likes: likes?.trackCount ?? (Array.isArray(likes?.tracks) ? likes.tracks.length : null),
-    playlists: list.filter((p: any) => p.kind !== 3).map((p: any) => ({ kind: p.kind, title: p.title, count: p.trackCount ?? 0, cover: cover(p.cover) })),
-  };
-}
-
-export async function yandexPayload(login: string, kinds: number[], withLikes: boolean): Promise<Pick<TransferPayload, 'liked' | 'playlists'>> {
-  const playlists: TransferPlaylist[] = [];
-  for (const k of kinds) {
-    const r = (await getJson(`${YA}/users/${encodeURIComponent(login)}/playlists/${k}`).catch(() => null))?.result;
-    if (r) playlists.push({ title: String(r.title ?? 'Яндекс Музыка').slice(0, 120), tracks: yaTracks(r.tracks ?? []) });
-  }
-  const liked = withLikes ? yaTracks((await getJson(`${YA}/users/${encodeURIComponent(login)}/playlists/3`).catch(() => null))?.result?.tracks ?? []) : [];
-  return { liked, playlists };
+/** Has the listener confirmed the code yet? Then the token goes to them (and only them). */
+export async function yandexLoginPoll(id: string, userId: string): Promise<{ status: 'pending' | 'ready' | 'expired' | 'denied'; token?: string; message?: string }> {
+  const s = yaLogins.get(id);
+  if (!s || s.userId !== userId || Date.now() > s.expires) { yaLogins.delete(id); return { status: 'expired' }; }
+  if (s.token) return { status: 'ready', token: s.token };
+  const r = await yaForm('https://oauth.yandex.ru/token', { grant_type: 'device_code', code: s.deviceCode, client_id: YA_CLIENT, client_secret: YA_SECRET });
+  const j = await r.json().catch(() => ({})) as any;
+  if (j.access_token) { s.token = String(j.access_token); s.expires = Date.now() + 10 * 60_000; return { status: 'ready', token: s.token }; }
+  if (j.error === 'authorization_pending' || j.error === 'slow_down') return { status: 'pending' };
+  yaLogins.delete(id);
+  if (j.error === 'expired_token') return { status: 'expired' };
+  return { status: 'denied', message: j.error_description ?? 'Яндекс не подтвердил вход' };
 }
 
 /* ---------- a pasted list or a CSV file ---------- */

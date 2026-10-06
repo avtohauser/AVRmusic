@@ -1,7 +1,7 @@
 @file:OptIn(ExperimentalLayoutApi::class)
 
 // Moving a library here: Spotify (sign in — liked songs, every playlist, followed artists), Yandex Music
-// (a public profile — every playlist and "Мне нравится"), a link to one playlist, or a pasted list / CSV.
+// (sign in with a code — the phone reads the library), a link to one playlist, or a pasted list / CSV.
 package space.avthsr.music.ui
 
 import androidx.compose.foundation.background
@@ -31,8 +31,10 @@ import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.ToggleButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -43,20 +45,27 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.io.readByteArray
 import space.avthsr.music.App
 import space.avthsr.music.Pick
 import space.avthsr.music.Platform
 import space.avthsr.music.api.Api
-import space.avthsr.music.api.YandexProfile
+import space.avthsr.music.api.Yandex
+import space.avthsr.music.api.YandexLogin
+import space.avthsr.music.api.YandexOverview
+import space.avthsr.music.api.importLibrary
+import space.avthsr.music.api.yandexLoginStart
+import space.avthsr.music.api.yandexLoginState
 import space.avthsr.music.api.listTransfer
 import space.avthsr.music.api.spotifyStart
 import space.avthsr.music.api.transferStatus
-import space.avthsr.music.api.yandexProfile
-import space.avthsr.music.api.yandexTransfer
 import space.avthsr.music.rememberPicker
 import space.avthsr.music.res.*
 import space.avthsr.music.tr
@@ -119,41 +128,105 @@ private fun SpotifyCard(ready: Boolean?) {
   }
 }
 
-/** Yandex Music: the public profile's playlists and "Мне нравится", picked and moved. */
+/** Yandex Music: sign in with a code at ya.ru/device; the phone reads the library and sends the lists. */
 @Composable
 private fun YandexCard() {
   val nav = LocalNav.current
   val scope = rememberCoroutineScope()
-  var user by remember { mutableStateOf("") }
-  var profile by remember { mutableStateOf<YandexProfile?>(null) }
-  var loading by remember { mutableStateOf(false) }
+  val clipboard = LocalClipboardManager.current
+  var login by remember { mutableStateOf<YandexLogin?>(null) }
+  var token by remember { mutableStateOf<String?>(null) }
+  var overview by remember { mutableStateOf<YandexOverview?>(null) }
+  var busy by remember { mutableStateOf<String?>(null) }
   var likes by remember { mutableStateOf(true) }
+  var withArtists by remember { mutableStateOf(true) }
+  var withAlbums by remember { mutableStateOf(true) }
   val kinds = remember { mutableStateListOf<Int>() }
-  Card(tr("Яндекс Музыка"), tr("По публичному профилю: «Мне нравится» и все открытые плейлисты"), Color(0xFFFFCC00)) {
-    OutlinedTextField(user, { user = it }, label = { Text(tr("Ссылка на профиль или логин")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-    Spacer(Modifier.height(8.dp))
-    Button(enabled = user.isNotBlank() && !loading, onClick = {
-      loading = true
-      scope.launch {
-        runCatching { Api.yandexProfile(user) }
-          .onSuccess { p -> profile = p; kinds.clear(); kinds.addAll(p.playlists.map { it.kind }); likes = (p.likes ?: 0) > 0 }
-          .onFailure { App.say(it.message ?: tr("Не получилось")) }
-        loading = false
+  val fail = { e: Throwable -> App.say(e.message ?: tr("Не получилось")); busy = null }
+
+  // waiting for the code to be confirmed, then reading what there is to move
+  val l = login
+  LaunchedEffect(l?.id) {
+    if (l == null) return@LaunchedEffect
+    val until = kotlin.time.TimeSource.Monotonic.markNow() + l.expiresIn.seconds
+    while (until.hasNotPassedNow()) {
+      delay(l.interval.coerceAtLeast(3).seconds)
+      val st = runCatching { Api.yandexLoginState(l.id) }.getOrNull() ?: continue
+      when (st.status) {
+        "ready" -> {
+          login = null; token = st.token; busy = tr("Читаю вашу библиотеку…")
+          runCatching { Yandex.overview(st.token!!) }
+            .onSuccess { o -> overview = o; kinds.clear(); kinds.addAll(o.playlists.map { it.first }); likes = o.likedIds.isNotEmpty(); busy = null }
+            .onFailure(fail)
+          return@LaunchedEffect
+        }
+        "pending" -> continue
+        else -> { login = null; App.say(st.message ?: tr("Код устарел — начните заново")); return@LaunchedEffect }
       }
-    }, shapes = ButtonDefaults.shapes()) { Text(if (loading) tr("Смотрю…") else tr("Показать плейлисты")) }
-    Text(
-      tr("Профиль должен быть публичным: Яндекс Музыка → Настройки → «Публичный профиль». Логин — в адресе страницы music.yandex.ru/users/ЛОГИН."),
-      Modifier.padding(top = 6.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-    val p = profile
-    if (p != null) {
-      Spacer(Modifier.height(10.dp))
-      if (p.likes != null) PickRow(tr("Мне нравится · {}", tracksWord(p.likes)), likes) { likes = it }
-      p.playlists.forEach { pl -> PickRow("${pl.title} · ${tracksWord(pl.count)}", pl.kind in kinds) { on -> if (on) kinds.add(pl.kind) else kinds.remove(pl.kind) } }
-      Spacer(Modifier.height(8.dp))
-      Button(enabled = likes || kinds.isNotEmpty(), onClick = {
-        act(tr("Перенос начат — ход в «Загрузках на сервер»"), { nav.jobs() }) { Api.yandexTransfer(p.login, kinds.toList(), likes) }
-      }, shapes = ButtonDefaults.shapes()) { Text(tr("Перенести выбранное")) }
+    }
+    login = null; App.say(tr("Код устарел — начните заново"))
+  }
+
+  Card(tr("Яндекс Музыка"), tr("«Мне нравится», все плейлисты (и закрытые), исполнители и альбомы"), Color(0xFFFFCC00)) {
+    val o = overview
+    val code = login
+    when {
+      busy != null -> Row(verticalAlignment = Alignment.CenterVertically) { LoadingIndicator(Modifier.size(32.dp)); Spacer(Modifier.width(10.dp)); Text(busy!!, style = MaterialTheme.typography.bodyLarge) }
+      code != null -> {
+        Text(tr("Откройте ya.ru/device, войдите в свой Яндекс и введите код:"), style = MaterialTheme.typography.bodyMedium)
+        Text(
+          code.userCode, style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.primary,
+          modifier = Modifier.padding(vertical = 10.dp).clip(RoundedCornerShape(16.dp)).clickable { clipboard.setText(AnnotatedString(code.userCode)); App.say(tr("Код скопирован")) }.padding(horizontal = 8.dp),
+        )
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+          Button(onClick = { clipboard.setText(AnnotatedString(code.userCode)); Platform.openUrl(code.url) }, shapes = ButtonDefaults.shapes()) { Text(tr("Скопировать и открыть ya.ru/device")) }
+          TextButton(onClick = { login = null }) { Text(tr("Отмена")) }
+        }
+        Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+          LoadingIndicator(Modifier.size(24.dp)); Spacer(Modifier.width(8.dp))
+          Text(tr("Жду подтверждения… Яндекс спросит доступ для «Яндекс Музыки» — это нормально, читаем только вашу музыку."), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+      }
+      o == null -> {
+        Button(onClick = {
+          busy = tr("Получаю код…")
+          scope.launch { runCatching { Api.yandexLoginStart() }.onSuccess { login = it; busy = null }.onFailure(fail) }
+        }, shapes = ButtonDefaults.shapes()) { Text(tr("Войти через Яндекс")) }
+        Text(
+          tr("Пароль сюда не попадает: вход подтверждается на сайте Яндекса кодом. Музыку читает ваш телефон, доступ не сохраняется."),
+          Modifier.padding(top = 6.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+      }
+      else -> {
+        Text(tr("Вход: {}", o.login), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(6.dp))
+        if (o.likedIds.isNotEmpty()) PickRow(tr("Мне нравится · {}", tracksWord(o.likedIds.size)), likes) { likes = it }
+        o.playlists.forEach { (kind, title, count) -> PickRow("$title · ${tracksWord(count)}", kind in kinds) { on -> if (on) kinds.add(kind) else kinds.remove(kind) } }
+        if (o.artists.isNotEmpty()) PickRow(tr("Исполнители · {} — новинки будут приходить", o.artists.size), withArtists) { withArtists = it }
+        if (o.albums.isNotEmpty()) PickRow(tr("Альбомы · {}", o.albums.size), withAlbums) { withAlbums = it }
+        Spacer(Modifier.height(8.dp))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+          Button(enabled = likes || kinds.isNotEmpty() || withArtists || withAlbums, onClick = {
+            scope.launch {
+              val t = token ?: return@launch
+              runCatching {
+                busy = tr("Собираю треки…")
+                val liked = if (likes) Yandex.likedSongs(t, o) else emptyList()
+                val lists = o.playlists.filter { it.first in kinds }.mapIndexed { i, (kind, title, _) ->
+                  busy = tr("Плейлист {} из {}: {}", i + 1, kinds.size, title)
+                  Yandex.playlist(t, o.uid, kind.toString())
+                }
+                busy = tr("Отправляю на сервер…")
+                Api.importLibrary(liked, lists, if (withArtists) o.artists else emptyList(), if (withAlbums) o.albums else emptyList())
+              }.onSuccess {
+                busy = null; overview = null; token = null
+                App.say(tr("Перенос начат — ход в «Загрузках на сервер»")); nav.jobs()
+              }.onFailure(fail)
+            }
+          }, shapes = ButtonDefaults.shapes()) { Text(tr("Перенести выбранное")) }
+          TextButton(onClick = { overview = null; token = null }) { Text(tr("Выйти")) }
+        }
+      }
     }
   }
 }

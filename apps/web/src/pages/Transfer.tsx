@@ -1,5 +1,5 @@
-// Moving a library here: Spotify (sign in — liked songs, every playlist, followed artists), Yandex Music
-// (a public profile — every playlist and "Мне нравится"), a link to one playlist, or a pasted list / CSV.
+// Moving a library here: Spotify (sign in — liked songs, every playlist, followed artists), a link to one
+// playlist, or a pasted list / CSV. Yandex Music is moved in the app (it reads the library on the phone).
 import { useRef, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
@@ -9,7 +9,6 @@ import { useAuth } from '@/stores/auth';
 import { useUI } from '@/stores/ui';
 import { useTr } from '@/lib/social';
 
-interface YandexProfile { login: string; likes: number | null; playlists: Array<{ kind: number; title: string; count: number; cover: string | null }> }
 
 const started = (tr: (ru: string, en: string) => string, qc: ReturnType<typeof useQueryClient>) => {
   useUI.getState().toast(tr('Перенос начат — ход виден в «Загрузках»', 'The transfer has started — see Downloads'), 'success');
@@ -65,47 +64,19 @@ function SpotifyCard() {
   );
 }
 
+/** Yandex keeps its music closed to the server abroad, and a browser page cannot read it either:
+ *  the move is made in the app on the phone (sign in with a code — the phone reads the library). */
 function YandexCard() {
   const tr = useTr();
-  const qc = useQueryClient();
-  const [user, setUser] = useState('');
-  const [profile, setProfile] = useState<YandexProfile | null>(null);
-  const [kinds, setKinds] = useState<number[]>([]);
-  const [likes, setLikes] = useState(true);
-  const [busy, setBusy] = useState(false);
-  const look = async () => {
-    setBusy(true);
-    try { const p = await api.get<YandexProfile>(`/api/transfer/yandex?user=${encodeURIComponent(user.trim())}`); setProfile(p); setKinds(p.playlists.map((x) => x.kind)); setLikes((p.likes ?? 0) > 0); }
-    catch (e: any) { useUI.getState().toast(e.message, 'error'); } finally { setBusy(false); }
-  };
-  const move = async () => {
-    setBusy(true);
-    try { await api.post('/api/transfer/yandex', { user: profile!.login, kinds, likes }); started(tr, qc); }
-    catch (e: any) { useUI.getState().toast(e.message, 'error'); } finally { setBusy(false); }
-  };
-  const Pick = ({ on, label, flip }: { on: boolean; label: string; flip: () => void }) => (
-    <button className="w-full flex items-center gap-3 px-2 py-1.5 rounded-[12px] state-layer text-left" onClick={flip}>
-      <m3e-icon variant="rounded" name={on ? 'check_circle' : 'add_circle'} filled={on || undefined} style={{ color: on ? 'var(--md-sys-color-primary)' : undefined }} />
-      <span className="md-body-lg line-1">{label}</span>
-    </button>
-  );
   return (
-    <Card title={tr('Яндекс Музыка', 'Yandex Music')} subtitle={tr('По публичному профилю: «Мне нравится» и все открытые плейлисты', 'From a public profile: liked songs and every open playlist')} color="#E5B800">
-      <div className="flex gap-2 items-start flex-wrap">
-        <M3eFormField variant="outlined" className="flex-1 min-w-56 block">
-          <span slot="label">{tr('Ссылка на профиль или логин', 'Profile link or login')}</span>
-          <input value={user} onChange={(e) => setUser(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && user.trim()) void look(); }} />
-        </M3eFormField>
-        <M3eButton variant="tonal" disabled={busy || !user.trim() || undefined} onClick={look}>{busy && !profile ? tr('Смотрю…', 'Looking…') : tr('Показать плейлисты', 'Show playlists')}</M3eButton>
-      </div>
-      <p className="md-body-sm muted mt-2">{tr('Профиль должен быть публичным: Яндекс Музыка → Настройки → «Публичный профиль». Логин — в адресе music.yandex.ru/users/ЛОГИН.', 'The profile must be public: Yandex Music → Settings → “Public profile”. The login is in the address music.yandex.ru/users/LOGIN.')}</p>
-      {profile && (
-        <div className="mt-3">
-          {profile.likes != null && <Pick on={likes} label={`${tr('Мне нравится', 'Liked')} · ${profile.likes}`} flip={() => setLikes(!likes)} />}
-          {profile.playlists.map((p) => <Pick key={p.kind} on={kinds.includes(p.kind)} label={`${p.title} · ${p.count}`} flip={() => setKinds((k) => (k.includes(p.kind) ? k.filter((x) => x !== p.kind) : [...k, p.kind]))} />)}
-          <M3eButton variant="filled" className="mt-3" disabled={busy || (!likes && !kinds.length) || undefined} onClick={move}><m3e-icon variant="rounded" slot="icon" name="swap_horiz" />{tr('Перенести выбранное', 'Move the selected')}</M3eButton>
-        </div>
-      )}
+    <Card title={tr('Яндекс Музыка', 'Yandex Music')} subtitle={tr('«Мне нравится», все плейлисты (и закрытые), исполнители и альбомы', 'Liked songs, every playlist (private ones too), artists and albums')} color="#E5B800">
+      <p className="md-body-md">{tr('Яндекс не пускает к музыке сервер за границей, поэтому перенос из Яндекс Музыки делается в приложении AVRmusic на телефоне:', 'Yandex keeps its music closed to servers abroad, so the move from Yandex Music is made in the AVRmusic app on the phone:')}</p>
+      <ol className="md-body-md list-decimal pl-5 mt-2 space-y-1">
+        <li>{tr('Профиль → «Перенести музыку» → «Войти через Яндекс».', 'Profile → “Move your music” → “Sign in with Yandex”.')}</li>
+        <li>{tr('Откройте ya.ru/device, войдите в Яндекс и введите показанный код.', 'Open ya.ru/device, sign in to Yandex and enter the code shown.')}</li>
+        <li>{tr('Отметьте, что перенести, — телефон прочитает библиотеку и отправит её сюда.', 'Pick what to move — the phone reads the library and sends it here.')}</li>
+      </ol>
+      <p className="md-body-sm muted mt-2">{tr('Пароль никуда не передаётся, доступ к Яндексу не сохраняется. Ссылки на плейлисты Яндекса тоже открываются только в приложении.', 'Your password goes nowhere, and the access to Yandex is not kept. Yandex playlist links also open only in the app.')}</p>
     </Card>
   );
 }
@@ -121,7 +92,7 @@ function LinkCard() {
     catch (e: any) { useUI.getState().toast(e.message, 'error'); } finally { setBusy(false); }
   };
   return (
-    <Card title={tr('Один плейлист по ссылке', 'One playlist by link')} subtitle={tr('Ссылка на плейлист или альбом Spotify / Яндекс Музыки', 'A Spotify / Yandex Music playlist or album link')} color="#7D5260">
+    <Card title={tr('Один плейлист по ссылке', 'One playlist by link')} subtitle={tr('Ссылка на плейлист или альбом Spotify (Яндекс — в приложении)', 'A Spotify playlist or album link (Yandex — in the app)')} color="#7D5260">
       <div className="flex gap-2 items-start flex-wrap">
         <M3eFormField variant="outlined" className="flex-1 min-w-56 block"><span slot="label">{tr('Ссылка', 'Link')}</span><input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://open.spotify.com/playlist/…" /></M3eFormField>
         <M3eButton variant="filled" disabled={busy || !/^https?:\/\//.test(url.trim()) || undefined} onClick={go}><m3e-icon variant="rounded" slot="icon" name="link" />{tr('Перенести', 'Move')}</M3eButton>

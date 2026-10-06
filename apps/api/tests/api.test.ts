@@ -521,3 +521,33 @@ test('co-owners, blend, radar, reports, follows, lyrics search and lists to move
   assert.equal(moved.statusCode, 200, moved.body);
   assert.deepEqual({ ...moved.json(), jobId: undefined }, { jobId: undefined, liked: 1, playlists: 1, artists: 1, albums: 1 });
 });
+
+test('downloads spread over the exits; a silent exit hands its download over', async () => {
+  const { config } = await import('../src/config.js');
+  const { downloadSlots, withAccount } = await import('../src/services/youtubeAccounts.js');
+  const before = config.downloadProxies;
+  config.downloadProxies = ['http://127.0.0.1:9#Польша'];
+  try {
+    const base = downloadSlots();
+    assert.ok(base >= 4, `two exits double the slots (${base})`);
+    // both exits get used when several downloads run at once
+    const seen: Array<string | null> = [];
+    await Promise.all([1, 2, 3, 4].map(() => withAccount(async (a) => { seen.push(a.proxy); await new Promise((r) => setTimeout(r, 30)); })));
+    assert.ok(seen.includes(null) && seen.includes('http://127.0.0.1:9'), JSON.stringify(seen));
+    // the other server is down: the download goes through this one, the exit rests
+    const log: string[] = [];
+    const got = await Promise.all([1, 2, 3].map(() => withAccount(async (a) => {
+      await new Promise((r) => setTimeout(r, 10));
+      if (a.proxy) throw new Error('yt-dlp: Unable to connect to proxy');
+      return 'ok';
+    }, { log: (s) => log.push(s) })));
+    assert.deepEqual(got, ['ok', 'ok', 'ok']);
+    assert.ok(log.some((l) => l.includes('«Польша» не отвечает')), log.join('\n'));
+    const later: Array<string | null> = [];
+    await Promise.all([1, 2].map(() => withAccount(async (a) => { later.push(a.proxy); })));
+    assert.ok(later.every((p) => p === null), 'a resting exit is skipped');
+    assert.equal(downloadSlots(), base / 2);
+  } finally {
+    config.downloadProxies = before;
+  }
+});

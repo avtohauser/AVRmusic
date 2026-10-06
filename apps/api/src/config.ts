@@ -41,6 +41,10 @@ export const config = {
   publicUrl: (process.env.PUBLIC_URL || 'http://localhost:8080').replace(/\/$/, ''),
   webDist,
   ytdlpPath: process.env.YTDLP_PATH || 'yt-dlp',
+  /** Other servers downloads may leave from ("http://10.77.0.2:8888#Польша", comma-separated): each adds its own IP. */
+  downloadProxies: (process.env.DOWNLOAD_PROXIES || '').split(',').map((s) => s.trim()).filter(Boolean),
+  /** Music on another server: a file that must be in MEDIA_DIR before anything is downloaded (the mount is up). */
+  mediaMarker: process.env.MEDIA_MARKER || '',
   ffmpegPath: process.env.FFMPEG_PATH || 'ffmpeg',
   lrclibUrl: (process.env.LRCLIB_URL || 'https://lrclib.net').replace(/\/$/, ''),
   catalogEnabled: bool(process.env.CATALOG_ENABLED, true),

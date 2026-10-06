@@ -28,6 +28,10 @@ services:
       CANVAS_SECONDS: ${CANVAS_SECONDS:-9}
       ANDROID_PACKAGE: ${ANDROID_PACKAGE:-app.avrmusic.twa}
       ANDROID_SHA256: ${ANDROID_SHA256:-}
+      # music on the storage server (deploy/storage): downloads also leave through it; nothing is fetched
+      # while its folder is not mounted
+      DOWNLOAD_PROXIES: ${DOWNLOAD_PROXIES:-}
+      MEDIA_MARKER: ${MEDIA_MARKER:-}
     volumes:
       - ${DATA_PATH:-./data}:/data
       - ${MEDIA_PATH:-./media}:/media

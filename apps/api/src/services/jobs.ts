@@ -2,6 +2,9 @@
 // One job runs at a time. Jobs are stored in SQLite, so a restart or deploy resumes unfinished ones.
 import type { Track } from '@avrmusic/shared';
 import type { DB } from '../lib/db.js';
+import fs from 'node:fs';
+import path from 'node:path';
+import { config } from '../config.js';
 import { newId } from '../lib/util.js';
 
 export type JobKind = 'url' | 'lyrics' | 'acquire' | 'canvas' | 'heal' | 'discover';
@@ -155,7 +158,20 @@ export function userJobWaiting(): boolean { return userRunning > 0 || queue.some
 /** A job of this kind is waiting in the queue. */
 export function kindWaiting(kind: JobKind): boolean { return queue.some((j) => j.kind === kind); }
 
+/** The music lives on another server: is its folder mounted here? (an empty local folder must stay empty) */
+let mediaWarned = false;
+function mediaOnline(): boolean {
+  if (!config.mediaMarker || fs.existsSync(path.join(config.mediaDir, config.mediaMarker))) { mediaWarned = false; return true; }
+  if (!mediaWarned) { mediaWarned = true; console.warn(`[jobs] хранилище музыки не подключено (${config.mediaDir}) — задачи ждут`); }
+  return false;
+}
+let mediaRetry: NodeJS.Timeout | null = null;
+
 async function pump() {
+  if (queue.length && !mediaOnline()) {
+    if (!mediaRetry) mediaRetry = setTimeout(() => { mediaRetry = null; void pump(); }, 30_000);
+    return;
+  }
   const next = nextUserJob();
   let job: Job | undefined;
   let express = false;

@@ -125,9 +125,9 @@ export function ytdlpSource(name: 'youtube' | 'soundcloud'): Source {
         if (cancelled) throw new Error('Отменено');
         fs.rmSync(dir, { recursive: true, force: true });
         fs.mkdirSync(dir, { recursive: true });
-        if (a.cookies) log(`   ⤓ аккаунт YouTube: ${a.label}`);
+        if (a.cookies || a.proxy) log(`   ⤓ ${a.cookies ? 'аккаунт YouTube: ' : ''}${a.label}`);
         let lastError = '';
-        const r = await run(config.ytdlpPath, a.cookies ? ['--cookies', a.cookies, ...args] : args, {
+        const r = await run(config.ytdlpPath, [...(a.cookies ? ['--cookies', a.cookies] : []), ...(a.proxy ? ['--proxy', a.proxy] : []), ...args], {
           onLine: (l) => { if (/^ERROR/i.test(l)) lastError = l.replace(/^ERROR:\s*/i, ''); if (!/\[download\]\s+\d/.test(l)) log(l); },
           cancel: current,
           idleMs: 120_000,
@@ -137,7 +137,7 @@ export function ytdlpSource(name: 'youtube' | 'soundcloud'): Source {
         if (r.timedOut) throw new Error(`yt-dlp: ${r.timedOut} — прервано`);
         if (r.code !== 0) throw new Error(lastError ? `yt-dlp: ${lastError.slice(0, 200)}` : `yt-dlp завершился с кодом ${r.code}`);
       };
-      await (name === 'youtube' ? withAccount(fetchWith, { log, cancelled: () => cancelled }) : fetchWith({ cookies: null, label: '' }));
+      await (name === 'youtube' ? withAccount(fetchWith, { log, cancelled: () => cancelled }) : fetchWith({ cookies: null, label: '', proxy: null }));
       const files = fs.readdirSync(dir).filter((f) => !f.endsWith('.part') && !f.endsWith('.json'));
       if (!files.length) throw new Error('файл не скачан');
       return path.join(dir, files[0]);

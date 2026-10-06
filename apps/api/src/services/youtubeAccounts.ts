@@ -4,6 +4,9 @@
 // download moves on to the next one; with every account resting it is tried without cookies.
 // Every yt-dlp run gets a private copy of the cookies (it writes the jar back on exit); after a good
 // download the refreshed jar replaces the account's file in one step.
+// With other servers given as download exits (DOWNLOAD_PROXIES), every exit has the same slots again —
+// YouTube sees several IPs — and a download takes the least busy exit; an exit that stops answering
+// rests a few minutes and its downloads go through the others.
 import fs from 'node:fs';
 import path from 'node:path';
 import { config } from '../config.js';
@@ -26,7 +29,7 @@ export interface YtAccountInfo {
 }
 
 interface Meta { id: string; label: string; createdAt: string }
-interface Live { running: number; coolUntil: number; ok: number; failed: number; lastError: string | null; lastUsedAt: string | null }
+interface Live { running: number; at: number[]; coolUntil: number; ok: number; failed: number; lastError: string | null; lastUsedAt: string | null }
 
 /** How long an account rests after YouTube refused it. */
 const COOL_MS = 20 * 60_000;
@@ -45,9 +48,39 @@ const legacyConfig = () => path.join(process.env.XDG_CONFIG_HOME || path.join(co
 const live = new Map<string, Live>();
 function state(id: string): Live {
   let s = live.get(id);
-  if (!s) live.set(id, (s = { running: 0, coolUntil: 0, ok: 0, failed: 0, lastError: null, lastUsedAt: null }));
+  if (!s) live.set(id, (s = { running: 0, at: [], coolUntil: 0, ok: 0, failed: 0, lastError: null, lastUsedAt: null }));
   return s;
 }
+
+/* ---------- where downloads leave from ---------- */
+
+interface Exit { proxy: string | null; name: string; busy: number; anon: number; downUntil: number }
+let exitsFor: string | null = null;
+let exitList: Exit[] = [];
+/** This server first, then every other server from DOWNLOAD_PROXIES ("url#name"). */
+function exits(): Exit[] {
+  const key = config.downloadProxies.join(',');
+  if (key !== exitsFor) {
+    exitsFor = key;
+    exitList = [{ proxy: null, name: '', busy: 0, anon: 0, downUntil: 0 }, ...config.downloadProxies.map((p) => {
+      const [url, name] = p.split('#');
+      return { proxy: url.trim(), name: (name ?? url).trim(), busy: 0, anon: 0, downUntil: 0 };
+    })];
+  }
+  return exitList;
+}
+const exitUp = (e: Exit) => e.downUntil <= Date.now();
+/** How long an exit that stopped answering rests. */
+const EXIT_REST_MS = 5 * 60_000;
+const PROXY_FAILURE = /proxy|tunnel connection failed|connection refused|no route to host|network is unreachable|timed out/i;
+/** Did the other server fail us (as opposed to YouTube or the video)? */
+function exitFailed(e: Exit, msg: string, log?: (s: string) => void): boolean {
+  if (!e.proxy || !PROXY_FAILURE.test(msg)) return false;
+  e.downUntil = Date.now() + EXIT_REST_MS;
+  log?.(`   … сервер «${e.name}» не отвечает — качаю через остальные`);
+  return true;
+}
+const via = (e: Exit) => (e.proxy ? ` · через «${e.name}»` : '');
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -129,10 +162,10 @@ export function wakeAccount(id: string): YtAccountInfo[] {
   return listAccounts();
 }
 
-/** How many downloads may run at once: two per account (two without accounts). */
+/** How many downloads may run at once: two per account (two without accounts), on every exit. */
 export function downloadSlots(): number {
   const n = load().length;
-  return n ? n * PER_ACCOUNT : ANON_SLOTS;
+  return (n ? n * PER_ACCOUNT : ANON_SLOTS) * Math.max(1, exits().filter(exitUp).length);
 }
 
 /** A private copy of an account's cookies for one yt-dlp run. */
@@ -161,33 +194,36 @@ const REFUSAL = /\b429\b|too many requests|rate.?limit|not a bot|sign in to conf
 /** Did YouTube refuse the account (as opposed to the video being gone or the network failing)? */
 export const isRefusal = (msg: string) => REFUSAL.test(msg);
 
-export interface AccountUse { cookies: string | null; label: string }
+export interface AccountUse { cookies: string | null; label: string; proxy: string | null }
 interface UseOpts { log?: (s: string) => void; cancelled?: () => boolean }
 
-let anonBusy = 0;
+/** Without cookies: two at a time on every exit; one more try after a refusal, another exit after a failure. */
 async function anonymous<T>(fn: (a: AccountUse) => Promise<T>, opts: UseOpts): Promise<T> {
-  while (anonBusy >= ANON_SLOTS) {
+  let retried = false;
+  for (;;) {
     if (opts.cancelled?.()) throw new Error('Отменено');
-    await sleep(300);
-  }
-  anonBusy++;
-  try {
+    const e = exits().filter((x) => exitUp(x) && x.anon < ANON_SLOTS).sort((a, b) => a.busy - b.busy)[0];
+    if (!e) { await sleep(300); continue; }
+    e.anon++; e.busy++;
     try {
-      return await fn({ cookies: null, label: 'без аккаунта' });
-    } catch (e: any) {
-      if (!isRefusal(e?.message ?? '') || opts.cancelled?.()) throw e;
+      return await fn({ cookies: null, label: `без аккаунта${via(e)}`, proxy: e.proxy });
+    } catch (err: any) {
+      const msg = String(err?.message ?? err);
+      if (opts.cancelled?.()) throw err;
+      if (exitFailed(e, msg, opts.log)) continue;
+      if (!isRefusal(msg) || retried) throw err;
+      retried = true;
       opts.log?.('   … YouTube отказал, повтор через 15 с');
       await sleep(15_000);
-      return await fn({ cookies: null, label: 'без аккаунта' });
+    } finally {
+      e.anon--; e.busy--;
     }
-  } finally {
-    anonBusy--;
   }
 }
 
 /**
- * Runs a download with a free account, waiting while all are busy. When YouTube refuses an account,
- * it rests and the next free one is tried; when none is left, one try without cookies.
+ * Runs a download with a free account on the least busy exit, waiting while all are busy. When YouTube
+ * refuses an account, it rests and the next free one is tried; when none is left, one try without cookies.
  */
 export async function withAccount<T>(fn: (a: AccountUse) => Promise<T>, opts: UseOpts = {}): Promise<T> {
   const tried = new Set<string>();
@@ -199,30 +235,40 @@ export async function withAccount<T>(fn: (a: AccountUse) => Promise<T>, opts: Us
       if (tried.size) opts.log?.('   … все аккаунты YouTube отдыхают — пробую без них');
       return anonymous(fn, opts);
     }
-    // the least busy account with a free slot
-    const free = usable.filter((m) => state(m.id).running < PER_ACCOUNT).sort((a, b) => state(a.id).running - state(b.id).running)[0];
-    if (!free) { await sleep(300); continue; }
+    // the least busy exit, then the least busy account with a free slot there
+    const all = exits();
+    let pick: { m: Meta; e: number } | null = null;
+    for (const e of all.map((_, i) => i).filter((i) => exitUp(all[i])).sort((a, b) => all[a].busy - all[b].busy)) {
+      const m = usable.filter((x) => (state(x.id).at[e] ?? 0) < PER_ACCOUNT).sort((a, b) => state(a.id).running - state(b.id).running)[0];
+      if (m) { pick = { m, e }; break; }
+    }
+    if (!pick) { await sleep(300); continue; }
+    const { m: free, e: ei } = pick;
+    const exit = all[ei];
     const s = state(free.id);
     const copy = privateCopy(free.id);
     if (!copy) { tried.add(free.id); continue; }
-    s.running++;
+    s.running++; s.at[ei] = (s.at[ei] ?? 0) + 1; exit.busy++;
     s.lastUsedAt = new Date().toISOString();
-    tried.add(free.id);
     try {
-      const r = await fn({ cookies: copy, label: free.label });
+      const r = await fn({ cookies: copy, label: `${free.label}${via(exit)}`, proxy: exit.proxy });
       s.ok++;
       s.lastError = null;
       keepRefreshed(free.id, copy);
       return r;
     } catch (e: any) {
       const msg = String(e?.message ?? e);
+      if (opts.cancelled?.()) throw e;
+      // the other server is down: not the account's fault — same account, another exit
+      if (exitFailed(exit, msg, opts.log)) continue;
+      tried.add(free.id);
       s.failed++;
       s.lastError = msg.slice(0, 300);
-      if (!isRefusal(msg) || opts.cancelled?.()) throw e;
+      if (!isRefusal(msg)) throw e;
       s.coolUntil = Date.now() + COOL_MS;
       opts.log?.(`   … YouTube отказал аккаунту «${free.label}» — отдыхает ${COOL_MS / 60_000} мин, беру следующий`);
     } finally {
-      s.running--;
+      s.running--; s.at[ei]--; exit.busy--;
       try { fs.unlinkSync(copy); } catch { /* gone */ }
     }
   }

@@ -1,0 +1,99 @@
+# The music storage server (deploy/storage): run by hand.
+#   setup   — a private tunnel between the main server and the storage server, the music folder on the
+#             storage shared with the main server only, and a proxy so downloads also leave from its IP;
+#             then checks (nothing of the app is touched)
+#   migrate — moves the music to the storage and mounts it back in the same place (rolls back on failure)
+# Secrets: SERVER_HOST / SERVER_USER / SERVER_PASSWORD (main, as deploy.yml), STORAGE_HOST / STORAGE_PASSWORD.
+name: storage
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: setup | migrate
+        required: true
+        default: setup
+        type: choice
+        options: [setup, migrate]
+concurrency: deploy-prod
+jobs:
+  storage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sign in to both servers
+        env:
+          MAIN_HOST_RAW: ${{ secrets.SERVER_HOST }}
+          MAIN_USER_RAW: ${{ secrets.SERVER_USER }}
+          MAIN_PASSWORD_RAW: ${{ secrets.SERVER_PASSWORD }}
+          STORE_HOST_RAW: ${{ secrets.STORAGE_HOST }}
+          STORE_PASSWORD_RAW: ${{ secrets.STORAGE_PASSWORD }}
+          DOMAIN: ${{ vars.DOMAIN }}
+        run: |
+          set +e
+          command -v sshpass >/dev/null || { sudo apt-get update -qq >/dev/null; sudo apt-get install -y -qq sshpass >/dev/null; }
+          pick_host() { printf '%s' "$1" | tr -d '\r' | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}|[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+' | head -n1 || true; }
+          # a pasted secret may carry a label or a newline: try the sensible variants (masked first, on stdout)
+          variants() {
+            local raw="$1" t; printf '%s\n' "$raw" | head -n1
+            t="$(printf '%s' "$raw" | tr -d '\r\n')"; printf '%s\n' "$t"
+            t="$(printf '%s' "$t" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"; printf '%s\n' "$t"
+            printf '%s\n' "$(printf '%s' "$t" | sed -E 's/^[^:]*:[[:space:]]*//')" "$(printf '%s' "$t" | sed -E 's/^[A-Za-z_]+=//')" "${t##* }"
+          }
+          OK_PASS=""
+          login() { # host user raw-password → OK_PASS = the variant the server accepts
+            local host="$1" user="$2" c; OK_PASS=""
+            mapfile -t cands < <(variants "$3" | awk 'NF && !seen[$0]++')
+            for c in "${cands[@]}"; do echo "::add-mask::$c"; done
+            [ "$3" != "${3%$'\n'*}" ] && cands=("$3" "${cands[@]}")
+            for c in "${cands[@]}"; do
+              if SSHPASS="$c" timeout 45 sshpass -e ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+                   -o PreferredAuthentications=password -o PubkeyAuthentication=no -o NumberOfPasswordPrompts=1 \
+                   -o ConnectTimeout=20 -o LogLevel=ERROR "$user@$host" true 2>/dev/null; then OK_PASS="$c"; return 0; fi
+            done
+            return 1
+          }
+          main="$(pick_host "$MAIN_HOST_RAW")"; getent ahostsv4 "$main" >/dev/null 2>&1 || main="$(pick_host "$DOMAIN")"
+          store="$(pick_host "$STORE_HOST_RAW")"
+          [ -n "$store" ] || { echo "::error::Нет секрета STORAGE_HOST (IP сервера-хранилища)"; exit 1; }
+          store_ip="$(getent ahostsv4 "$store" | awk '{print $1; exit}')"
+          [ -n "$store_ip" ] || { echo "::error::STORAGE_HOST не находится: $store"; exit 1; }
+          muser="$(printf '%s' "$MAIN_USER_RAW" | tr -d '\r\n' | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//; s/.*[[:space:]:=]//; s/@.*//')"; muser="${muser:-root}"
+          login "$main" "$muser" "$MAIN_PASSWORD_RAW" || { echo "::error::Основной сервер не принял SERVER_PASSWORD"; exit 1; }
+          mpass="$OK_PASS"
+          login "$store_ip" root "$STORE_PASSWORD_RAW" || { echo "::error::Хранилище не приняло STORAGE_PASSWORD (нужен пароль root, вход root по паролю должен быть разрешён)"; exit 1; }
+          spass="$OK_PASS"
+          {
+            echo "MAIN_HOST=$main"; echo "MAIN_USER=$muser"; echo "STORE_IP=$store_ip"
+            echo "MAIN_PASS<<__EOF__"; printf '%s\n' "$mpass"; echo "__EOF__"
+            echo "STORE_PASS<<__EOF__"; printf '%s\n' "$spass"; echo "__EOF__"
+          } >> "$GITHUB_ENV"
+          echo "Both servers accept the sign-in"
+
+      - name: Copy the scripts
+        run: |
+          o="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o ConnectTimeout=20"
+          SSHPASS="$MAIN_PASS" sshpass -e ssh $o "$MAIN_USER@$MAIN_HOST" 'mkdir -p /root/avr-storage'
+          SSHPASS="$MAIN_PASS" sshpass -e scp $o deploy/storage/*.sh "$MAIN_USER@$MAIN_HOST:/root/avr-storage/"
+          SSHPASS="$STORE_PASS" sshpass -e ssh $o "root@$STORE_IP" 'mkdir -p /root/avr-storage'
+          SSHPASS="$STORE_PASS" sshpass -e scp $o deploy/storage/*.sh "root@$STORE_IP:/root/avr-storage/"
+
+      - name: Tunnel, shared folder, download exit — and checks
+        if: ${{ inputs.action == 'setup' }}
+        run: |
+          set -euo pipefail
+          o="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o ConnectTimeout=20 -o ServerAliveInterval=30"
+          m() { SSHPASS="$MAIN_PASS" sshpass -e ssh $o "$MAIN_USER@$MAIN_HOST" "$@"; }
+          s() { SSHPASS="$STORE_PASS" sshpass -e ssh $o "root@$STORE_IP" "$@"; }
+          main_pub="$(m 'bash /root/avr-storage/node-keys.sh' | tee /dev/stderr | sed -n 's/^PUBKEY=//p')"
+          store_pub="$(s 'bash /root/avr-storage/node-keys.sh' | tee /dev/stderr | sed -n 's/^PUBKEY=//p')"
+          [ -n "$main_pub" ] && [ -n "$store_pub" ] || { echo "::error::Не получилось сделать ключи туннеля"; exit 1; }
+          s "bash /root/avr-storage/store-setup.sh '$main_pub'"
+          m "bash /root/avr-storage/main-setup.sh '$store_pub' '$STORE_IP'"
+
+      - name: Move the music to the storage
+        if: ${{ inputs.action == 'migrate' }}
+        run: |
+          o="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o ConnectTimeout=20 -o ServerAliveInterval=30 -o ServerAliveCountMax=20"
+          SSHPASS="$MAIN_PASS" sshpass -e ssh $o "$MAIN_USER@$MAIN_HOST" 'bash /root/avr-storage/migrate.sh'

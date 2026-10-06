@@ -122,6 +122,7 @@ object Jam {
       "joined" -> tr("{} присоединяется", name)
       "left" -> tr("{} вышел(а)", name)
       "add" -> tr("{} добавил(а) в очередь", name)
+      "suggest" -> tr("{} предлагает трек — голосуйте", name)
       "replace" -> tr("{} включил(а) другое", name)
       else -> null
     }
@@ -195,6 +196,15 @@ object Jam {
     send(buildJsonObject { put("op", "add"); put("trackIds", ids(list)); put("next", next) })
     App.say(if (next) tr("Будет следующим у всех") else tr("Добавлено в общую очередь"))
   }
+
+  /** A song the listener wants next: everyone votes, the one with most votes plays after the current. */
+  fun suggest(t: Track) {
+    Queue.remember(listOf(t))
+    send(buildJsonObject { put("op", "suggest"); put("trackIds", ids(listOf(t))) })
+    App.say(tr("Предложено — друзья могут проголосовать"))
+  }
+
+  fun vote(trackId: String, up: Boolean) = send(buildJsonObject { put("op", "vote"); put("trackId", trackId); put("up", up) })
 
   /** Something else for everyone (an album, a playlist, the wave …). */
   fun replace(list: List<Track>, index: Int, positionMs: Long = 0) {

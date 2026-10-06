@@ -79,6 +79,8 @@ class PlaybackService : MediaLibraryService() {
   private lateinit var active: Player
   private var session: MediaLibrarySession? = null
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+  /** the stream cache with the server behind it (the next songs are fetched into it ahead) */
+  private lateinit var cacheData: CacheDataSource.Factory
 
   // the current track and how long it has actually been heard
   private var currentId: String? = null
@@ -104,7 +106,7 @@ class PlaybackService : MediaLibraryService() {
       .setAllowCrossProtocolRedirects(true)
       .setConnectTimeoutMs(15_000)
       .setReadTimeoutMs(30_000)
-    val data = CacheDataSource.Factory()
+    val data = CacheDataSource.Factory().also { cacheData = it }
       .setCache(MediaCache.get(this))
       .setUpstreamDataSourceFactory(DefaultDataSource.Factory(this, http))
       // the stream URL carries a token that changes; the track's path does not
@@ -361,6 +363,7 @@ class PlaybackService : MediaLibraryService() {
       if (isPlaying) playingSince = now
       else if (playingSince > 0) { playedMs += now - playingSince; playingSince = 0 }
       if (isPlaying) startTicker() else stopTicker()
+      if (isPlaying && active === player) Prefetch.ahead(scope, cacheData, player)
     }
 
     override fun onAudioSessionIdChanged(audioSessionId: Int) {
@@ -385,6 +388,7 @@ class PlaybackService : MediaLibraryService() {
       applyBoost()
       applyVolume()
       reportNow()
+      if (active === player) Prefetch.ahead(scope, cacheData, player)
     }
 
     override fun onEvents(p: Player, events: Player.Events) {

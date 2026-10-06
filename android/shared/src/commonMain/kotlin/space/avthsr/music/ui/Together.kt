@@ -36,6 +36,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import space.avthsr.music.api.Api
+import space.avthsr.music.api.JamSuggestion
 import space.avthsr.music.api.JamView
 import space.avthsr.music.api.jams
 import space.avthsr.music.player.Jam
@@ -118,6 +119,13 @@ fun JamSheet(onDismiss: () -> Unit) {
           Text(tr("Сейчас: {} · {}", t.title, t.artists), style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Spacer(Modifier.height(16.dp))
+        Text(tr("Предложения"), style = MaterialTheme.typography.titleMedium)
+        Text(
+          tr("Голосуйте — трек с большинством голосов играет следующим. Предложить: ⋮ у любого трека."),
+          style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant,
+        )
+        v.suggestions.forEach { s -> SuggestionRow(s) }
+        Spacer(Modifier.height(16.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
           FilledTonalButton(onClick = { invite = true }, shapes = ButtonDefaults.shapes(), modifier = Modifier.weight(1f)) {
             Ico(Res.drawable.ic_person_add, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(tr("Позвать"))
@@ -131,4 +139,31 @@ fun JamSheet(onDismiss: () -> Unit) {
   }
   val current = view
   if (invite && current != null) SendDialog("jam", current.id, tr("Приглашение слушать вместе")) { invite = false }
+}
+
+/** A suggested song: who wants it, how many votes, a thumb to vote; the leader is marked "next". */
+@Composable
+private fun SuggestionRow(s: JamSuggestion) {
+  val cs = MaterialTheme.colorScheme
+  Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+    Cover(s.track.coverUrl, Modifier.size(44.dp))
+    Spacer(Modifier.width(12.dp))
+    Column(Modifier.weight(1f)) {
+      Text(s.track.title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+      Text(
+        listOfNotNull(if (s.next) tr("следующий") else null, s.track.artists, s.by?.let { tr("от {}", it.displayName) }).joinToString(" · "),
+        style = MaterialTheme.typography.bodySmall, color = if (s.next) cs.tertiary else cs.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
+      )
+    }
+    val on = s.voted
+    Row(
+      Modifier.clip(CircleShape).background(if (on) cs.tertiary else cs.surfaceContainerHigh).clickable { Jam.vote(s.track.id, !on) }
+        .padding(horizontal = 12.dp, vertical = 6.dp),
+      verticalAlignment = Alignment.CenterVertically,
+    ) {
+      Ico(Res.drawable.ic_thumb_up, tr("Голосовать"), Modifier.size(18.dp), if (on) cs.onTertiary else cs.onSurface)
+      Spacer(Modifier.width(6.dp))
+      Text(s.votes.toString(), style = MaterialTheme.typography.labelLarge, color = if (on) cs.onTertiary else cs.onSurface)
+    }
+  }
 }

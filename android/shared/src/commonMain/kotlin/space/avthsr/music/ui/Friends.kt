@@ -194,6 +194,7 @@ fun FriendsScreen() {
   Page {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = screenPadding(top = 60.dp, bottom = 24.dp)) {
       item { FlowText(tr("Друзья"), MaterialTheme.typography.headlineMedium, Modifier.padding(horizontal = 20.dp), maxLines = 1) }
+      item { Box(Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) { GameCard { nav.route("game") } } }
       val sessions = jams.data.orEmpty()
       if (sessions.isNotEmpty()) {
         item { SectionTitle(tr("Слушают вместе")) }
@@ -420,16 +421,21 @@ private fun ShareCard(s: Share) {
   ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
       // a notice from the server itself (a new release) has no sender
-      if (s.from == null) Box(Modifier.size(36.dp).clip(LogoShape).background(cs.primary), contentAlignment = Alignment.Center) { Ico(Res.drawable.ic_campaign, null, Modifier.size(20.dp), cs.onPrimary) }
+      if (s.from == null) Box(Modifier.size(36.dp).clip(LogoShape).background(cs.primary), contentAlignment = Alignment.Center) {
+        Ico(when (s.kind) { "digest" -> Res.drawable.ic_chart; "concert" -> Res.drawable.ic_event; else -> Res.drawable.ic_campaign }, null, Modifier.size(20.dp), cs.onPrimary)
+      }
       else FriendAvatar(s.from.avatarUrl, 36.dp)
       Spacer(Modifier.width(10.dp))
       Column(Modifier.weight(1f)) {
-        Text(s.from?.displayName ?: if (s.kind == "release") tr("Новый релиз") else "AVRmusic", style = MaterialTheme.typography.titleSmall)
+        Text(
+          s.from?.displayName ?: when (s.kind) { "release" -> tr("Новый релиз"); "digest" -> tr("Итоги недели"); "concert" -> tr("Концерт рядом"); else -> "avr music" },
+          style = MaterialTheme.typography.titleSmall,
+        )
         Text(fmtAgo(s.createdAt), style = MaterialTheme.typography.labelSmall, color = cs.onSurfaceVariant)
       }
       if (!s.seen) Box(Modifier.size(10.dp).clip(CircleShape).background(cs.primary))
     }
-    val note = s.message.takeIf { it.isNotBlank() && it != "invite" && it != "release" && s.kind != "report" }
+    val note = s.message.takeIf { it.isNotBlank() && it != "invite" && s.from != null && s.kind != "report" }
     if (note != null) {
       Spacer(Modifier.height(8.dp))
       Text(
@@ -459,6 +465,26 @@ private fun ShareCard(s: Share) {
       "artist" -> o.decodeAs(ArtistSummary.serializer())?.let { a -> SharedItem(a.imageUrl, a.name, tr("Исполнитель"), circle = true) { nav.artist(a.id) } }
       "playlist" -> o.decodeAs(PlaylistSummary.serializer())?.let { p -> SharedItem(p.coverUrl ?: p.mosaic.firstOrNull(), p.title, tracksWord(p.trackCount)) { nav.playlist(p.id) } }
       "jam" -> o.decodeAs(JamSummary.serializer())?.let { j -> JamRow(j) }
+      "game" -> {
+        fun num(k: String) = (o[k] as? kotlinx.serialization.json.JsonPrimitive)?.content?.toIntOrNull() ?: 0
+        val id = (o["id"] as? kotlinx.serialization.json.JsonPrimitive)?.content.orEmpty()
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          Ico(Res.drawable.ic_quiz, null, Modifier.size(32.dp), cs.tertiary)
+          Spacer(Modifier.width(12.dp))
+          Column(Modifier.weight(1f)) {
+            Text(tr("Угадай мелодию"), style = MaterialTheme.typography.titleMedium)
+            Text(tr("{} · раундов: {}", plural(num("players"), tr("игрок"), tr("игрока"), tr("игроков")), num("rounds")), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+          }
+          Button(onClick = { act { GameRoom.join(id); nav.route("game") } }, shapes = ButtonDefaults.shapes()) { Text(tr("Играть")) }
+        }
+      }
+      "digest" -> DigestCard(o)
+      "concert" -> {
+        fun str(k: String) = (o[k] as? kotlinx.serialization.json.JsonPrimitive)?.content
+        SharedItem(str("imageUrl"), "${str("artist").orEmpty()} — ${str("title").orEmpty()}", listOfNotNull(str("date"), str("place")).joinToString(" · ")) {
+          str("url")?.let { space.avthsr.music.Platform.openUrl(it) }
+        }
+      }
       "release" -> {
         fun str(k: String) = (o[k] as? kotlinx.serialization.json.JsonPrimitive)?.content
         val lib = str("libraryAlbumId")
@@ -636,4 +662,29 @@ fun BlendDialog(onCreated: (String) -> Unit, onDone: () -> Unit) {
     },
     dismissButton = { TextButton(onClick = onDone) { Text(tr("Отмена")) } },
   )
+}
+
+/** The Sunday digest: the listener's minutes and song of the week, the company's song, who listened most. */
+@Composable
+private fun DigestCard(o: kotlinx.serialization.json.JsonObject) {
+  val cs = MaterialTheme.colorScheme
+  fun num(k: String) = (o[k] as? kotlinx.serialization.json.JsonPrimitive)?.content?.toIntOrNull() ?: 0
+  val my = (o["myTop"] as? kotlinx.serialization.json.JsonObject)?.decodeAs(Track.serializer())
+  val group = (o["groupTop"] as? kotlinx.serialization.json.JsonObject)?.decodeAs(Track.serializer())
+  val leader = o["leader"] as? kotlinx.serialization.json.JsonObject
+  val leaderName = ((leader?.get("user") as? kotlinx.serialization.json.JsonObject)?.get("displayName") as? kotlinx.serialization.json.JsonPrimitive)?.content
+  val leaderMin = (leader?.get("minutes") as? kotlinx.serialization.json.JsonPrimitive)?.content?.toIntOrNull() ?: 0
+  Text(tr("{} мин музыки за неделю", num("minutes")), style = MaterialTheme.typography.headlineSmall, color = cs.primary)
+  Spacer(Modifier.height(8.dp))
+  my?.let { t ->
+    Text(tr("Ваш трек недели · {} раз", num("myTopPlays")), style = MaterialTheme.typography.labelLarge, color = cs.onSurfaceVariant)
+    SharedItem(t.coverUrl, t.title, t.artists) { PlayerConn.play(listOf(t), 0, "share") }
+    Spacer(Modifier.height(6.dp))
+  }
+  group?.let { t ->
+    Text(tr("Трек компании"), style = MaterialTheme.typography.labelLarge, color = cs.onSurfaceVariant)
+    SharedItem(t.coverUrl, t.title, t.artists) { PlayerConn.play(listOf(t), 0, "share") }
+    Spacer(Modifier.height(6.dp))
+  }
+  if (leaderName != null) Text(tr("Больше всех слушал(а) {} — {} мин", leaderName, leaderMin), style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
 }

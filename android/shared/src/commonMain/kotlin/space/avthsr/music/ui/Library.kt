@@ -110,6 +110,7 @@ fun LibraryScreen() {
   var tab by rememberSaveable { mutableIntStateOf(0) }
   var create by remember { mutableStateOf(false) }
   var blend by remember { mutableStateOf(false) }
+  var smart by remember { mutableStateOf(false) }
   val playlists = rememberLoad(Unit) { Api.playlists() }
   val albumIds by Likes.of("album").collectAsStateWithLifecycle()
   val artistIds by Likes.of("artist").collectAsStateWithLifecycle()
@@ -191,6 +192,7 @@ fun LibraryScreen() {
               act { val r = Api.radar(); nav.playlist(r.id) }
             }
             AutoTile(tr("Блендер"), tr("Смесь вкусов с друзьями"), Res.drawable.ic_group, Modifier.weight(1f)) { blend = true }
+            AutoTile(tr("Умный"), tr("Собирается сам по правилам"), Res.drawable.ic_tune, Modifier.weight(1f)) { smart = true }
           }
         }
         val list = playlists.data.orEmpty()
@@ -216,6 +218,7 @@ fun LibraryScreen() {
   }
 
   if (blend) BlendDialog(onCreated = { playlists.reload(); nav.playlist(it) }) { blend = false }
+  if (smart) SmartEditor(null, null, onDismiss = { smart = false }) { id -> smart = false; playlists.reload(); nav.playlist(id) }
 
   if (create) {
     var title by remember { mutableStateOf("") }
@@ -249,7 +252,7 @@ private fun AutoTile(title: String, subtitle: String, icon: org.jetbrains.compos
 }
 
 @Composable
-private fun Hint(text: String) {
+fun Hint(text: String) {
   Text(text, Modifier.fillMaxWidth().padding(24.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
@@ -389,7 +392,9 @@ fun PlaylistScreen(id: String) {
       val canEdit = p.canEdit ?: own
       val shared = p.members.isNotEmpty()
       var members by remember { mutableStateOf(false) }
+      var rules by remember { mutableStateOf(false) }
       if (members) MembersDialog(p, onChanged = { loader.reload() }) { members = false }
+      if (rules) SmartEditor(p.id, p.autoRules, onDismiss = { rules = false }) { rules = false; loader.reload() }
       LazyColumn(Modifier.fillMaxSize(), contentPadding = screenPadding(bottom = 24.dp, hero = true)) {
         item {
           Header(
@@ -398,7 +403,10 @@ fun PlaylistScreen(id: String) {
             // a playlist of several owners names them all
             subtitle = if (p.owners.size > 1) ownersLine(p.owners.map { it.displayName }) else p.owner?.displayName,
             meta = listOfNotNull(
-              when (p.autoKind) { "blend" -> tr("Блендер · обновляется каждый день"); "radar" -> tr("Обновляется каждую неделю"); else -> null },
+              when (p.autoKind) {
+                "blend" -> tr("Блендер · обновляется каждый день"); "radar" -> tr("Обновляется каждую неделю")
+                "mix" -> tr("Микс дня · обновляется каждый день"); "smart" -> tr("Умный · собирается по правилам"); else -> null
+              },
               p.description?.takeIf { it.isNotBlank() && p.autoKind == null }, tracksWord(p.tracks.size),
             ).joinToString(" · "),
           ) {
@@ -406,6 +414,7 @@ fun PlaylistScreen(id: String) {
           }
           Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
             if (!own) LikeButton("playlist", p.id) else PlaylistOwnerMenu(p) { loader.reload() }
+            if (p.autoKind == "smart" && canEdit) IconButton(onClick = { rules = true }) { Ico(Res.drawable.ic_tune, tr("Правила")) }
             if (p.autoKind != null && canEdit) IconButton(onClick = { act(tr("Обновлено"), { loader.reload() }) { Api.refreshPlaylist(p.id) } }) { Ico(Res.drawable.ic_refresh, tr("Обновить подборку")) }
             // a playlist kept together with friends: their faces, a tap shows / invites them
             if (own || shared) MemberFaces(p) { members = true }

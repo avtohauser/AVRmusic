@@ -151,6 +151,8 @@ private fun NowPlayingContent(deck: Deck, onClose: () -> Unit) {
   val lyricsShown = lyricsMode && t?.hasLyrics == true
   var menu by remember { mutableStateOf(false) }
   var jamOpen by remember { mutableStateOf(false) }
+  var devicesOpen by remember { mutableStateOf(false) }
+  var storyOpen by remember { mutableStateOf(false) }
   var reactAt by remember { mutableStateOf<Long?>(null) }
   val jam by Jam.view.collectAsStateWithLifecycle()
   val sleepEnd by PlayerConn.sleepAtTrackEnd.collectAsStateWithLifecycle()
@@ -219,10 +221,13 @@ private fun NowPlayingContent(deck: Deck, onClose: () -> Unit) {
           Ico(Res.drawable.ic_headphones, tr("Слушать вместе"), tint = if (jam != null) cs.tertiary else LocalContentColor.current)
         }
         CastButton(LocalContentColor.current)
+        DevicesButton { devicesOpen = true }
         Box {
           IconButton(onClick = { menu = true }, enabled = t != null) { Ico(Res.drawable.ic_more, tr("Ещё")) }
           if (t != null) TrackMenu(t, menu, { menu = false }) { close ->
             // canvases on / off right from the player
+            DropdownMenuItem(text = { Text(tr("Устройства")) }, leadingIcon = { Ico(Res.drawable.ic_devices) }, onClick = { close(); devicesOpen = true })
+            DropdownMenuItem(text = { Text(tr("Поделиться карточкой")) }, leadingIcon = { Ico(Res.drawable.ic_share) }, onClick = { close(); storyOpen = true })
             DropdownMenuItem(
               text = { Text(if (canvasOn) tr("Выключить канвасы") else tr("Включить канвасы")) },
               leadingIcon = { Ico(Res.drawable.ic_movie) },
@@ -356,6 +361,8 @@ private fun NowPlayingContent(deck: Deck, onClose: () -> Unit) {
 
   if (queueOpen) QueueSheet(s) { queueOpen = false }
   if (jamOpen) JamSheet { jamOpen = false }
+  if (devicesOpen) DevicesSheet { devicesOpen = false }
+  if (storyOpen) PlayerConn.state.value.track?.let { StoryDialog(it) { storyOpen = false } }
   val at = reactAt
   if (at != null && t != null) ReactDialog(t.id, at, onPosted = { r -> reactions.add(r); ownReaction.tryEmit(r) }) { reactAt = null }
 }

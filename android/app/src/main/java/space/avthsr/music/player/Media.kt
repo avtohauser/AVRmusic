@@ -11,7 +11,15 @@ import androidx.media3.datasource.TransferListener
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.database.StandaloneDatabaseProvider
+import androidx.media3.common.Player
+import androidx.media3.datasource.cache.CacheDataSource
+import androidx.media3.datasource.cache.CacheWriter
 import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import androidx.media3.datasource.cache.SimpleCache
 import space.avthsr.music.api.Api
 import space.avthsr.music.api.Track
@@ -67,4 +75,39 @@ object MediaCache {
     LeastRecentlyUsedCacheEvictor(1L shl 30),
     StandaloneDatabaseProvider(context),
   ).also { cache = it }
+}
+
+/**
+ * The next two songs of the queue are fetched ahead into the stream cache, so they start at once and
+ * without a gap: whole on Wi-Fi, their first two megabytes on mobile data.
+ */
+@OptIn(UnstableApi::class)
+object Prefetch {
+  private var job: Job? = null
+  private var last: List<String> = emptyList()
+
+  fun ahead(scope: CoroutineScope, data: CacheDataSource.Factory, player: Player) {
+    val from = player.currentMediaItemIndex
+    val uris = (1..2).mapNotNull { k ->
+      val i = from + k
+      if (i in 0 until player.mediaItemCount) player.getMediaItemAt(i).localConfiguration?.uri else null
+    }.filter { (it.scheme == "http" || it.scheme == "https") && it.path?.contains("/catalog/") != true }
+    val keys = uris.map { it.path ?: it.toString() }
+    if (keys == last && job?.isActive == true) return
+    last = keys
+    job?.cancel()
+    if (uris.isEmpty()) return
+    val whole = Net.unmetered.value
+    job = scope.launch(Dispatchers.IO) {
+      for (u in uris) {
+        if (!isActive) break
+        val spec = DataSpec.Builder().setUri(u).setKey(u.path ?: u.toString())
+          .apply { if (!whole) setLength(2L shl 20) }.build()
+        val writer = CacheWriter(data.createDataSource(), spec, null, null)
+        val stop = coroutineContext[Job]?.invokeOnCompletion { writer.cancel() }
+        runCatching { writer.cache() }
+        stop?.dispose()
+      }
+    }
+  }
 }

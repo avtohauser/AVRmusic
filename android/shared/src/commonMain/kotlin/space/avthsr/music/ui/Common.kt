@@ -91,6 +91,7 @@ import space.avthsr.music.api.Likes
 import space.avthsr.music.api.PlaylistSummary
 import space.avthsr.music.api.Track
 import space.avthsr.music.player.Offline
+import space.avthsr.music.player.Jam
 import space.avthsr.music.player.PlayerConn
 
 /* ---------- navigation ---------- */
@@ -432,6 +433,7 @@ fun TrackMenu(t: Track, expanded: Boolean, close: () -> Unit, extra: (@Composabl
   var send by remember { mutableStateOf(false) }
   var report by remember { mutableStateOf(false) }
   DropdownMenu(expanded = expanded, onDismissRequest = close) {
+    if (Jam.active) DropdownMenuItem(text = { Text(tr("Предложить в сессию")) }, leadingIcon = { Ico(Res.drawable.ic_thumb_up) }, onClick = { close(); Jam.suggest(t) })
     DropdownMenuItem(text = { Text(tr("Играть следующим")) }, leadingIcon = { Ico(Res.drawable.ic_queue) }, onClick = { close(); PlayerConn.playNext(t) })
     DropdownMenuItem(text = { Text(tr("Добавить в очередь")) }, leadingIcon = { Ico(Res.drawable.ic_add) }, onClick = { close(); PlayerConn.enqueue(t) })
     DropdownMenuItem(text = { Text(tr("Радио по треку")) }, leadingIcon = { Ico(Res.drawable.ic_radio) }, onClick = {

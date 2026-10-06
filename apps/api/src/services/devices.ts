@@ -131,7 +131,8 @@ export function sendCommand(userId: string, deviceId: string, cmd: DeviceCommand
 /** Commands for this device after [after]; waits up to [ms] for one when there are none yet. */
 export async function takeCommands(userId: string, deviceId: string, after: number, ms: number) {
   const d = devices.get(userId)?.get(deviceId);
-  if (!d) return { seq: after, commands: [] };
+  // not reported itself yet: a short wait, so an app asking in a loop doesn't spin
+  if (!d) { await new Promise((r) => setTimeout(r, Math.min(ms, 5_000))); return { seq: after, commands: [] }; }
   d.seen = Date.now();
   const fresh = () => d.commands.filter((c) => c.seq > after && Date.now() - c.at < COMMAND_TTL);
   if (!fresh().length && ms > 0) {

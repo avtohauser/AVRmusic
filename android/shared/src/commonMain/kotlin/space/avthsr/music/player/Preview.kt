@@ -8,5 +8,7 @@ expect object Preview {
   /** the catalogue track whose preview is playing */
   val playing: StateFlow<Long?>
   fun toggle(id: Long, url: String)
+  /** A piece of [url] from [startMs], [lengthMs] long ("guess the melody"); playing reads -1 meanwhile. */
+  fun clip(url: String, startMs: Long, lengthMs: Long)
   fun stop()
 }

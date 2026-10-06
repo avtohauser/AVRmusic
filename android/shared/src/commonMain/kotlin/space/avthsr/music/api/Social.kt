@@ -86,6 +86,8 @@ data class JamView(
   val serverNow: Long = 0,
   val lastBy: FriendRef? = null,
   val lastAction: String? = null,
+  /** songs people want next, most votes first; the leader waits right after the current song */
+  val suggestions: List<JamSuggestion> = emptyList(),
 )
 
 @Serializable
@@ -245,6 +247,9 @@ object Inbox {
       "artist" -> tr("исполнителя {}", str("name"))
       "playlist" -> if (s.message == "invite") tr("плейлист «{}» — вместе", str("title")) else tr("плейлист «{}»", str("title"))
       "jam" -> tr("слушать вместе")
+      "game" -> tr("в «Угадай мелодию»")
+      "concert" -> "${str("artist")} — ${str("date")}"
+      "digest" -> tr("{} мин музыки за неделю", str("minutes"))
       "release" -> "${str("artist")} — ${str("title")}"
       "report" -> tr("жалобу на «{}»", str("title"))
       else -> ""
@@ -266,12 +271,18 @@ object Inbox {
       val who = s.from?.displayName ?: tr("Друг")
       val title = when (s.kind) {
         "jam" -> tr("{} зовёт слушать вместе", who)
+        "game" -> tr("{} зовёт в «Угадай мелодию»", who)
+        "digest" -> tr("Ваша неделя в музыке")
+        "concert" -> tr("Концерт: {}", what(s))
         "release" -> tr("Новый релиз: {}", what(s))
         "report" -> tr("{} пожаловался(ась) на трек", who)
         else -> tr("{} отправил(а) вам {}", who, what(s))
       }
       val body = when (s.kind) {
         "release" -> tr("Уже скачивается на сервер — откройте, чтобы послушать")
+        "digest" -> what(s)
+        "concert" -> (s.item?.get("place") as? JsonPrimitive)?.content ?: tr("Откройте, чтобы посмотреть")
+        "game" -> tr("Откройте, чтобы играть")
         "report" -> what(s)
         else -> s.message.takeIf { it.isNotBlank() && it != "invite" } ?: tr("Откройте, чтобы послушать")
       }

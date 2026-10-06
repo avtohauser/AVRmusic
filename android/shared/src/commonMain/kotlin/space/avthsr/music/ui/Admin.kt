@@ -111,7 +111,7 @@ import space.avthsr.music.api.uploadTracks
 import space.avthsr.music.api.wakeYtAccount
 import space.avthsr.music.api.ytAccounts
 
-private val adminTabs get() = listOf(tr("Обзор"), tr("Новости"), tr("Пользователи"), tr("Приглашения"), tr("Загрузки"), "YouTube", tr("Треки"), tr("Жалобы и Spotify"), tr("Ошибки"))
+private val adminTabs get() = listOf(tr("Обзор"), tr("Новости"), tr("Пользователи"), tr("Приглашения"), tr("Загрузки"), "YouTube", tr("Треки"), tr("Жалобы и Spotify"), tr("Сервисы"), tr("Ошибки"))
 
 @Composable
 fun AdminScreen() {
@@ -132,6 +132,7 @@ fun AdminScreen() {
           5 -> AdminYoutube()
           6 -> AdminTracks()
           7 -> AdminReports()
+          8 -> AdminServices()
           else -> AdminErrors()
         }
       }

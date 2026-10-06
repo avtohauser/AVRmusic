@@ -15,6 +15,7 @@ import space.avthsr.music.api.Likes
 import space.avthsr.music.api.News
 import space.avthsr.music.player.Alarm
 import space.avthsr.music.player.AutoOffline
+import space.avthsr.music.player.Devices
 import space.avthsr.music.player.Session
 import space.avthsr.music.player.LockLyrics
 import space.avthsr.music.player.Gain
@@ -42,6 +43,7 @@ object App {
     AutoOffline.init()
     Session.init()
     LockLyrics.init()
+    Devices.init()
     if (previousCrash != null) {
       lastCrash.value = previousCrash
       report(previousCrash)

@@ -113,8 +113,10 @@ data class PlaylistSummary(
   val canEdit: Boolean? = null,
   val mosaic: List<String> = emptyList(),
   val isCreator: Boolean? = null,
-  /** "blend" / "radar": filled by the server */
+  /** "blend" / "radar" / "mix" / "smart": filled by the server */
   val autoKind: String? = null,
+  /** a smart playlist's rules */
+  val autoRules: SmartRules? = null,
 )
 
 @Serializable
@@ -137,6 +139,7 @@ data class Playlist(
   val owners: List<FriendRef> = emptyList(),
   val isCreator: Boolean? = null,
   val autoKind: String? = null,
+  val autoRules: SmartRules? = null,
 )
 
 @Serializable

@@ -94,7 +94,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import space.avthsr.music.player.Devices
 import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -144,6 +146,11 @@ fun Root() {
 
 @Composable
 private fun Main() {
+  // the listener's other devices see this one while it is open
+  LifecycleStartEffect(Unit) {
+    Devices.visible(true)
+    onStopOrDispose { Devices.visible(false) }
+  }
   val controller = rememberNavController()
   var playerOpen by rememberSaveable { mutableStateOf(false) }
   val nav = remember(controller) { Nav(controller) { playerOpen = true } }
@@ -242,6 +249,9 @@ private fun Main() {
           screen("recognize") { RecognizeScreen() }
           screen("alarm") { AlarmScreen() }
           screen("transfer") { TransferScreen() }
+          screen("game") { GameScreen() }
+          screen("concerts") { ConcertsScreen() }
+          screen("connections") { ConnectionsScreen() }
           screen("admin") { AdminScreen() }
           screen("admin/user/{id}") { AdminUserScreen(it.arg("id")) }
           screen("admin/track/{id}") { AdminTrackScreen(it.arg("id")) }

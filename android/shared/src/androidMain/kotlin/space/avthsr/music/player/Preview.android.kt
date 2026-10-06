@@ -19,6 +19,17 @@ actual object Preview {
 
   actual fun toggle(id: Long, url: String) {
     if (_playing.value == id) return stop()
+    start(MediaItem.fromUri(url), id)
+  }
+
+  actual fun clip(url: String, startMs: Long, lengthMs: Long) {
+    val item = MediaItem.Builder().setUri(url)
+      .setClippingConfiguration(MediaItem.ClippingConfiguration.Builder().setStartPositionMs(startMs).setEndPositionMs(startMs + lengthMs).build())
+      .build()
+    start(item, -1L)
+  }
+
+  private fun start(item: MediaItem, id: Long) {
     val p = player ?: ExoPlayer.Builder(Platform.context)
       .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(), true)
       .build()
@@ -29,7 +40,7 @@ actual object Preview {
           override fun onIsPlayingChanged(isPlaying: Boolean) { if (!isPlaying && created.playbackState != Player.STATE_BUFFERING) _playing.value = null }
         })
       }
-    p.setMediaItem(MediaItem.fromUri(url))
+    p.setMediaItem(item)
     p.prepare()
     p.play()
     _playing.value = id

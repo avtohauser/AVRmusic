@@ -111,8 +111,10 @@ jobs:
 
       # Dry run of the acquisition matcher on the server (real catalogue + YouTube) for the songs listed in
       # deploy/acquire-check.txt: shows which upload each version (solo / feat. …) would get and why.
+      # Both reports show the listeners' crash reports and downloads: printed only while the repository
+      # (and so its logs) is private.
       - name: Server report (app crashes, download queue)
-        if: ${{ env.TARGET_PASSWORD != '' }}
+        if: ${{ github.event.repository.private && env.TARGET_PASSWORD != '' }}
         continue-on-error: true
         env:
           SSHPASS: ${{ env.TARGET_PASSWORD }}
@@ -122,7 +124,7 @@ jobs:
             "cd /opt/avrmusic && timeout 120 docker compose -f docker-compose.prod.yml exec -T avrmusic node /app/api/dist/scripts/report.js" || echo "(report failed)"
 
       - name: Acquisition self-check
-        if: ${{ hashFiles('deploy/acquire-check.txt') != '' && env.TARGET_PASSWORD != '' }}
+        if: ${{ github.event.repository.private && hashFiles('deploy/acquire-check.txt') != '' && env.TARGET_PASSWORD != '' }}
         continue-on-error: true
         env:
           SSHPASS: ${{ env.TARGET_PASSWORD }}

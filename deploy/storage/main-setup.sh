@@ -37,7 +37,9 @@ TIMEFORMAT=%R; SPEED="$( { time dd if="$T/.avr-speed-test" of=/dev/null bs=1M st
 rm -f "$T/.avr-speed-test"
 umount "$T"
 
-EXIT_IP="$(curl -sS -m 20 -x http://10.77.0.2:8888 https://api.ipify.org || echo '?')"
+# (the logs may be public: no addresses in them)
+EXIT_IP="$(curl -sS -m 20 -x http://10.77.0.2:8888 https://api.ipify.org || true)"
+[ "$EXIT_IP" = "$STORE_IP" ] && EXIT="с IP хранилища" || EXIT="НЕ с IP хранилища"
 YT="$(curl -sS -m 20 -x http://10.77.0.2:8888 -o /dev/null -w '%{http_code}' https://www.youtube.com/ || echo '?')"
-echo "::notice::Туннель работает: задержка до хранилища ${RTT} мс, папка подключается, 64 МБ читаются за ${SPEED} с; скачивание через хранилище выходит с IP ${EXIT_IP}, YouTube отвечает ${YT}"
+echo "::notice::Туннель работает: задержка до хранилища ${RTT} мс, папка подключается, 64 МБ читаются за ${SPEED} с; скачивание через хранилище выходит ${EXIT}, YouTube отвечает ${YT}"
 echo "::notice::Музыки сейчас на основном сервере: $(du -sh /srv/avrmusic/media 2>/dev/null | cut -f1)"

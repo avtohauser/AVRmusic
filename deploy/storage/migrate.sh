@@ -1,31 +1,47 @@
 #!/usr/bin/env bash
 # Main server: move the music (MEDIA_PATH: tracks, covers, canvases…) to the storage server and mount it
-# back in the same place, so the app and its database see the same paths. Copied while the app runs, then
-# the app stops for the last changes only. Any failure puts everything back as it was. The local copy is
-# kept (…/media-local-old) until it is removed on purpose.
+# back in the same place, so the app and its database see the same paths. Runs as its own systemd unit
+# (avr-migrate), so a dropped connection cannot leave it half done. Copied with rsync over SSH through the
+# tunnel while the app runs (what is there already is skipped), then the app stops for the last changes
+# only. Any failure puts everything back as it was. The local copy is kept (…/media-local-old) until it
+# is removed on purpose. Progress: /root/avr-storage/status; the outcome: /root/avr-storage/result.
 set -euo pipefail
 APP=/opt/avrmusic
+DIR=/root/avr-storage
 cd "$APP"
+stage() { echo "$*" > "$DIR/status"; echo "==> $*"; }
+result() { echo "$*" >> "$DIR/result"; }
+: > "$DIR/result"
 env_get() { (grep "^$1=" .env || true) | head -n1 | cut -d= -f2-; }
 set_env() { if grep -q "^$1=" .env; then sed -i "s#^$1=.*#$1=$2#" .env; else echo "$1=$2" >> .env; fi; }
 MEDIA="$(env_get MEDIA_PATH)"; MEDIA="${MEDIA:-/srv/avrmusic/media}"
 SHARE=10.77.0.2:/srv/storage/media
+REMOTE=root@10.77.0.2
+RDIR=/srv/storage/media
 MARK=.avr-storage
 OPTS=rw,soft,timeo=150,retrans=3,_netdev,nofail,x-systemd.requires=wg-quick@avr0.service
 DC="docker compose -f docker-compose.prod.yml"
+SSHC="ssh -i /root/.ssh/avr_storage -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/root/.ssh/avr_known_hosts -o ServerAliveInterval=30"
 
-if grep -q " $MEDIA nfs" /proc/mounts && [ -f "$MEDIA/$MARK" ]; then echo "::notice::Музыка уже на хранилище — переносить нечего"; exit 0; fi
-ip link show avr0 >/dev/null 2>&1 || { echo "::error::Туннель к хранилищу не поднят — сначала шаг setup"; exit 1; }
+if grep -q " $MEDIA nfs" /proc/mounts && [ -f "$MEDIA/$MARK" ]; then stage "готово"; result "::notice::Музыка уже на хранилище — переносить нечего"; exit 0; fi
+ip link show avr0 >/dev/null 2>&1 || { result "::error::Туннель к хранилищу не поднят — сначала шаг setup"; exit 1; }
+# what an interrupted earlier try may have left: its copy mount; the music folder half swapped; the app stopped
+umount -l /mnt/avr-store 2>/dev/null || true
+if [ -d "$MEDIA-local-old" ] && ! mountpoint -q "$MEDIA"; then
+  rmdir "$MEDIA" 2>/dev/null || true
+  [ -e "$MEDIA" ] || mv "$MEDIA-local-old" "$MEDIA"
+fi
+$DC up -d avrmusic >/dev/null
+$SSHC "$REMOTE" true || { result "::error::Основной сервер не входит на хранилище по ключу"; exit 1; }
 
-T=/mnt/avr-store
-mkdir -p "$T"
-mountpoint -q "$T" || mount -t nfs4 -o rw,hard,timeo=600 "$SHARE" "$T"
-need=$(du -sb "$MEDIA" | cut -f1); avail=$(df --output=avail -B1 "$T" | tail -1)
-if [ "$need" -gt $((avail - 2*1024*1024*1024)) ]; then echo "::error::На хранилище не хватает места: нужно $((need/1024/1024/1024)) ГБ, свободно $((avail/1024/1024/1024)) ГБ"; umount "$T"; exit 1; fi
+need=$(du -sb "$MEDIA" | cut -f1)
+avail=$($SSHC "$REMOTE" "df --output=avail -B1 $RDIR | tail -1")
+have=$($SSHC "$REMOTE" "du -sb $RDIR | cut -f1")
+if [ "$need" -gt $((avail + have - 2*1024*1024*1024)) ]; then result "::error::На хранилище не хватает места: нужно $((need/1024/1024/1024)) ГБ"; exit 1; fi
 
 stopped=0; swapped=0
 rollback() {
-  echo "::error::Перенос прерван — возвращаю всё как было"
+  result "::error::Перенос прерван на этапе «$(cat "$DIR/status")» — всё возвращено как было"
   if [ "$swapped" = 1 ]; then
     umount "$MEDIA" 2>/dev/null || umount -l "$MEDIA" 2>/dev/null || true
     sed -i "\\#^$SHARE $MEDIA #d" /etc/fstab
@@ -33,26 +49,25 @@ rollback() {
     [ -d "$MEDIA-local-old" ] && mv "$MEDIA-local-old" "$MEDIA"
     sed -i '/^DOWNLOAD_PROXIES=/d; /^MEDIA_MARKER=/d' .env
   fi
-  umount "$T" 2>/dev/null || true
   [ "$stopped" = 1 ] && $DC up -d avrmusic >/dev/null 2>&1 || true
 }
 trap rollback ERR
 
-echo "==> 1/3 копирую музыку, пока сервис работает ($((need/1024/1024)) МБ)"
 start=$(date +%s)
+stage "1/3 копирование, сервис работает: на хранилище $((have/1024/1024/1024)) из $((need/1024/1024/1024)) ГБ"
 # (24: a file vanished while the app ran — the second pass sorts that out)
-rsync -aH --info=stats1 "$MEDIA/" "$T/" || { rc=$?; [ "$rc" = 24 ] || false; }
+rsync -aH --partial --info=stats1 -e "$SSHC" "$MEDIA/" "$REMOTE:$RDIR/" || { rc=$?; [ "$rc" = 24 ] || false; }
+copy_min=$(( ($(date +%s) - start) / 60 ))
 
-
-echo "==> 2/3 короткая остановка: досылаю изменения"
+stage "2/3 короткая остановка: досылаю изменения"
 $DC stop avrmusic; stopped=1
-rsync -aH --delete "$MEDIA/" "$T/"
-src=$(find "$MEDIA" -type f | wc -l); dst=$(find "$T" -type f ! -name "$MARK" | wc -l)
-[ "$src" = "$dst" ] || { echo "::error::Файлов на хранилище $dst, а должно быть $src"; false; }
-touch "$T/$MARK"
-umount "$T"
+rsync -aH --delete -e "$SSHC" "$MEDIA/" "$REMOTE:$RDIR/"
+src=$(find "$MEDIA" -type f | wc -l)
+dst=$($SSHC "$REMOTE" "find $RDIR -type f ! -name $MARK | wc -l")
+[ "$src" = "$dst" ] || { result "::error::Файлов на хранилище $dst, а должно быть $src"; false; }
+$SSHC "$REMOTE" "touch $RDIR/$MARK"
 
-echo "==> 3/3 подключаю хранилище на место папки с музыкой"
+stage "3/3 подключаю хранилище на место папки с музыкой"
 mv "$MEDIA" "$MEDIA-local-old"; swapped=1
 mkdir -p "$MEDIA"
 grep -q "^$SHARE $MEDIA " /etc/fstab || echo "$SHARE $MEDIA nfs4 $OPTS 0 0" >> /etc/fstab
@@ -90,5 +105,5 @@ port="$(env_get APP_PORT)"; port="${port:-8080}"
 for i in $(seq 1 40); do curl -fsS -m 5 "http://127.0.0.1:$port/api/health" >/dev/null 2>&1 && break; sleep 3; done
 curl -fsS -m 5 "http://127.0.0.1:$port/api/health" >/dev/null
 trap - ERR
-
-echo "::notice::Музыка переехала на хранилище за $(( ($(date +%s) - start) / 60 )) мин: $src файлов. Сервис работает, скачивание идёт через оба сервера. Старая копия лежит в $MEDIA-local-old ($(du -sh "$MEDIA-local-old" | cut -f1)) — удалю, когда скажете."
+stage "готово"
+result "::notice::Музыка на хранилище: $src файлов, $((need/1024/1024/1024)) ГБ (копирование $copy_min мин, остановка сервиса $(( ($(date +%s) - start) / 60 - copy_min )) мин). Сервис работает, скачивание идёт через оба сервера. Старая копия: $MEDIA-local-old ($(du -sh "$MEDIA-local-old" | cut -f1)) — удалю, когда скажете."

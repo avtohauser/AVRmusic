@@ -95,5 +95,23 @@ jobs:
       - name: Move the music to the storage
         if: ${{ inputs.action == 'migrate' }}
         run: |
-          o="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o ConnectTimeout=20 -o ServerAliveInterval=30 -o ServerAliveCountMax=20"
-          SSHPASS="$MAIN_PASS" sshpass -e ssh $o "$MAIN_USER@$MAIN_HOST" 'bash /root/avr-storage/migrate.sh'
+          set -euo pipefail
+          o="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o ConnectTimeout=20 -o ServerAliveInterval=30"
+          m() { SSHPASS="$MAIN_PASS" sshpass -e ssh $o "$MAIN_USER@$MAIN_HOST" "$@"; }
+          s() { SSHPASS="$STORE_PASS" sshpass -e ssh $o "root@$STORE_IP" "$@"; }
+          # the main server copies straight to the storage over SSH through the tunnel, with its own key
+          pub="$(m 'bash /root/avr-storage/link.sh' | sed -n 's/^PUBKEY=//p')"
+          [ -n "$pub" ] || { echo "::error::Не получилось сделать ключ основного сервера"; exit 1; }
+          s "command -v rsync >/dev/null || { apt-get update -qq && apt-get install -y -qq rsync; } >/dev/null; install -d -m 700 /root/.ssh; touch /root/.ssh/authorized_keys; chmod 600 /root/.ssh/authorized_keys; grep -qF '$pub' /root/.ssh/authorized_keys || echo 'from=\"10.77.0.1\",no-agent-forwarding,no-X11-forwarding $pub' >> /root/.ssh/authorized_keys"
+          # its own unit on the server: a dropped connection or this job's time limit cannot leave it half done
+          m 'systemctl is-active --quiet avr-migrate || { systemctl reset-failed avr-migrate 2>/dev/null; systemd-run --unit=avr-migrate --collect -p TimeoutStartSec=infinity /bin/bash /root/avr-storage/migrate.sh >/dev/null; }'
+          last=""
+          while m 'systemctl is-active --quiet avr-migrate'; do
+            st="$(m 'cat /root/avr-storage/status 2>/dev/null' || true)"
+            [ "$st" != "$last" ] && echo "$(date -u +%H:%M) $st" && last="$st"
+            sleep 60
+          done
+          out="$(m 'cat /root/avr-storage/result 2>/dev/null' || true)"
+          [ -n "$out" ] || out="::error::Перенос закончился без отчёта — см. journalctl -u avr-migrate на основном сервере"
+          echo "$out"
+          ! grep -q '^::error::' <<<"$out"

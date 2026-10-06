@@ -1,7 +1,7 @@
 // Playlists the server fills by rules:
-//  - daily mixes: one per side of the listener's taste (their most played genres), favourites of that genre
-//    with tracks of it they have not heard yet in between — made and refreshed every day for everyone who
-//    listened lately; they live on the home screen, not in the library list;
+//  - daily mixes: one per side of the listener's taste (their most played genres), a random pick of that
+//    genre from the whole library with a few favourites in it — made and refreshed every day for everyone
+//    who listened lately; they live on the home screen, not in the library list;
 //  - smart playlists: the listener sets the rules (genres, artists, years, liked, not played for a while…),
 //    the server keeps the playlist matching them, refilled every few hours.
 import { z } from 'zod';
@@ -22,26 +22,28 @@ function topGenres(db: DB, userId: string): string[] {
     GROUP BY t.genre HAVING n >= 5 ORDER BY n DESC LIMIT ?`).all(userId, MIXES) as any[]).map((r) => r.g as string);
 }
 
-/** Favourites of the genre with new ones in between: two loved, one not heard yet (about 40). */
+/**
+ * A fresh random pick of the genre from the whole library each day — about forty songs, roughly one in
+ * four a favourite (played or liked), the rest anything of that genre, heard or not.
+ */
 function fillMix(db: DB, playlistId: string, userId: string, rules: { genre?: string }) {
   const genre = rules.genre;
   if (!genre) return;
-  const fav = (db.prepare(`SELECT t.id, COALESCE(p.n, 0) + CASE WHEN l.entity_id IS NOT NULL THEN 3 ELSE 0 END w FROM tracks t
-    LEFT JOIN (SELECT track_id, COUNT(*) n FROM plays WHERE user_id = ? AND ms_played >= 30000 AND played_at > datetime('now','-180 days') GROUP BY track_id) p ON p.track_id = t.id
-    LEFT JOIN likes l ON l.entity_id = t.id AND l.entity_type = 'track' AND l.user_id = ?
-    WHERE t.genre = ? AND (p.n IS NOT NULL OR l.entity_id IS NOT NULL)
-    ORDER BY w DESC, RANDOM() LIMIT 40`).all(userId, userId, genre) as any[]).map((r) => r.id as string);
-  // a fresh pick of the favourites each day
-  const loved = fav.sort(() => Math.random() - 0.5).slice(0, 26);
-  const fresh = (db.prepare(`SELECT t.id FROM tracks t WHERE t.genre = ? AND t.id NOT IN (SELECT track_id FROM plays WHERE user_id = ?)
-    ORDER BY CASE WHEN t.artist_id IN (SELECT t2.artist_id FROM plays p2 JOIN tracks t2 ON t2.id = p2.track_id WHERE p2.user_id = ?) THEN 0 ELSE 1 END, RANDOM()
-    LIMIT 14`).all(genre, userId, userId) as any[]).map((r) => r.id as string);
+  const SIZE = 40;
+  const loved = (db.prepare(`SELECT DISTINCT t.id FROM tracks t
+    WHERE t.genre = ? AND (t.id IN (SELECT track_id FROM plays WHERE user_id = ? AND ms_played >= 30000)
+      OR t.id IN (SELECT entity_id FROM likes WHERE user_id = ? AND entity_type = 'track'))
+    ORDER BY RANDOM() LIMIT ?`).all(genre, userId, userId, Math.round(SIZE / 4)) as any[]).map((r) => r.id as string);
+  // the rest is pure chance — but not what played here in the last two days
+  const random = (db.prepare(`SELECT t.id FROM tracks t WHERE t.genre = ?
+      AND t.id NOT IN (SELECT track_id FROM plays WHERE user_id = ? AND played_at > datetime('now','-2 days'))
+    ORDER BY RANDOM() LIMIT ?`).all(genre, userId, SIZE) as any[]).map((r) => r.id as string).filter((id) => !loved.includes(id));
   const picked: string[] = [];
-  while (loved.length || fresh.length) {
-    picked.push(...loved.splice(0, 2));
-    if (fresh.length) picked.push(fresh.shift()!);
+  while ((loved.length || random.length) && picked.length < SIZE) {
+    picked.push(...random.splice(0, 3));
+    if (loved.length) picked.push(loved.shift()!);
   }
-  replaceAuto(db, playlistId, picked.map((id) => ({ id, by: null })));
+  replaceAuto(db, playlistId, picked.slice(0, SIZE).map((id) => ({ id, by: null })));
 }
 
 /** Makes the listener's daily mixes match their taste now: one per top genre, the stale ones go. */

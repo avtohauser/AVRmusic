@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 
 // The global catalogue (Deezer): find music that is not on the server yet and ask the server to fetch
 // it — a track, an album or a whole discography.
@@ -178,9 +178,17 @@ fun CatalogArtistScreen(id: Long) {
             val on = !following
             following = on
             act(if (on) tr("Новинки {} будут приходить вам", a.name) else tr("Вы больше не следите за {}", a.name)) { Api.follow(a.id, a.name, on) }
-          }) { Ico(if (following) Res.drawable.ic_check else Res.drawable.ic_campaign, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(if (following) tr("Вы следите") else tr("Следить")) }
-          if (a.libraryArtistId != null) FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { nav.artist(a.libraryArtistId) }) { Text(tr("В медиатеке")) }
-          if (canAcquire) FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { confirm = true }) { Text(tr("Вся дискография")) }
+          }) {
+            Ico(if (following) Res.drawable.ic_check else Res.drawable.ic_campaign, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp))
+            Text(if (following) tr("Новинки придут") else tr("Следить за новинками"), maxLines = 1)
+          }
+          if (a.libraryArtistId != null) FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { nav.artist(a.libraryArtistId) }) {
+            Ico(Res.drawable.ic_library, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(tr("В медиатеке"), maxLines = 1)
+          }
+          if (canAcquire) FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { confirm = true }) {
+            Ico(Res.drawable.ic_download, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp))
+            Text(if (a.libraryArtistId != null) tr("Докачать дискографию") else tr("Вся дискография"), maxLines = 1)
+          }
         }
       }
       if (p.topTracks.isNotEmpty()) {
@@ -196,8 +204,13 @@ fun CatalogArtistScreen(id: Long) {
     }
     if (confirm) AlertDialog(
       onDismissRequest = { confirm = false },
-      title = { Text(tr("Добавить дискографию?")) },
-      text = { Text(tr("Сервер скачает все альбомы и синглы {}. Это может занять время.", a.name)) },
+      title = { Text(if (a.libraryArtistId != null) tr("Докачать дискографию?") else tr("Добавить дискографию?")) },
+      text = {
+        Text(
+          if (a.libraryArtistId != null) tr("Сервер проверит все альбомы, EP и синглы {} и скачает только то, чего ещё нет (и что не скачалось раньше).", a.name)
+          else tr("Сервер скачает все альбомы и синглы {}. Это может занять время.", a.name),
+        )
+      },
       confirmButton = { TextButton(onClick = { confirm = false; acquire("artist", a.id, tr("Дискография")) }) { Text(tr("Добавить")) } },
       dismissButton = { TextButton(onClick = { confirm = false }) { Text(tr("Отмена")) } },
     )
@@ -232,7 +245,13 @@ fun Header(
       }
       if (meta.isNotEmpty()) Text(meta, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant, textAlign = TextAlign.Center)
       Spacer(Modifier.height(14.dp))
-      Row(horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) { actions() }
+      // the buttons wrap onto a second line instead of squeezing their labels (or leaving the screen)
+      androidx.compose.foundation.layout.FlowRow(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+        itemVerticalAlignment = Alignment.CenterVertically,
+      ) { actions() }
     }
   }
 }

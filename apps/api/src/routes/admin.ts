@@ -294,7 +294,9 @@ export default async function adminRoutes(app: FastifyInstance) {
   app.delete('/api/admin/invites/:code', admin, async (req) => { deleteInvite(db, (req.params as any).code); return { ok: true }; });
 
   /** YouTube accounts for yt-dlp (a cookies.txt each): status only (never the content), add, wake, remove. */
-  app.get('/api/admin/youtube-accounts', admin, async () => listAccounts());
+  app.get('/api/admin/youtube-accounts', admin, async () => listAccounts().map((a) => ({
+    ...a, ownerName: a.owner ? (db.prepare('SELECT display_name FROM users WHERE id = ?').get(a.owner) as any)?.display_name ?? null : null,
+  })));
   app.post('/api/admin/youtube-accounts', admin, async (req) => {
     const file = await req.file();
     if (!file) throw badRequest('Файл не передан');

@@ -1,6 +1,7 @@
 // Several YouTube accounts for yt-dlp (a cookies.txt each, uploaded in the admin panel and kept only on
 // the server). Every download takes the least busy account — up to two downloads per account at a time —
-// so N accounts fetch 2·N tracks at once. An account YouTube refuses ("not a bot", 429) rests for a while and the
+// so N accounts fetch 2·N tracks at once. Friends may give spare accounts of their own (Профиль → «Помочь
+// с загрузками»): each counts like the admin's and stays theirs to see and take back. An account YouTube refuses ("not a bot", 429) rests for a while and the
 // download moves on to the next one; with every account resting it is tried without cookies.
 // Every yt-dlp run gets a private copy of the cookies (it writes the jar back on exit); after a good
 // download the refreshed jar replaces the account's file in one step.
@@ -26,9 +27,11 @@ export interface YtAccountInfo {
   failed: number;
   lastError: string | null;
   lastUsedAt: string | null;
+  /** who gave it (a friend's spare account); null — the admin's own */
+  owner: string | null;
 }
 
-interface Meta { id: string; label: string; createdAt: string }
+interface Meta { id: string; label: string; createdAt: string; owner?: string | null }
 interface Live { running: number; at: number[]; coolUntil: number; ok: number; failed: number; lastError: string | null; lastUsedAt: string | null }
 
 /** How long an account rests after YouTube refused it. */
@@ -36,7 +39,9 @@ const COOL_MS = 20 * 60_000;
 /** Downloads at once without any account, and per account. */
 const ANON_SLOTS = 2;
 const PER_ACCOUNT = 2;
-const MAX_ACCOUNTS = 10;
+const MAX_ACCOUNTS = 30;
+/** spare accounts one person may give */
+export const MAX_GIVEN = 3;
 
 const dir = () => path.join(config.dataDir, 'youtube-accounts');
 const metaFile = () => path.join(dir(), 'accounts.json');
@@ -126,22 +131,23 @@ export function listAccounts(): YtAccountInfo[] {
     return {
       ...m, updatedAt, ...inspect(text), busy: s.running > 0,
       coolingUntil: s.coolUntil > Date.now() ? new Date(s.coolUntil).toISOString() : null,
-      ok: s.ok, failed: s.failed, lastError: s.lastError, lastUsedAt: s.lastUsedAt,
+      ok: s.ok, failed: s.failed, lastError: s.lastError, lastUsedAt: s.lastUsedAt, owner: m.owner ?? null,
     };
   });
 }
 
 /** Adds an account from a cookies.txt (Netscape format). */
-export function addAccount(text: string, label?: string | null): YtAccountInfo[] {
+export function addAccount(text: string, label?: string | null, owner: string | null = null): YtAccountInfo[] {
   const lines = text.replace(/\r/g, '').split('\n');
   const rows = lines.filter((l) => l && !l.startsWith('# ') && l !== '#' && l.split('\t').length === 7);
   if (!rows.length || !rows.some((l) => /youtube\.com\t/.test(l))) throw badRequest('Нужен файл cookies.txt (формат Netscape) с cookies youtube.com');
   const list = load();
   if (list.length >= MAX_ACCOUNTS) throw badRequest(`Не больше ${MAX_ACCOUNTS} аккаунтов`);
+  if (owner && list.filter((m) => m.owner === owner).length >= MAX_GIVEN) throw badRequest(`Можно дать не больше ${MAX_GIVEN} аккаунтов`);
   const id = newId();
   fs.mkdirSync(dir(), { recursive: true });
   fs.writeFileSync(cookiesOf(id), `# Netscape HTTP Cookie File\n${lines.filter((l) => !/^# Netscape/.test(l)).join('\n')}\n`, { mode: 0o600 });
-  list.push({ id, label: label?.trim().slice(0, 60) || `Аккаунт ${list.length + 1}`, createdAt: new Date().toISOString() });
+  list.push({ id, label: label?.trim().slice(0, 60) || `Аккаунт ${list.length + 1}`, createdAt: new Date().toISOString(), owner });
   writeMeta(list);
   return listAccounts();
 }

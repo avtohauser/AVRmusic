@@ -399,6 +399,32 @@ const MIGRATIONS: string[] = [
     PRIMARY KEY (user_id, event_id)
   );
   `,
+  // 17: badges the admin makes and gives; Telegram accounts linked to show what plays in their bio
+  `
+  CREATE TABLE badges (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    emoji TEXT NOT NULL,
+    color TEXT NOT NULL DEFAULT '#F2A0C4',
+    description TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+  );
+  CREATE TABLE user_badges (
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    badge_id TEXT NOT NULL REFERENCES badges(id) ON DELETE CASCADE,
+    given_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+    given_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    PRIMARY KEY (user_id, badge_id)
+  );
+  CREATE TABLE tg_profiles (
+    user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    session TEXT NOT NULL,
+    username TEXT,
+    original_about TEXT NOT NULL DEFAULT '',
+    enabled INTEGER NOT NULL DEFAULT 1,
+    linked_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  `,
 ];
 
 export function openDatabase(dbPath = config.dbPath): DB {

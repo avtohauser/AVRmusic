@@ -42,8 +42,8 @@ export default function CatalogArtist() {
       <Hero kind={`${t('catalog')} · ${t('artist')}`} title={a.name} cover={a.imageUrl} round
         meta={<><m3e-icon variant="rounded" name="verified" filled style={{ color: 'var(--md-sys-color-primary)', ['--m3e-icon-size' as any]: '18px' }} /><span>{fmtNumber(a.fans, lang)} {t('fans')}</span><span>· {a.albumCount} {t('releases')}</span></>}>
         {user && data.topTracks.length > 0 && <PlayButton size="lg" onClick={() => void playCatalog(data.topTracks, 0, ctx)} />}
-        {user && <M3eButton variant={data.following ? 'tonal' : 'outlined'} disabled={busy || undefined} onClick={toggleFollow}><m3e-icon variant="rounded" slot="icon" name={data.following ? 'notifications_active' : 'notifications'} />{data.following ? tr('Вы следите', 'Following') : tr('Следить', 'Follow')}</M3eButton>}
-        <AcquireButton kind="artist" id={a.id} title={`${a.name} — дискография`} label />
+        {user && <M3eButton variant={data.following ? 'tonal' : 'outlined'} disabled={busy || undefined} onClick={toggleFollow}><m3e-icon variant="rounded" slot="icon" name={data.following ? 'notifications_active' : 'notifications'} />{data.following ? tr('Новинки придут', 'New releases on') : tr('Следить за новинками', 'Follow new releases')}</M3eButton>}
+        <AcquireButton kind="artist" id={a.id} title={`${a.name} — дискография`} label text={a.libraryArtistId ? tr('Докачать дискографию', 'Top up the discography') : undefined} />
         {a.libraryArtistId && <M3eButton variant="tonal" href={`/artist/${a.libraryArtistId}`}><m3e-icon variant="rounded" slot="icon" name="library_music" />{t('openInLibrary')}</M3eButton>}
       </Hero>
       <div className="page">

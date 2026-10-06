@@ -52,6 +52,19 @@ setInterval(() => {
   }
 }, 10 * 60_000).unref();
 
+/** Devices with the app open right now, and how many people they belong to. */
+export function onlineSummary(): { users: number; devices: number; byKind: Record<string, number> } {
+  const t = Date.now();
+  let users = 0, count = 0;
+  const byKind: Record<string, number> = {};
+  for (const m of devices.values()) {
+    let any = false;
+    for (const d of m.values()) if (t - d.seen < ONLINE_MS) { any = true; count++; byKind[d.kind] = (byKind[d.kind] ?? 0) + 1; }
+    if (any) users++;
+  }
+  return { users, devices: count, byKind };
+}
+
 /** An app reports itself (and what it plays). */
 export function heartbeat(userId: string, b: { id: string; name: string; kind: DeviceKind } & Partial<DeviceState>) {
   const m = mine(userId);

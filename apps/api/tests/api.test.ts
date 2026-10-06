@@ -567,7 +567,7 @@ test('daily mixes, smart playlists, the week chart, the digest and the home sect
   assert.ok(rock, JSON.stringify(mixes.map((m: any) => m.title)));
   assert.equal(rock.autoKind, 'mix');
   const inMix = (await app.inject({ method: 'GET', url: `/api/playlists/${rock.id}`, headers: h })).json().tracks.map((t: any) => t.id);
-  assert.ok(inMix.includes(ids[0]) && inMix.includes(ids[2]), 'favourites and an unheard one');
+  assert.ok(inMix.includes(ids[0]) && inMix.includes(ids[2]), 'favourites and random ones of the genre');
   // mixes stay off the library list
   const mine = (await app.inject({ method: 'GET', url: '/api/playlists', headers: h })).json();
   assert.ok(!mine.some((p: any) => p.autoKind === 'mix'));
@@ -724,4 +724,53 @@ test('integrations: Telegram and Last.fm settings, concerts matching, scrobble r
   const list = (await app.inject({ method: 'GET', url: '/api/admin/backups', headers: h })).json();
   assert.equal(list.files[0].name, b.json().name);
   assert.ok(list.last);
+});
+
+test('badges, the servers panel, spare YouTube accounts from friends, loved artists fetched by themselves', async () => {
+  const h = { authorization: `Bearer ${access}` };
+  const hp = { authorization: `Bearer ${(await app.inject({ method: 'POST', url: '/api/auth/login', payload: { login: 'petya', password: 'secret1' } })).json().accessToken}` };
+  const petya = (await app.inject({ method: 'GET', url: '/api/auth/me', headers: hp })).json().id;
+
+  // a badge made and given by the admin: on the profile, in the inbox; only the admin can make them
+  assert.equal((await app.inject({ method: 'POST', url: '/api/admin/badges', headers: hp, payload: { title: 'x', emoji: '🐞' } })).statusCode, 403);
+  const b = (await app.inject({ method: 'POST', url: '/api/admin/badges', headers: h, payload: { title: 'Баг-хантер', emoji: '🐞', color: '#22aa66', description: 'Нашёл баг' } })).json();
+  assert.equal(b.title, 'Баг-хантер');
+  assert.deepEqual((await app.inject({ method: 'POST', url: `/api/admin/badges/${b.id}/give`, headers: h, payload: { userIds: [petya] } })).json(), { given: 1 });
+  assert.deepEqual((await app.inject({ method: 'POST', url: `/api/admin/badges/${b.id}/give`, headers: h, payload: { userIds: [petya] } })).json(), { given: 0 });
+  const page = (await app.inject({ method: 'GET', url: `/api/users/${petya}`, headers: h })).json();
+  assert.equal(page.badges[0].emoji, '🐞');
+  const inbox = (await app.inject({ method: 'GET', url: '/api/shares', headers: hp })).json();
+  assert.equal(inbox.find((s: any) => s.kind === 'badge').item.title, 'Баг-хантер');
+  assert.equal((await app.inject({ method: 'GET', url: '/api/badges', headers: hp })).json()[0].holders, 1);
+  await app.inject({ method: 'DELETE', url: `/api/admin/badges/${b.id}/give/${petya}`, headers: h });
+  assert.deepEqual((await app.inject({ method: 'GET', url: '/api/me/badges', headers: hp })).json(), []);
+
+  // the servers panel
+  const s = (await app.inject({ method: 'GET', url: '/api/admin/server', headers: h })).json();
+  assert.ok(s.disks.length >= 1 && s.disks[0].total > 0);
+  assert.ok(s.cpu.cores >= 1 && s.memory.total > 0);
+  assert.equal(typeof s.people.online, 'number');
+  assert.equal((await app.inject({ method: 'GET', url: '/api/admin/server', headers: hp })).statusCode, 403);
+
+  // a friend gives a spare YouTube account: theirs to see and take back, the admin sees who gave it
+  const cookies = '# Netscape HTTP Cookie File\n.youtube.com\tTRUE\t/\tTRUE\t1999999999\tSAPISID\tabc\n.youtube.com\tTRUE\t/\tTRUE\t1999999999\tLOGIN_INFO\tdef\n';
+  const boundary = '----avrck';
+  const body = Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="cookies.txt"\r\nContent-Type: text/plain\r\n\r\n${cookies}\r\n--${boundary}--\r\n`);
+  const mine = (await app.inject({ method: 'POST', url: '/api/me/youtube-accounts', headers: { ...hp, 'content-type': `multipart/form-data; boundary=${boundary}` }, payload: body })).json();
+  assert.equal(mine.accounts.length, 1);
+  assert.equal(mine.accounts[0].loggedIn, true);
+  const all = (await app.inject({ method: 'GET', url: '/api/admin/youtube-accounts', headers: h })).json();
+  assert.equal(all.find((a: any) => a.id === mine.accounts[0].id).ownerName, 'petya');
+  assert.deepEqual((await app.inject({ method: 'GET', url: '/api/me/youtube-accounts', headers: h })).json().accounts, []);
+  assert.equal((await app.inject({ method: 'DELETE', url: `/api/me/youtube-accounts/${mine.accounts[0].id}`, headers: h })).statusCode, 404);
+  assert.equal((await app.inject({ method: 'DELETE', url: `/api/me/youtube-accounts/${mine.accounts[0].id}`, headers: hp })).json().accounts.length, 0);
+
+  // loved artists: liked ones (with a catalogue id) come first; the switch turns it off
+  const someArtist = app.db.prepare('SELECT id, name FROM artists LIMIT 1').get() as any;
+  app.db.prepare('UPDATE artists SET deezer_id = 4242 WHERE id = ?').run(someArtist.id);
+  app.db.prepare("INSERT OR IGNORE INTO likes (user_id, entity_type, entity_id) VALUES (?, 'artist', ?)").run(petya, someArtist.id);
+  const { lovedArtists } = await import('../src/services/autofetch.js');
+  assert.equal(lovedArtists(app.db)[0].deezerId, 4242);
+  assert.equal((await app.inject({ method: 'GET', url: '/api/admin/autofetch', headers: h })).json().next[0], someArtist.name);
+  assert.equal((await app.inject({ method: 'PUT', url: '/api/admin/autofetch', headers: h, payload: { on: false } })).json().on, false);
 });

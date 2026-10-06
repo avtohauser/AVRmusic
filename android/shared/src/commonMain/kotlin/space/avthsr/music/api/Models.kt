@@ -86,6 +86,8 @@ data class Album(
 data class ArtistPage(
   val id: String,
   val name: String,
+  /** the artist in the catalogue (to top up the discography) */
+  val deezerId: Long? = null,
   val imageUrl: String? = null,
   val headerUrl: String? = null,
   val bio: String? = null,

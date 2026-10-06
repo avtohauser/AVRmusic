@@ -344,6 +344,11 @@ fun ArtistScreen(id: String) {
           }
           Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
             LikeButton("artist", a.id)
+            // what of the artist is not on the server yet (or failed before) is fetched; the rest is skipped
+            a.deezerId?.let { did ->
+              if (Api.user?.canAcquire != false) IconButton(onClick = { acquire("artist", did, tr("Дискография {}", a.name)) }) { Ico(Res.drawable.ic_download, tr("Докачать дискографию")) }
+              IconButton(onClick = { nav.catalogArtist(did) }) { Ico(Res.drawable.ic_explore, tr("Всё в каталоге")) }
+            }
             IconButton(onClick = { share("/artist/${a.id}", a.name) }) { Ico(Res.drawable.ic_share, tr("Поделиться")) }
             if (Api.user?.isAdmin == true) ArtistAdminMenu(a) { loader.reload() }
           }

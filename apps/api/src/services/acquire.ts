@@ -410,7 +410,7 @@ export async function runAcquireArtist(db: DB, job: Job, deezerArtistId: number,
 }
 
 /** Tracks of one album / discography fetched at the same time: one per YouTube account, plus one searching ahead. */
-const parallelTracks = () => Math.min(6, Math.max(2, downloadSlots() + 1));
+const parallelTracks = () => Math.min(10, Math.max(2, downloadSlots() + 1));
 
 async function acquireMany(db: DB, job: Job, ids: number[], api: JobApi, album: any, albumsByTrack?: Map<number, any>) {
   const refs: Array<{ cancel?: () => void }> = [];

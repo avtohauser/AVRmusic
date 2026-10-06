@@ -61,7 +61,8 @@ const isInstant = (j: Job) => (j.payload as any)?.instant === true;
 
 /** Queued users' jobs in the order they will start: tracks and albums first, then by request time. */
 function userOrder(): Job[] {
-  const rank = (j: Job) => (isInstant(j) ? 0 : isSmall(j) ? 1 : 2);
+  // discographies the server fetches by itself (loved artists) wait behind everything people asked for
+  const rank = (j: Job) => (isInstant(j) ? 0 : isSmall(j) ? 1 : (j.payload as any)?.auto ? 3 : 2);
   return queue.filter(isUser).map((j, i) => ({ j, i })).sort((a, b) => rank(a.j) - rank(b.j) || a.i - b.i).map((x) => x.j);
 }
 

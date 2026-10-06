@@ -12,6 +12,7 @@ import { PLAYLIST_FROM, PLAYLIST_SELECT, mapPlaylistSummary } from '../services/
 import { applyJam, friendRef, getJam, jamOf, jamView, joinJam, leaveJam, listJams, nowPlaying, setNowPlaying, startJam, waitJam, type JamOp } from '../services/social.js';
 import { compatibility, profileStats, recap } from '../services/stats.js';
 import { getGame } from '../services/game.js';
+import { badgesOf } from '../services/badges.js';
 import { lastfmNowPlaying } from '../services/lastfm.js';
 
 export default async function socialRoutes(app: FastifyInstance) {
@@ -24,6 +25,7 @@ export default async function socialRoutes(app: FastifyInstance) {
     return {
       id: u.id, username: u.username, displayName: u.display_name, avatarUrl: avatarUrl(u.avatar_path),
       lastSeenAt: u.last_seen_at ?? null, now: nowPlaying(db, u.id, viewer), jamId: jam?.id ?? null,
+      badges: badgesOf(db, u.id),
     };
   };
 
@@ -87,6 +89,8 @@ export default async function socialRoutes(app: FastifyInstance) {
       case 'artist': { const r = db.prepare('SELECT id, name, image_path FROM artists WHERE id = ?').get(refId); return r ? mapArtistSummary(r) : null; }
       case 'playlist': { const r = db.prepare(`SELECT ${PLAYLIST_SELECT} ${PLAYLIST_FROM} WHERE p.id = ?`).get(refId) as any; return r ? mapPlaylistSummary(db, r, viewer) : null; }
       // an invitation to listen together: gone once the session ends
+      // a badge the admin gave
+      case 'badge': return db.prepare('SELECT id, title, emoji, color, description FROM badges WHERE id = ?').get(refId) ?? null;
       // an invitation to a game of "guess the melody": gone once it ends
       case 'game': { const g = getGame(refId); if (!g || g.state === 'done') return null; return { id: g.id, host: friendRef(db, g.hostId), players: g.players.size, state: g.state, rounds: g.rounds }; }
       case 'jam': { const j = getJam(refId); if (!j) return null; const v = jamView(db, j, viewer); return { id: v.id, host: v.host, members: v.members, track: v.queue[v.index] ?? null, playing: v.playing }; }

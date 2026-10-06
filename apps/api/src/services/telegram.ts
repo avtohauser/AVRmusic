@@ -231,6 +231,10 @@ function describeShare(db: DB, s: any): string | null {
     case 'playlist': { const p = db.prepare('SELECT id, title FROM playlists WHERE id = ?').get(s.ref_id) as any;
       return p ? `📨 <b>${esc(from)}</b>: плейлист <a href="${config.publicUrl}/playlist/${p.id}">${esc(p.title)}</a>${note}` : null; }
     case 'jam': return `🎧 <b>${esc(from)}</b> зовёт слушать вместе — откройте avr music${note}`;
+    case 'badge': {
+      const b = db.prepare('SELECT title, emoji FROM badges WHERE id = ?').get(s.ref_id) as any;
+      return b ? `🏅 Новая ачивка: ${esc(b.emoji)} <b>${esc(b.title)}</b>` : null;
+    }
     case 'game': return `🎲 <b>${esc(from)}</b> зовёт в «Угадай мелодию» — откройте avr music${note}`;
     case 'release': { const r = json(); return `🆕 Новый релиз: <b>${esc(r.artist)}</b> — ${esc(r.title)}`; }
     case 'concert': { const c = json(); return `🎤 Концерт: <b>${esc(c.artist)}</b> — ${esc(c.title)}\n${esc(c.date ?? '')}${c.place ? `, ${esc(c.place)}` : ''}${c.url ? `\n${esc(c.url)}` : ''}`; }

@@ -21,6 +21,14 @@ export function setNowPlaying(userId: string, trackId: string | null, positionMs
   now.set(userId, { trackId, positionMs: Math.max(0, positionMs), playing, at: Date.now() });
 }
 
+/** How many listen right now (their apps spoke in the last 90 s, playing). */
+export function listeningCount(): number {
+  const t = Date.now();
+  let n = 0;
+  for (const v of now.values()) if (v.playing && v.trackId && t - v.at < 90_000) n++;
+  return n;
+}
+
 /** What a user listens to now: kept for 90 s after the last word from their app. */
 export function nowPlaying(db: DB, userId: string, viewerId?: string): { track: Track; positionMs: number; playing: boolean; at: string } | null {
   const n = now.get(userId);

@@ -25,6 +25,10 @@ import socialRoutes from './routes/social.js';
 import transferRoutes from './routes/transfer.js';
 import recognizeRoutes from './routes/recognize.js';
 import togetherRoutes from './routes/together.js';
+import integrationRoutes from './routes/integrations.js';
+import { startTelegramWatchers } from './services/telegram.js';
+import { startConcerts } from './services/concerts.js';
+import { startBackups } from './services/backup.js';
 import { registerRunners } from './services/runners.js';
 import { startAnalysis } from './services/analyze.js';
 import { startAutoPlaylists } from './services/blend.js';
@@ -49,7 +53,9 @@ export async function buildApp(opts: { db?: DB; logger?: boolean } = {}): Promis
   registerRunners(app.db);
   if (process.env.ANALYZE !== 'false') startAnalysis(app.db);
   // blends and release radars refill themselves; new releases of followed artists are watched for
-  if (process.env.BACKGROUND !== 'false') { startAutoPlaylists(app.db); startReleaseWatch(app.db); startMixes(app.db); startDigest(app.db); }
+  if (process.env.BACKGROUND !== 'false') { startAutoPlaylists(app.db); startReleaseWatch(app.db); startMixes(app.db); startDigest(app.db);
+    startTelegramWatchers(app.db); startConcerts(app.db); startBackups(app.db);
+  }
 
   // set before the routes: route plugins take the error handler that exists when they are registered
   app.setErrorHandler((err: any, req, reply) => {
@@ -85,6 +91,7 @@ export async function buildApp(opts: { db?: DB; logger?: boolean } = {}): Promis
   await app.register(transferRoutes);
   await app.register(recognizeRoutes);
   await app.register(togetherRoutes);
+  await app.register(integrationRoutes);
 
   app.get('/api/health', async () => ({ ok: true, version: config.version }));
 

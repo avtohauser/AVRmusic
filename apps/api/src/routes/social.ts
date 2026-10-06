@@ -12,6 +12,7 @@ import { PLAYLIST_FROM, PLAYLIST_SELECT, mapPlaylistSummary } from '../services/
 import { applyJam, friendRef, getJam, jamOf, jamView, joinJam, leaveJam, listJams, nowPlaying, setNowPlaying, startJam, waitJam, type JamOp } from '../services/social.js';
 import { compatibility, profileStats, recap } from '../services/stats.js';
 import { getGame } from '../services/game.js';
+import { lastfmNowPlaying } from '../services/lastfm.js';
 
 export default async function socialRoutes(app: FastifyInstance) {
   const db = app.db;
@@ -55,6 +56,7 @@ export default async function socialRoutes(app: FastifyInstance) {
   app.post('/api/me/now', auth, async (req) => {
     const b = z.object({ trackId: z.string().nullable(), positionMs: z.number().min(0).default(0), playing: z.boolean().default(false) }).parse(req.body ?? {});
     setNowPlaying(req.userId!, b.trackId, b.positionMs, b.playing);
+    lastfmNowPlaying(db, req.userId!, b.trackId, b.playing);
     return { ok: true };
   });
 

@@ -683,3 +683,45 @@ test('listen together votes, guess the melody, and devices controlling each othe
   assert.deepEqual(next.commands[0].trackIds, [songs[2]]);
   assert.equal((await app.inject({ method: 'POST', url: '/api/me/devices/nope/command', headers: h, payload: { type: 'play' } })).statusCode, 404);
 });
+
+test('integrations: Telegram and Last.fm settings, concerts matching, scrobble rule, backups', async () => {
+  const h = { authorization: `Bearer ${access}` };
+  const integ = (await app.inject({ method: 'GET', url: '/api/me/integrations', headers: h })).json();
+  assert.deepEqual(integ, { telegram: { available: false, bot: null, linked: null }, lastfm: { available: false, linked: null }, city: null });
+  assert.equal((await app.inject({ method: 'PUT', url: '/api/admin/telegram', headers: h, payload: { token: 'not a token' } })).statusCode, 400);
+  assert.equal((await app.inject({ method: 'POST', url: '/api/me/telegram/link', headers: h })).statusCode, 400);
+
+  // the Last.fm app: the secret never comes back
+  const key = 'a'.repeat(32), secret = 'b'.repeat(32);
+  assert.equal((await app.inject({ method: 'PUT', url: '/api/admin/lastfm', headers: h, payload: { key } })).statusCode, 400);
+  assert.equal((await app.inject({ method: 'PUT', url: '/api/admin/lastfm', headers: h, payload: { key, secret } })).statusCode, 200);
+  const lf = (await app.inject({ method: 'GET', url: '/api/admin/lastfm', headers: h })).json();
+  assert.deepEqual(lf, { key, hasSecret: true });
+  const start = (await app.inject({ method: 'GET', url: '/api/me/lastfm/start', headers: h })).json();
+  assert.ok(start.url.startsWith(`https://www.last.fm/api/auth/?api_key=${key}&cb=`));
+  const { lastfmSign, scrobbleWorthy } = await import('../src/services/lastfm.js');
+  // md5("api_keyxxmethodauth.getSessiontokenyy" + "secret")
+  assert.equal(lastfmSign({ method: 'auth.getSession', api_key: 'xx', token: 'yy', format: 'json' }, 'secret'), '081c07c21ad2eb3a8d8ad31252a5fa8e');
+  assert.equal(scrobbleWorthy(200_000, 100_000), true);
+  assert.equal(scrobbleWorthy(200_000, 60_000), false);
+  assert.equal(scrobbleWorthy(600_000, 240_000), true);
+  assert.equal(scrobbleWorthy(20_000, 20_000), false);
+
+  // concerts: the artist named as a whole word
+  const { namesArtist } = await import('../src/services/concerts.js');
+  assert.equal(namesArtist('Земфира. Большой концерт', 'Земфира'), true);
+  assert.equal(namesArtist('«Би-2» в «Крокусе»', 'Би-2'), true);
+  assert.equal(namesArtist('Кинотеатр под открытым небом', 'Кино'), false);
+  assert.equal(namesArtist('Oxxxymiron', 'Ox'), false);
+  assert.equal((await app.inject({ method: 'PUT', url: '/api/me/city', headers: h, payload: { city: 'Moscow!' } })).statusCode, 400);
+  assert.deepEqual((await app.inject({ method: 'GET', url: '/api/me/concerts', headers: h })).json(), { city: null, checkedAt: null, concerts: [] });
+
+  // a copy of the database next to the music
+  const b = await app.inject({ method: 'POST', url: '/api/admin/backups', headers: h });
+  assert.equal(b.statusCode, 200, b.body);
+  assert.match(b.json().name, /^avrmusic-\d{4}-\d{2}-\d{2}\.sqlite\.gz$/);
+  assert.ok(b.json().size > 100);
+  const list = (await app.inject({ method: 'GET', url: '/api/admin/backups', headers: h })).json();
+  assert.equal(list.files[0].name, b.json().name);
+  assert.ok(list.last);
+});

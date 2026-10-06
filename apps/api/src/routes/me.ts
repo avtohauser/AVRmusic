@@ -11,6 +11,7 @@ import { config } from '../config.js';
 import { getUser } from '../services/auth.js';
 import { clamp, parseIntSafe } from '../lib/util.js';
 import { recentlyPlayedTracks } from '../services/home.js';
+import { lastfmScrobble } from '../services/lastfm.js';
 
 const LikeType = z.enum(['track', 'album', 'artist', 'playlist']);
 
@@ -77,6 +78,7 @@ export default async function meRoutes(app: FastifyInstance) {
     if (body.msPlayed >= 30_000 || (dur > 0 && body.msPlayed >= dur / 2)) {
       db.prepare('UPDATE tracks SET play_count = play_count + 1 WHERE id = ?').run(body.trackId);
     }
+    lastfmScrobble(db, req.userId!, body.trackId, body.msPlayed);
     return { ok: true };
   });
 

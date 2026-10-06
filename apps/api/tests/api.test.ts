@@ -551,3 +551,50 @@ test('downloads spread over the exits; a silent exit hands its download over', a
     config.downloadProxies = before;
   }
 });
+
+test('daily mixes, smart playlists, the week chart, the digest and the home sections', async () => {
+  const h = { authorization: `Bearer ${access}` };
+  const ids = [await uploadSong('Avalanche'), await uploadSong('Breakwater Song'), await uploadSong('Cinder'), await uploadSong('Daylight Pop Tune')];
+  const me = (await app.inject({ method: 'GET', url: '/api/auth/me', headers: h })).json().id;
+  app.db.prepare("UPDATE tracks SET genre = 'Rock' WHERE id IN (?,?,?)").run(ids[0], ids[1], ids[2]);
+  app.db.prepare("UPDATE tracks SET genre = 'Pop' WHERE id = ?").run(ids[3]);
+  const play = app.db.prepare('INSERT INTO plays (user_id, track_id, ms_played) VALUES (?,?,60000)');
+  for (let i = 0; i < 6; i++) play.run(me, ids[i < 4 ? 0 : 1]);
+
+  // a daily mix for the genre played most, with what was played in it
+  const mixes = (await app.inject({ method: 'GET', url: '/api/me/mixes?fresh=1', headers: h })).json();
+  const rock = mixes.find((m: any) => m.title.includes('Rock'));
+  assert.ok(rock, JSON.stringify(mixes.map((m: any) => m.title)));
+  assert.equal(rock.autoKind, 'mix');
+  const inMix = (await app.inject({ method: 'GET', url: `/api/playlists/${rock.id}`, headers: h })).json().tracks.map((t: any) => t.id);
+  assert.ok(inMix.includes(ids[0]) && inMix.includes(ids[2]), 'favourites and an unheard one');
+  // mixes stay off the library list
+  const mine = (await app.inject({ method: 'GET', url: '/api/playlists', headers: h })).json();
+  assert.ok(!mine.some((p: any) => p.autoKind === 'mix'));
+
+  // a smart playlist follows its rules
+  const smart = (await app.inject({ method: 'POST', url: '/api/playlists/smart', headers: h, payload: { title: 'Рок', rules: { genres: ['Rock'], sort: 'recent', limit: 10 } } })).json();
+  assert.equal(smart.autoKind, 'smart');
+  assert.deepEqual(smart.autoRules.genres, ['Rock']);
+  assert.deepEqual(new Set(smart.tracks.map((t: any) => t.id)), new Set([ids[0], ids[1], ids[2]]));
+  const never = (await app.inject({ method: 'PUT', url: `/api/playlists/${smart.id}/rules`, headers: h, payload: { rules: { genres: ['Rock'], minPlays: 4 } } })).json();
+  assert.deepEqual(never.tracks.map((t: any) => t.id), [ids[0]]);
+
+  // the company's week and the home screen
+  const chart = (await app.inject({ method: 'GET', url: '/api/charts/week', headers: h })).json();
+  assert.equal(chart.tracks[0].track.id, ids[0]);
+  assert.equal(chart.people[0].user.id, me);
+  const { homeFeed } = await import('../src/services/home.js');
+  const home = homeFeed(app.db, me); // the route caches the feed for a while
+  assert.ok(home.sections.some((s: any) => s.id === 'mixes'), home.sections.map((s: any) => s.id).join(','));
+
+  // the Sunday digest lands in the inbox with the songs resolved
+  const { sendDigest } = await import('../src/services/digest.js');
+  assert.ok(sendDigest(app.db, '2026-10-11') >= 1);
+  const inbox = (await app.inject({ method: 'GET', url: '/api/shares', headers: h })).json();
+  const digest = inbox.find((s: any) => s.kind === 'digest');
+  assert.equal(digest.from, null);
+  assert.equal(digest.message, 'digest');
+  assert.equal(digest.item.myTop.id, ids[0]);
+  assert.ok(digest.item.minutes >= 4);
+});

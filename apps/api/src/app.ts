@@ -28,6 +28,8 @@ import { registerRunners } from './services/runners.js';
 import { startAnalysis } from './services/analyze.js';
 import { startAutoPlaylists } from './services/blend.js';
 import { startReleaseWatch } from './services/releases.js';
+import { startMixes } from './services/mixes.js';
+import { startDigest } from './services/digest.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -46,7 +48,7 @@ export async function buildApp(opts: { db?: DB; logger?: boolean } = {}): Promis
   registerRunners(app.db);
   if (process.env.ANALYZE !== 'false') startAnalysis(app.db);
   // blends and release radars refill themselves; new releases of followed artists are watched for
-  if (process.env.BACKGROUND !== 'false') { startAutoPlaylists(app.db); startReleaseWatch(app.db); }
+  if (process.env.BACKGROUND !== 'false') { startAutoPlaylists(app.db); startReleaseWatch(app.db); startMixes(app.db); startDigest(app.db); }
 
   // set before the routes: route plugins take the error handler that exists when they are registered
   app.setErrorHandler((err: any, req, reply) => {

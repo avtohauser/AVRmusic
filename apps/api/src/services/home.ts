@@ -1,7 +1,9 @@
 import type { DB } from '../lib/db.js';
 import type { HomeFeed, HomeSection, Track, AlbumSummary } from '@avrmusic/shared';
 import { ALBUM_FROM, ALBUM_SELECT, TRACK_FROM, TRACK_SELECT, listGenres, mapAlbumSummary, mapArtistSummary, mapTracks } from './library.js';
-import { listPublicPlaylists, listUserPlaylists } from './playlists.js';
+import { PLAYLIST_FROM, PLAYLIST_SELECT, listPublicPlaylists, listUserPlaylists, mapPlaylistSummary } from './playlists.js';
+import { mixesOf } from './mixes.js';
+import { weeklyChart } from './digest.js';
 import { shuffle } from '../lib/util.js';
 
 function greeting(): string {
@@ -76,6 +78,22 @@ export function homeFeed(db: DB, userId: string | null): HomeFeed {
     const recent = recentlyPlayedTracks(db, userId, 12);
     if (recent.length) sections.push({ id: 'recent', title: 'Недавно слушали', kind: 'tracks', items: recent });
 
+    // daily mixes: one per side of the listener's taste
+    const mixIds = mixesOf(db, userId);
+    if (mixIds.length) {
+      const mixes = (db.prepare(`SELECT ${PLAYLIST_SELECT} ${PLAYLIST_FROM} WHERE p.id IN (${mixIds.map(() => '?').join(',')})`).all(...mixIds) as any[])
+        .map((r) => mapPlaylistSummary(db, r, userId)).filter((p) => p.trackCount > 0);
+      if (mixes.length) sections.push({ id: 'mixes', title: 'Миксы дня', subtitle: 'Любимое и новое — каждый день свежие', kind: 'playlists', items: mixes });
+    }
+
+    // what played on this very day a year (or a month) ago
+    for (const [ago, title] of [['-1 year', 'Год назад в этот день'], ['-1 month', 'Месяц назад в этот день']] as const) {
+      const ids = (db.prepare(`SELECT track_id, COUNT(*) n FROM plays WHERE user_id = ? AND ms_played >= 30000 AND date(played_at) = date('now', ?)
+        GROUP BY track_id ORDER BY n DESC, MAX(played_at) LIMIT 20`).all(userId, ago) as any[]).map((r) => r.track_id as string);
+      const day = byIds(db, ids, userId);
+      if (day.length >= 3) { sections.push({ id: 'onthisday', title, subtitle: 'Что тогда играло у вас', kind: 'tracks', items: day }); break; }
+    }
+
     // what kept coming back this week
     const repeatIds = (db.prepare(`SELECT track_id, COUNT(*) n FROM plays WHERE user_id = ? AND played_at > datetime('now','-7 days') AND ms_played >= 30000
       GROUP BY track_id HAVING n >= 2 ORDER BY n DESC, MAX(played_at) DESC LIMIT 20`).all(userId) as any[]).map((r) => r.track_id as string);
@@ -91,6 +109,10 @@ export function homeFeed(db: DB, userId: string | null): HomeFeed {
       ORDER BY n DESC, RANDOM() LIMIT 20`).all(userId, userId, userId, userId) as any[]).map((r) => r.id as string);
     const forgotten = byIds(db, forgottenIds, userId);
     if (forgotten.length >= 3) sections.push({ id: 'forgotten', title: 'Забытые любимые', subtitle: 'Вы много это слушали — давно не возвращались', kind: 'tracks', items: forgotten });
+
+    // the company's week
+    const chart = weeklyChart(db, userId, 20);
+    if (chart.tracks.length >= 5) sections.push({ id: 'chart', title: 'Чарт компании', subtitle: 'Что вы все слушали за неделю', kind: 'tracks', items: chart.tracks.map((c) => c.track) });
 
     const rec = recommendTracks(db, userId, 12, recent.map((t) => t.id));
     if (rec.length) sections.push({ id: 'for-you', title: 'Подобрано для вас', subtitle: 'На основе ваших лайков и истории', kind: 'tracks', items: rec });

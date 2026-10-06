@@ -375,6 +375,30 @@ const MIGRATIONS: string[] = [
     DELETE FROM lyrics_index WHERE track_id = OLD.id;
   END;
   `,
+  // 16: rules of the playlists the server fills (daily mixes, smart playlists); the listener's city (concerts);
+  // links to Telegram and Last.fm; concerts already told about
+  `
+  ALTER TABLE playlists ADD COLUMN auto_rules TEXT;
+  ALTER TABLE users ADD COLUMN city TEXT;
+  CREATE TABLE telegram_links (
+    user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    chat_id TEXT NOT NULL,
+    username TEXT,
+    linked_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE TABLE lastfm_links (
+    user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    session_key TEXT NOT NULL,
+    username TEXT NOT NULL,
+    linked_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE TABLE concert_seen (
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    event_id TEXT NOT NULL,
+    seen_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, event_id)
+  );
+  `,
 ];
 
 export function openDatabase(dbPath = config.dbPath): DB {

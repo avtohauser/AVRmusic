@@ -3,6 +3,7 @@
 // listener's recap.
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { resolveDigest } from '../services/digest.js';
 import { badRequest, forbidden, notFound } from '../lib/errors.js';
 import { newId } from '../lib/util.js';
 import { enqueue } from '../services/jobs.js';
@@ -74,6 +75,10 @@ export default async function socialRoutes(app: FastifyInstance) {
         return { id: Number(refId), title: info.title ?? '', artist: info.artist ?? '', coverUrl: info.coverUrl ?? null, type: info.type ?? 'album', year: info.year ?? null, libraryAlbumId: lib?.id ?? null };
       }
       case 'report': return getTrack(db, refId, viewer);
+      // the Sunday digest of the company's week
+      case 'digest': return resolveDigest(db, message, viewer);
+      // a concert of an artist the listener follows, in their city
+      case 'concert': { try { return JSON.parse(message); } catch { return null; } }
       case 'track': return getTrack(db, refId, viewer);
       case 'album': { const r = db.prepare(`SELECT ${ALBUM_SELECT} ${ALBUM_FROM} WHERE al.id = ?`).get(refId); return r ? mapAlbumSummary(r) : null; }
       case 'artist': { const r = db.prepare('SELECT id, name, image_path FROM artists WHERE id = ?').get(refId); return r ? mapArtistSummary(r) : null; }
@@ -85,7 +90,7 @@ export default async function socialRoutes(app: FastifyInstance) {
   };
   const mapShare = (r: any, viewer: string) => ({
     id: r.id, from: r.from_user ? friendRef(db, r.from_user) : null, kind: r.kind, refId: r.ref_id, item: resolveRef(r.kind, r.ref_id, viewer, r.message),
-    message: r.kind === 'release' ? 'release' : r.message, seen: !!r.seen, createdAt: r.created_at,
+    message: ['release', 'digest', 'concert'].includes(r.kind) ? r.kind : r.message, seen: !!r.seen, createdAt: r.created_at,
   });
 
   app.post('/api/shares', auth, async (req) => {

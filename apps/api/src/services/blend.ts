@@ -55,7 +55,7 @@ export function fillBlend(db: DB, playlistId: string, size = 50) {
 }
 
 /** Puts new server-chosen tracks in place of the old ones; tracks added by hand stay first. */
-function replaceAuto(db: DB, playlistId: string, picked: Array<{ id: string; by: string | null }>) {
+export function replaceAuto(db: DB, playlistId: string, picked: Array<{ id: string; by: string | null }>) {
   const tx = db.transaction(() => {
     db.prepare('DELETE FROM playlist_tracks WHERE playlist_id = ? AND auto = 1').run(playlistId);
     const manual = new Set((db.prepare('SELECT track_id FROM playlist_tracks WHERE playlist_id = ?').all(playlistId) as any[]).map((r) => r.track_id as string));
@@ -112,20 +112,27 @@ export function fillRadar(db: DB, playlistId: string, userId: string) {
   replaceAuto(db, playlistId, ids);
 }
 
-/** Refreshes one playlist the server fills (a blend or a radar). */
+/** Other kinds the server fills (daily mixes, smart playlists — services/mixes.ts): how often, and how. */
+export const autoFillers = new Map<string, { every: number; fill: (db: DB, playlistId: string, ownerId: string, rules: any) => void }>();
+const EVERY: Record<string, number> = { blend: 22 * HOUR, radar: 7 * 24 * HOUR };
+
+/** Refreshes one playlist the server fills. */
 export function refreshAuto(db: DB, playlistId: string) {
-  const p = db.prepare('SELECT auto_kind, owner_id FROM playlists WHERE id = ?').get(playlistId) as any;
+  const p = db.prepare('SELECT auto_kind, owner_id, auto_rules FROM playlists WHERE id = ?').get(playlistId) as any;
   if (p?.auto_kind === 'blend') fillBlend(db, playlistId);
   else if (p?.auto_kind === 'radar') fillRadar(db, playlistId, p.owner_id);
+  else if (p?.auto_kind && autoFillers.has(p.auto_kind)) autoFillers.get(p.auto_kind)!.fill(db, playlistId, p.owner_id, JSON.parse(p.auto_rules || '{}'));
 }
 
-/** Blends every day, radars every week (checked once an hour). */
+/** Blends every day, radars every week, the other kinds as they ask (checked once an hour). */
 export function startAutoPlaylists(db: DB) {
   const tick = () => {
     try {
-      const due = db.prepare(`SELECT id FROM playlists WHERE (auto_kind = 'blend' AND (auto_at IS NULL OR auto_at < ?)) OR (auto_kind = 'radar' AND (auto_at IS NULL OR auto_at < ?))`)
-        .all(new Date(Date.now() - 22 * HOUR).toISOString(), new Date(Date.now() - 7 * 24 * HOUR).toISOString()) as any[];
-      for (const r of due) refreshAuto(db, r.id);
+      const rows = db.prepare('SELECT id, auto_kind, auto_at FROM playlists WHERE auto_kind IS NOT NULL').all() as any[];
+      for (const r of rows) {
+        const every = EVERY[r.auto_kind] ?? autoFillers.get(r.auto_kind)?.every;
+        if (every && (!r.auto_at || Date.parse(r.auto_at) < Date.now() - every)) refreshAuto(db, r.id);
+      }
     } catch { /* tried again in an hour */ }
   };
   setTimeout(tick, 5 * 60_000).unref();

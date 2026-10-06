@@ -9,6 +9,8 @@ import { indexPlaylist, removeFromIndex } from '../services/search.js';
 import { saveUploadedImage } from '../lib/uploads.js';
 import { config } from '../config.js';
 import { createBlend, radarOf, refreshAuto } from '../services/blend.js';
+import { createSmart, ensureMixes, mixesOf, setSmartRules, smartRulesSchema } from '../services/mixes.js';
+import { weeklyChart } from '../services/digest.js';
 
 export default async function playlistRoutes(app: FastifyInstance) {
   const db = app.db;
@@ -118,6 +120,31 @@ export default async function playlistRoutes(app: FastifyInstance) {
     refreshAuto(db, id);
     return getPlaylist(db, id, req.userId);
   });
+
+  /** A smart playlist: the server keeps it matching the rules. */
+  app.post('/api/playlists/smart', { preHandler: app.authenticate }, async (req) => {
+    const b = z.object({ title: z.string().trim().min(1).max(120), rules: smartRulesSchema }).parse(req.body ?? {});
+    const id = createSmart(db, req.userId!, b.title, b.rules);
+    indexPlaylist(db, id);
+    return getPlaylist(db, id, req.userId);
+  });
+
+  app.put('/api/playlists/:id/rules', { preHandler: app.authenticate }, async (req) => {
+    const id = (req.params as any).id;
+    const p = assertCanEdit(db, id, req.userId!, req.userRole!);
+    if (p.auto_kind !== 'smart') throw badRequest('Это не умный плейлист');
+    setSmartRules(db, id, smartRulesSchema.parse((req.body as any)?.rules ?? req.body ?? {}));
+    return getPlaylist(db, id, req.userId);
+  });
+
+  /** The listener's daily mixes (made the first time; `fresh=1` matches them to the taste now). */
+  app.get('/api/me/mixes', { preHandler: app.authenticate }, async (req) => {
+    const ids = (req.query as any)?.fresh ? ensureMixes(db, req.userId!) : mixesOf(db, req.userId!);
+    return ids.map((id) => getPlaylist(db, id, req.userId)).filter(Boolean).map((p) => ({ ...p!, tracks: undefined }));
+  });
+
+  /** The company's week: songs, artists, who listened most. */
+  app.get('/api/charts/week', { preHandler: app.authenticate }, async (req) => weeklyChart(db, req.userId!, 50));
 
   /** The listener's release radar (made the first time). */
   app.get('/api/me/radar', { preHandler: app.authenticate }, async (req) => getPlaylist(db, radarOf(db, req.userId!), req.userId));

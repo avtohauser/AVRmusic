@@ -126,8 +126,30 @@ export interface PlaylistSummary {
   canEdit?: boolean;
   /** did this user create it (only the creator deletes it) */
   isCreator?: boolean;
-  /** filled by the server: 'blend' (several owners' tastes) or 'radar' (new releases) */
+  /** filled by the server: 'blend' (several owners' tastes), 'radar' (new releases), 'mix' (a daily mix), 'smart' (by rules) */
   autoKind?: string | null;
+  /** a smart playlist's rules */
+  autoRules?: SmartRules;
+}
+
+/** What a smart playlist takes from the library; empty fields don't narrow it. */
+export interface SmartRules {
+  genres?: string[];
+  /** library artist ids */
+  artists?: string[];
+  yearFrom?: number | null;
+  yearTo?: number | null;
+  /** added to the library within the last N days */
+  addedDays?: number | null;
+  /** only the owner's liked tracks */
+  liked?: boolean;
+  /** not played by the owner for N days (or never) */
+  notPlayedDays?: number | null;
+  /** played by the owner at least N times */
+  minPlays?: number | null;
+  noExplicit?: boolean;
+  sort?: 'random' | 'recent' | 'popular' | 'mostPlayed' | 'newest';
+  limit?: number;
 }
 
 export interface Playlist extends PlaylistSummary {

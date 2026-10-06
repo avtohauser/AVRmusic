@@ -6,7 +6,7 @@ import { nowIso } from '../lib/db.js';
 import { forbidden, notFound } from '../lib/errors.js';
 
 export const PLAYLIST_SELECT = `
-  p.id, p.title, p.description, p.cover_path, p.is_public, p.created_at, p.updated_at, p.auto_kind, p.auto_at,
+  p.id, p.title, p.description, p.cover_path, p.is_public, p.created_at, p.updated_at, p.auto_kind, p.auto_at, p.auto_rules,
   u.id AS owner_id, u.username AS owner_username, u.display_name AS owner_name,
   (SELECT COUNT(*) FROM playlist_tracks pt WHERE pt.playlist_id = p.id) AS track_count,
   (SELECT COALESCE(SUM(t.duration_ms),0) FROM playlist_tracks pt JOIN tracks t ON t.id = pt.track_id WHERE pt.playlist_id = p.id) AS duration_ms
@@ -33,6 +33,7 @@ export function mapPlaylistSummary(db: DB, r: any, userId?: string | null): Play
     updatedAt: r.updated_at,
     mosaic: mosaicFor(db, r.id),
     autoKind: r.auto_kind ?? null,
+    ...(r.auto_kind === 'smart' && r.auto_rules ? { autoRules: JSON.parse(r.auto_rules) } : {}),
   };
   if (userId) {
     s.liked = isLiked(db, userId, 'playlist', r.id);
@@ -77,7 +78,7 @@ export function getPlaylist(db: DB, id: string, userId?: string | null): Playlis
 
 export function listUserPlaylists(db: DB, userId: string): PlaylistSummary[] {
   const rows = db
-    .prepare(`SELECT ${PLAYLIST_SELECT} ${PLAYLIST_FROM} WHERE p.owner_id = ? OR p.id IN (SELECT entity_id FROM likes WHERE user_id = ? AND entity_type = 'playlist') OR p.id IN (SELECT playlist_id FROM playlist_members WHERE user_id = ?) ORDER BY p.updated_at DESC`)
+    .prepare(`SELECT ${PLAYLIST_SELECT} ${PLAYLIST_FROM} WHERE (p.owner_id = ? OR p.id IN (SELECT entity_id FROM likes WHERE user_id = ? AND entity_type = 'playlist') OR p.id IN (SELECT playlist_id FROM playlist_members WHERE user_id = ?)) AND COALESCE(p.auto_kind, '') <> 'mix' ORDER BY p.updated_at DESC`)
     .all(userId, userId, userId) as any[];
   return rows.map((r) => mapPlaylistSummary(db, r, userId));
 }

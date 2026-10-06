@@ -3,17 +3,18 @@
 #             storage shared with the main server only, and a proxy so downloads also leave from its IP;
 #             then checks (nothing of the app is touched)
 #   migrate — moves the music to the storage and mounts it back in the same place (rolls back on failure)
+#   cleanup — removes the main server's old local copy of the music, once the storage is mounted in its place
 # Secrets: SERVER_HOST / SERVER_USER / SERVER_PASSWORD (main, as deploy.yml), STORAGE_HOST / STORAGE_PASSWORD.
 name: storage
 on:
   workflow_dispatch:
     inputs:
       action:
-        description: setup | migrate
+        description: setup | migrate | cleanup
         required: true
         default: setup
         type: choice
-        options: [setup, migrate]
+        options: [setup, migrate, cleanup]
 concurrency: deploy-prod
 jobs:
   storage:
@@ -115,3 +116,21 @@ jobs:
           [ -n "$out" ] || out="::error::Перенос закончился без отчёта — см. journalctl -u avr-migrate на основном сервере"
           echo "$out"
           ! grep -q '^::error::' <<<"$out"
+
+      - name: Remove the old local copy of the music
+        if: ${{ inputs.action == 'cleanup' }}
+        run: |
+          o="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o ConnectTimeout=20 -o ServerAliveInterval=30"
+          SSHPASS="$MAIN_PASS" sshpass -e ssh $o "$MAIN_USER@$MAIN_HOST" 'bash -s' <<'SH'
+          set -euo pipefail
+          cd /opt/avrmusic
+          MEDIA="$( (grep "^MEDIA_PATH=" .env || true) | head -n1 | cut -d= -f2-)"; MEDIA="${MEDIA:-/srv/avrmusic/media}"
+          OLD="$MEDIA-local-old"
+          [ -d "$OLD" ] || { echo "::notice::Старой копии нет — удалять нечего"; exit 0; }
+          # only while the storage is mounted in its place and holds the music
+          grep -q " $MEDIA nfs" /proc/mounts || { echo "::error::Хранилище не подключено вместо папки с музыкой — старую копию не трогаю"; exit 1; }
+          [ -f "$MEDIA/.avr-storage" ] || { echo "::error::На хранилище нет метки — старую копию не трогаю"; exit 1; }
+          size="$(du -sh "$OLD" | cut -f1)"
+          rm -rf --one-file-system "$OLD"
+          echo "::notice::Старая копия музыки удалена с основного сервера: освобождено $size, свободно $(df -h --output=avail / | tail -1 | tr -d ' ')"
+          SH

@@ -62,9 +62,11 @@ copy_min=$(( ($(date +%s) - start) / 60 ))
 stage "2/3 короткая остановка: досылаю изменения"
 $DC stop avrmusic; stopped=1
 rsync -aH --delete -e "$SSHC" "$MEDIA/" "$REMOTE:$RDIR/"
+# every file of the music must be on the storage as it is here (a stray extra file there harms nothing)
+left=$(rsync -aHn --itemize-changes -e "$SSHC" "$MEDIA/" "$REMOTE:$RDIR/" | grep -c '^<f' || true)
+[ "$left" = 0 ] || { result "::error::После досылки на хранилище не совпадают $left файлов"; false; }
 src=$(find "$MEDIA" -type f | wc -l)
 dst=$($SSHC "$REMOTE" "find $RDIR -type f ! -name $MARK | wc -l")
-[ "$src" = "$dst" ] || { result "::error::Файлов на хранилище $dst, а должно быть $src"; false; }
 $SSHC "$REMOTE" "touch $RDIR/$MARK"
 
 stage "3/3 подключаю хранилище на место папки с музыкой"

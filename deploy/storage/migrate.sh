@@ -40,7 +40,8 @@ trap rollback ERR
 
 echo "==> 1/3 копирую музыку, пока сервис работает ($((need/1024/1024)) МБ)"
 start=$(date +%s)
-rsync -aH --info=stats1 "$MEDIA/" "$T/"
+# (24: a file vanished while the app ran — the second pass sorts that out)
+rsync -aH --info=stats1 "$MEDIA/" "$T/" || { rc=$?; [ "$rc" = 24 ] || false; }
 
 
 echo "==> 2/3 короткая остановка: досылаю изменения"

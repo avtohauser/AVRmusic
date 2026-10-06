@@ -20,6 +20,7 @@ import { TrackListSkeleton } from '@/components/Skeleton';
 import { Cover } from '@/components/Cover';
 import { Avatar } from '@/components/Social';
 import { pickFriends, refreshPlaylist, sendToFriends, useTr } from '@/lib/social';
+import { SmartEditor } from '@/components/SmartEditor';
 
 export default function Playlist() {
   const { id } = useParams();
@@ -41,13 +42,17 @@ export default function Playlist() {
   const { data: found } = useSearch(dq, 'track');
   const tr = useTr();
   const [refreshing, setRefreshing] = useState(false);
+  const [rules, setRules] = useState(false);
 
   if (error) return <div className="page pt-10"><EmptyState title={(error as any).message} /></div>;
   if (isLoading || !pl) return <div className="page pt-8"><TrackListSkeleton /></div>;
   const isThis = context === `playlist:${id}` && !!current;
   const isOwner = !!user && (pl.canEdit === true || pl.owner.id === user.id || user.role === 'admin');
   const owners = pl.owners?.length ? pl.owners : [{ id: pl.owner.id, displayName: pl.owner.displayName, avatarUrl: null }];
-  const autoLine = pl.autoKind === 'blend' ? tr('Блендер — обновляется каждый день', 'Blend — refreshes every day') : pl.autoKind === 'radar' ? tr('Радар новинок — обновляется каждую неделю', 'Release radar — refreshes every week') : null;
+  const autoLine = ({
+    blend: tr('Блендер — обновляется каждый день', 'Blend — refreshes every day'), radar: tr('Радар новинок — обновляется каждую неделю', 'Release radar — refreshes every week'),
+    mix: tr('Микс дня — обновляется каждый день', 'Daily mix — refreshes every day'), smart: tr('Умный — собирается по правилам', 'Smart — built by rules'),
+  } as Record<string, string>)[pl.autoKind ?? ''] ?? null;
   const invite = () => pickFriends({
     title: tr('Добавить совладельца', 'Add a co-owner'), button: tr('Добавить', 'Add'), exclude: owners.map((o) => o.id),
     run: async ([userId]) => { await api.post(`/api/playlists/${pl.id}/members`, { userId }); qc.invalidateQueries({ queryKey: ['playlist', pl.id] }); toast(tr('Теперь это и его/её плейлист', 'Now they own it too'), 'success'); },
@@ -86,6 +91,8 @@ export default function Playlist() {
         {pl.tracks.length > 0 && <M3eIconButton variant="tonal" size="medium" title={t('shuffle')} onClick={() => { if (!p.shuffle) p.toggleShuffle(); p.playTracks(pl.tracks, Math.floor(Math.random() * pl.tracks.length), `playlist:${pl.id}`); }}><m3e-icon variant="rounded" name="shuffle" /></M3eIconButton>}
         {user && !isOwner && <LikeButton type="playlist" id={pl.id} alwaysVisible buttonSize="medium" />}
         {isOwner && <M3eIconButton size="medium" title={t('editPlaylist')} onClick={() => setEditor({ id: pl.id, initial: { title: pl.title, description: pl.description, isPublic: pl.isPublic } })}><m3e-icon variant="rounded" name="edit" /></M3eIconButton>}
+        {isOwner && pl.autoKind === 'smart' && <M3eButton variant="tonal" onClick={() => setRules(true)}><m3e-icon variant="rounded" slot="icon" name="tune" />{tr('Правила', 'Rules')}</M3eButton>}
+        {rules && <SmartEditor open={rules} onClose={() => setRules(false)} playlistId={pl.id} initial={pl.autoRules} />}
         {isOwner && pl.autoKind && <M3eButton variant="tonal" disabled={refreshing || undefined} onClick={refresh}><m3e-icon variant="rounded" slot="icon" name="refresh" />{tr('Обновить', 'Refresh')}</M3eButton>}
         {isOwner && pl.autoKind !== 'radar' && <M3eIconButton size="medium" title={tr('Добавить совладельца', 'Add a co-owner')} onClick={invite}><m3e-icon variant="rounded" name="group_add" /></M3eIconButton>}
         {user && <M3eIconButton size="medium" title={tr('Отправить другу', 'Send to a friend')} onClick={() => sendToFriends('playlist', pl.id, pl.title)}><m3e-icon variant="rounded" name="send" /></M3eIconButton>}

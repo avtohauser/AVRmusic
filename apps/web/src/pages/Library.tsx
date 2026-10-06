@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { M3eButton, M3eFilterChip, M3eFilterChipSet } from '@/md';
 import { useAlbums, useArtists, useGenres, useLikedAlbums, useLikedArtists, useMyPlaylists, usePublicPlaylists } from '@/lib/queries';
@@ -8,6 +9,7 @@ import { AlbumCard, ArtistCard, GenreCard, PlaylistCard } from '@/components/Car
 import { ShelfSkeleton } from '@/components/Skeleton';
 import { EmptyState } from '@/components/EmptyState';
 import { blendWith, radar, useTr } from '@/lib/social';
+import { SmartEditor } from '@/components/SmartEditor';
 
 type Tab = 'playlists' | 'albums' | 'artists' | 'genres';
 const grid = 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2 fade-in [&>*]:w-full';
@@ -53,6 +55,7 @@ function Playlists() {
   const nav = useNavigate();
   const mine = useMyPlaylists();
   const pub = usePublicPlaylists();
+  const [smart, setSmart] = useState(false);
   if (mine.isLoading || pub.isLoading) return <ShelfSkeleton />;
   const myIds = new Set((mine.data ?? []).map((p) => p.id));
   const others = (pub.data ?? []).filter((p) => !myIds.has(p.id));
@@ -68,8 +71,10 @@ function Playlists() {
             </Link>
             <AutoTile icon="radar" title={tr('Радар новинок', 'Release radar')} sub={tr('Свежее от ваших исполнителей', 'Fresh from your artists')} color="var(--md-sys-color-tertiary)" onClick={async () => { try { nav(`/playlist/${(await radar()).id}`); } catch (e: any) { useUI.getState().toast(e.message, 'error'); } }} />
             <AutoTile icon="blender" title={tr('Блендер', 'Blend')} sub={tr('Общий плейлист с друзьями', 'One playlist with friends')} color="var(--md-sys-color-secondary)" onClick={() => blendWith(nav, tr)} />
+            <AutoTile icon="tune" title={tr('Умный плейлист', 'Smart playlist')} sub={tr('Собирается сам по правилам', 'Builds itself by rules')} color="var(--md-sys-color-primary)" onClick={() => setSmart(true)} />
             {(mine.data ?? []).map((p) => <PlaylistCard key={p.id} playlist={p} />)}
           </div>
+          {smart && <SmartEditor open={smart} onClose={() => setSmart(false)} />}
           {others.length > 0 && <h2 className="md-headline-sm emph flow-soft mt-8 mb-3">{t('communityPlaylists')}</h2>}
         </>
       )}

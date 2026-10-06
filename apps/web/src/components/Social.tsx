@@ -6,7 +6,7 @@ import { M3eButton, M3eFormField, M3eIconButton } from '@/md';
 import { Modal } from './Modal';
 import { Cover } from './Cover';
 import { useUI } from '@/stores/ui';
-import { useJam, leaveJam } from '@/lib/jam';
+import { useJam, leaveJam, voteInJam } from '@/lib/jam';
 import { sendToFriends, useFriends, useSocialUI, useTr, report, type Friend } from '@/lib/social';
 import type { FriendRef } from '@avrmusic/shared';
 
@@ -117,6 +117,7 @@ export function ReportModal() {
 export function JamBar() {
   const view = useJam((s) => s.view);
   const tr = useTr();
+  const [votes, setVotes] = useState(false);
   if (!view) return null;
   const last = view.lastBy && view.lastAction ? `${view.lastBy.displayName}: ${actionLabel(view.lastAction, tr)}` : null;
   return (
@@ -127,8 +128,31 @@ export function JamBar() {
         <span className="block md-label-lg line-1">{tr('Слушаете вместе', 'Listening together')} · {view.members.length}</span>
         {last && <span className="block md-body-sm opacity-80 line-1">{last}</span>}
       </Link>
+      <M3eIconButton size="small" className="relative" title={tr('Предложения и голоса', 'Suggestions and votes')} onClick={() => setVotes(true)}>
+        <m3e-icon variant="rounded" name="how_to_vote" />
+        {!!view.suggestions?.length && <span className="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 rounded-full bg-tertiary text-on-tertiary text-[10px] leading-4 text-center">{view.suggestions.length}</span>}
+      </M3eIconButton>
       <M3eIconButton size="small" title={tr('Позвать ещё', 'Invite more')} onClick={() => sendToFriends('jam', view.id, '')}><m3e-icon variant="rounded" name="group_add" /></M3eIconButton>
       <M3eIconButton size="small" title={tr('Выйти', 'Leave')} onClick={() => void leaveJam()}><m3e-icon variant="rounded" name="exit_to_app" /></M3eIconButton>
+      <Modal open={votes} onClose={() => setVotes(false)} title={tr('Предложения', 'Suggestions')}>
+        <p className="md-body-md text-on-surface-variant mb-3">{tr('Голосуйте — трек с большинством голосов играет следующим. Предложить: ⋮ у любого трека.', 'Vote — the track with the most votes plays next. To suggest: ⋮ on any track.')}</p>
+        {!view.suggestions?.length && <p className="md-body-md text-on-surface-variant py-4 text-center">{tr('Пока никто ничего не предложил', 'No suggestions yet')}</p>}
+        {view.suggestions?.map((s) => (
+          <div key={s.track.id} className="flex items-center gap-3 py-2">
+            <Cover src={s.track.coverUrl} className="w-11 h-11 rounded-lg shrink-0" />
+            <div className="min-w-0 flex-1">
+              <div className="md-body-lg line-1">{s.track.title}</div>
+              <div className={`md-body-sm line-1 ${s.next ? 'text-tertiary' : 'text-on-surface-variant'}`}>
+                {[s.next ? tr('следующий', 'next') : null, s.track.artist.name, s.by ? tr(`от ${s.by.displayName}`, `from ${s.by.displayName}`) : null].filter(Boolean).join(' · ')}
+              </div>
+            </div>
+            <button onClick={() => void voteInJam(s.track.id, !s.voted)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full md-label-lg ${s.voted ? 'bg-tertiary text-on-tertiary' : 'bg-surface-container-high'}`}>
+              <m3e-icon variant="rounded" name="thumb_up" />{s.votes}
+            </button>
+          </div>
+        ))}
+      </Modal>
     </div>
   );
 }

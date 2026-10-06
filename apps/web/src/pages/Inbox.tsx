@@ -38,7 +38,7 @@ function ShareCard({ s }: { s: Share }) {
   const tr = useTr();
   const nav = useNavigate();
   const play = usePlayer.getState();
-  const who = s.from?.displayName ?? 'AVRmusic';
+  const who = s.from?.displayName ?? ({ release: tr('Новый релиз', 'New release'), digest: tr('Итоги недели', 'Weekly digest'), concert: tr('Концерт рядом', 'A concert nearby') } as Record<string, string>)[s.kind] ?? 'avr music';
   let what = '', title = '', sub = '', cover: string | null = null, round = false, to: string | null = null;
   let action: { icon: string; label: string; run: () => void } | null = null;
   switch (s.kind) {
@@ -66,13 +66,36 @@ function ShareCard({ s }: { s: Share }) {
       } };
       break;
     }
+    case 'game': {
+      const g = s.item as { id: string; players: number; rounds: number };
+      what = tr('зовёт в «Угадай мелодию»', 'invites you to “Guess the song”'); title = tr('Угадай мелодию', 'Guess the song');
+      sub = tr(`игроков: ${g.players} · раундов: ${g.rounds}`, `players: ${g.players} · rounds: ${g.rounds}`);
+      action = { icon: 'quiz', label: tr('Играть', 'Play'), run: () => nav(`/game?join=${g.id}`) }; break;
+    }
+    case 'digest': {
+      const d = s.item as { minutes: number; myTop: Track | null; myTopPlays: number; groupTop: Track | null; leader: { user: { displayName: string } | null; minutes: number } | null };
+      what = tr(`— ${d.minutes} мин музыки за неделю`, `— ${d.minutes} min of music this week`);
+      const t = d.myTop ?? d.groupTop;
+      title = d.myTop ? tr(`Ваш трек недели: ${d.myTop.title}`, `Your song of the week: ${d.myTop.title}`) : tr('Неделя в музыке', 'Your week in music');
+      sub = [d.groupTop ? tr(`трек компании: ${d.groupTop.artist.name} — ${d.groupTop.title}`, `the company's song: ${d.groupTop.artist.name} — ${d.groupTop.title}`) : '',
+        d.leader?.user ? tr(`больше всех слушал(а) ${d.leader.user.displayName}`, `${d.leader.user.displayName} listened the most`) : ''].filter(Boolean).join(' · ');
+      cover = t?.coverUrl ?? null;
+      if (t) action = { icon: 'play_arrow', label: tr('Слушать', 'Play'), run: () => play.playTracks([d.myTop, d.groupTop].filter((x): x is Track => !!x && !x.id.startsWith('dz:')), 0, 'inbox') };
+      break;
+    }
+    case 'concert': {
+      const c = s.item as { artist: string; title: string; date: string; place: string | null; url: string | null; imageUrl: string | null };
+      what = tr(`— ${c.artist}`, `— ${c.artist}`); title = c.title; sub = [c.date, c.place].filter(Boolean).join(' · '); cover = c.imageUrl;
+      if (c.url) action = { icon: 'open_in_new', label: tr('Билеты', 'Tickets'), run: () => window.open(c.url!, '_blank', 'noreferrer') };
+      break;
+    }
     case 'report': { const t = s.item as Track; what = tr('пожаловался(ась) на трек', 'reported a track'); title = t.title; sub = t.artist.name; cover = t.coverUrl; to = '/admin?tab=reports'; break; }
   }
-  const message = s.message && !['invite', 'release'].includes(s.message) && s.kind !== 'report' ? s.message : '';
+  const message = s.message && s.from && s.message !== 'invite' && s.kind !== 'report' ? s.message : '';
   return (
     <div className={`rounded-[28px] p-4 ${s.seen ? 'surface-low' : 'bg-secondary-container text-on-secondary-container'}`}>
       <div className="flex items-center gap-2 mb-3">
-        {s.from ? <Avatar user={s.from} className="w-8 h-8" /> : <span className="w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center"><m3e-icon variant="rounded" name="campaign" style={{ ['--m3e-icon-size' as any]: '18px' }} /></span>}
+        {s.from ? <Avatar user={s.from} className="w-8 h-8" /> : <span className="w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center"><m3e-icon variant="rounded" name={s.kind === 'digest' ? 'leaderboard' : s.kind === 'concert' ? 'event' : 'campaign'} style={{ ['--m3e-icon-size' as any]: '18px' }} /></span>}
         <span className="md-body-md min-w-0 line-1"><b className="md-title-sm">{who}</b> {what}</span>
         <span className="md-body-sm muted ml-auto shrink-0">{ago(s.createdAt)}</span>
       </div>

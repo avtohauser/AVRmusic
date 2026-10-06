@@ -9,6 +9,7 @@ import { Cover } from './Cover';
 import { LikeButton } from './LikeButton';
 import { fmtTime } from '@/lib/format';
 import { useT } from '@/lib/i18n';
+import { DevicesButton } from './Devices';
 
 const thumbValue = (e: Event) => Number((e.target as any)?.value ?? (e.currentTarget as any)?.value ?? 0);
 
@@ -90,6 +91,7 @@ export function PlayerBar() {
 
         <div className="flex items-center justify-end gap-1">
           {track.hasLyrics && <M3eIconButton aria-label={t('lyrics')} onClick={() => setOpen(true)}><m3e-icon variant="rounded" name="lyrics" /></M3eIconButton>}
+          <DevicesButton />
           <M3eIconButton toggle selected={queueOpen || undefined} aria-label={t('queue')} onClick={() => setQueueOpen(!queueOpen)}><m3e-icon variant="rounded" name="queue_music" /><m3e-icon variant="rounded" slot="selected" name="queue_music" filled style={{ color: 'var(--md-sys-color-primary)' }} /></M3eIconButton>
           <M3eIconButton aria-label={t('mute')} onClick={p.toggleMute}><m3e-icon variant="rounded" name={volIcon} /></M3eIconButton>
           <M3eSlider className="w-28" size="extra-small" min={0} max={1} step={0.01} onInput={(e: Event) => p.setVolume(thumbValue(e))}>

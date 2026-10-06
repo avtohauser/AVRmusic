@@ -20,6 +20,7 @@ export default function Friends() {
       <div className="flex flex-wrap gap-2 mb-6">
         <M3eButton variant="filled" onClick={() => void listenTogether(tr)}><m3e-icon variant="rounded" slot="icon" name="groups" />{tr('Слушать вместе', 'Listen together')}</M3eButton>
         <M3eButton variant="tonal" onClick={() => blendWith(nav, tr)}><m3e-icon variant="rounded" slot="icon" name="blender" />{tr('Блендер', 'Blend')}</M3eButton>
+        <M3eButton variant="tonal" href="/game"><m3e-icon variant="rounded" slot="icon" name="quiz" />{tr('Угадай мелодию', 'Guess the song')}</M3eButton>
         <M3eButton variant="tonal" href="/inbox"><m3e-icon variant="rounded" slot="icon" name="inbox" />{tr('Входящие', 'Inbox')}{unread ? ` · ${unread}` : ''}</M3eButton>
         <M3eButton variant="tonal" href="/recap"><m3e-icon variant="rounded" slot="icon" name="leaderboard" />{tr('Мои итоги', 'My recap')}</M3eButton>
       </div>

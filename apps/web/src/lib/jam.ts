@@ -136,6 +136,15 @@ function hook() {
   });
 }
 
+/** A song the listener wants next: everyone votes, the one with most votes plays after the current. */
+export async function suggestToJam(t: Track) {
+  if (t.id.startsWith('dz:')) { toast('Этот трек ещё не на сервере', 'This track is not on the server yet', 'error'); return; }
+  await op({ op: 'suggest', trackIds: [t.id] });
+  toast('Предложено — друзья могут проголосовать', 'Suggested — friends can vote', 'success');
+}
+
+export const voteInJam = (trackId: string, up: boolean) => op({ op: 'vote', trackId, up });
+
 /** Start a session from what plays now (or keep the current one) and invite friends to it. */
 export async function listenTogether(tr: (ru: string, en: string) => string) {
   try {

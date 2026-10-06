@@ -13,6 +13,7 @@ import { isOffline, removeOffline, saveOffline } from '@/lib/offline';
 import { useMediaQuery } from '@/lib/hooks';
 import { useState } from 'react';
 import { askReport, sendToFriends, trNow } from '@/lib/social';
+import { inJam, suggestToJam } from '@/lib/jam';
 
 interface Item { icon: string; label: string; onClick: () => void; danger?: boolean }
 
@@ -66,6 +67,7 @@ export function ContextMenu() {
 
   if (menu?.target.kind === 'track') {
     const { track, playlistId, canRemove } = menu.target;
+    if (inJam()) items.push({ icon: 'how_to_vote', label: trNow('Предложить в сессию', 'Suggest to the session'), onClick: () => void suggestToJam(track) });
     items.push({ icon: 'playlist_play', label: t('playNext'), onClick: () => player.playNext([track]) });
     items.push({ icon: 'queue_music', label: t('addToQueue'), onClick: () => player.addToQueue([track]) });
     if (user) {

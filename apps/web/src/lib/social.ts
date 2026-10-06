@@ -21,7 +21,12 @@ export interface Compat { score: number; label: string; commonArtists: ArtistSum
 export interface FriendPage extends Friend { createdAt: string; stats: { minutes: number; topArtists: ArtistSummary[]; recent: Track[]; likes: number }; compat: Compat | null; playlists: PlaylistSummary[] }
 export interface Share { id: string; from: FriendRef | null; kind: string; refId: string; item: any; message: string; seen: boolean; createdAt: string }
 export interface Reaction { id: string; user: FriendRef | null; atMs: number; emoji: string; text: string; createdAt: string }
-export interface JamView { id: string; host: FriendRef | null; members: FriendRef[]; queue: Track[]; index: number; positionMs: number; playing: boolean; version: number; serverNow: number; lastBy: FriendRef | null; lastAction: string | null }
+export interface JamView {
+  id: string; host: FriendRef | null; members: FriendRef[]; queue: Track[]; index: number; positionMs: number; playing: boolean; version: number; serverNow: number;
+  lastBy: FriendRef | null; lastAction: string | null;
+  /** songs people want next, most votes first; the leader waits right after the current song */
+  suggestions?: Array<{ track: Track; by: FriendRef | null; votes: number; voted: boolean; next: boolean }>;
+}
 export interface JamSummary { id: string; host: FriendRef | null; members: FriendRef[]; track: Track | null; playing: boolean }
 export interface Recap {
   period: string; label: string; minutes: number; previousMinutes: number; plays: number; distinctTracks: number; distinctArtists: number; genres: number;

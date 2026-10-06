@@ -24,6 +24,8 @@ import { WAVE_CONTEXT, dislikeInWave, useWave } from '@/lib/wave';
 import { ReactButton, ReactionBubbles, ReactionMarks } from './Reactions';
 import { listenTogether, useJam } from '@/lib/jam';
 import { useTr } from '@/lib/social';
+import { DevicesButton } from './Devices';
+import { StoryCard } from './StoryCard';
 
 type Tab = 'cover' | 'lyrics' | 'queue';
 const thumbValue = (e: Event) => Number((e.target as any)?.value ?? 0);
@@ -46,6 +48,7 @@ export function NowPlaying() {
   const user = useAuth((s) => s.user);
   const t = useT();
   const [tab, setTab] = useState<Tab>('cover');
+  const [story, setStory] = useState(false);
   const liked = useLikes((s) => (track ? s.ids.track.has(track.id) : false));
   const [burst, setBurst] = useState(0);
   const [offerShade, setOfferShade] = useState(() => !!user && notificationsSupported() && shadeLikeSetting() === null && Notification.permission !== 'denied');
@@ -96,8 +99,11 @@ export function NowPlaying() {
           </div>
           <div className="flex items-center">
             {user && <M3eIconButton toggle selected={!!jam || undefined} title={jam ? tr('Позвать ещё', 'Invite more') : tr('Слушать вместе', 'Listen together')} onClick={() => void listenTogether(tr)}><m3e-icon variant="rounded" name="groups" /><m3e-icon variant="rounded" slot="selected" name="groups" filled /></M3eIconButton>}
+            {user && <DevicesButton />}
+            {!track.id.startsWith('dz:') && <M3eIconButton title={tr('Карточка для сторис', 'Story card')} onClick={() => setStory(true)}><m3e-icon variant="rounded" name="ios_share" /></M3eIconButton>}
             <M3eIconButton aria-label="menu" onClick={(e: any) => openMenu(e.clientX, e.clientY, { kind: 'track', track })}><m3e-icon variant="rounded" name="more_vert" /></M3eIconButton>
           </div>
+          {story && <StoryCard track={track} onClose={() => setStory(false)} />}
         </div>
 
         <div className="flex justify-center mt-3">

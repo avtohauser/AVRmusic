@@ -207,9 +207,11 @@ function ProfileLinks() {
     ['/inbox', 'inbox', tr('Входящие', 'Inbox'), tr('Что прислали и новинки', 'What was sent and new releases')],
     ['/recap', 'leaderboard', tr('Мои итоги', 'My recap'), tr('Месяц и год в цифрах', 'Your month and year in numbers')],
     ['/transfer', 'swap_horiz', tr('Перенести музыку', 'Move your music'), tr('Из Spotify, Яндекс Музыки, списком', 'From Spotify, Yandex Music, a list')],
+    ['/game', 'quiz', tr('Угадай мелодию', 'Guess the song'), tr('Игра с друзьями на скорость', 'A speed game with friends')],
+    ['/services', 'hub', tr('Сервисы', 'Services'), tr('Telegram-бот, Last.fm, концерты', 'Telegram bot, Last.fm, concerts')],
   ];
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
       {links.map(([to, icon, title, sub]) => (
         <Link key={to} to={to} className="surface-low rounded-[24px] hover:rounded-[32px] spring p-4 flex items-center gap-3 state-layer">
           <span className="w-11 h-11 rounded-[14px] bg-secondary-container text-on-secondary-container flex items-center justify-center shrink-0"><m3e-icon variant="rounded" name={icon} /></span>

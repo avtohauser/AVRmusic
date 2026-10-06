@@ -18,6 +18,7 @@ import { TopBarQueueIndicator } from './Catalog';
 import { lastSearchUrl } from '@/lib/nav';
 import { FlowText } from '@/components/FlowText';
 import { NewsBanner } from './NewsBanner';
+import { Wordmark } from './Brand';
 import { FriendPickerModal, JamBar, ReportModal } from './Social';
 
 export function Layout() {
@@ -102,8 +103,8 @@ function Rail() {
       <div className="flex flex-col gap-2 px-2 pt-2">
         <M3eIconButton aria-label="menu" onClick={() => setExpanded(!expanded)} className="self-start"><m3e-icon variant="rounded" name={expanded ? 'menu_open' : 'menu'} /></M3eIconButton>
         <Link to="/" className="flex items-center gap-2 px-2 py-1" onClick={() => setPoke((n) => n + 1)}>
-          <Mascot mood={playing ? 'dance' : 'idle'} burst={poke} className="w-9 h-9" />
-          {expanded && <FlowText text="AVRmusic" className="md-title-lg emph text-primary" intro={false} />}
+          <Mascot mood={playing ? 'dance' : 'idle'} burst={poke} waves className="w-[50px] h-9" />
+          {expanded && <Wordmark className="text-[26px]" />}
         </Link>
         {user && (
           <M3eFab size={expanded ? 'medium' : 'small'} variant="tertiary-container" extended={expanded || undefined} aria-label={t('createPlaylist')} onClick={() => setEditor({ initial: { title: '', description: '', isPublic: true } })} className={`mt-1 max-w-full ${expanded ? 'self-start' : 'self-center'}`}>
@@ -180,7 +181,7 @@ function TopBar() {
           <M3eIconButton aria-label="back" onClick={() => nav(-1)}><m3e-icon variant="rounded" name="arrow_back" /></M3eIconButton>
           <M3eIconButton aria-label="forward" onClick={() => nav(1)}><m3e-icon variant="rounded" name="arrow_forward" /></M3eIconButton>
         </span>
-        <Link to="/" className="md:hidden flex items-center gap-2 pl-2" onClick={() => setPoke((n) => n + 1)}><Mascot mood={playing ? 'dance' : 'idle'} burst={poke} className="w-7 h-7" /><FlowText text="AVRmusic" className="md-title-md emph text-primary" intro={false} /></Link>
+        <Link to="/" className="md:hidden flex items-center gap-2 pl-2" onClick={() => setPoke((n) => n + 1)}><Mascot mood={playing ? 'dance' : 'idle'} burst={poke} waves className="w-10 h-7" /><Wordmark className="text-[22px]" /></Link>
       </div>
       {!onSearch && (
         <div slot="title" className="hidden sm:block w-full max-w-[560px]">

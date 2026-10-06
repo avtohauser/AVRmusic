@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Layout } from '@/components/Layout';
@@ -140,10 +140,23 @@ function ThemeRoot({ children }: { children: React.ReactNode }) {
   const variant = useTheme((s) => s.variant);
   const scheme = useTheme((s) => s.scheme);
   const contrast = useTheme((s) => s.contrast);
+  const brand = useTheme((s) => s.brand);
+  const [systemDark, setSystemDark] = useState(() => window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? true);
+  useEffect(() => {
+    const mq = window.matchMedia?.('(prefers-color-scheme: dark)');
+    if (!mq) return;
+    const on = () => setSystemDark(mq.matches);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
   useEffect(() => {
     const el = document.getElementById('root') as any;
     if (!el) return;
-    el.color = color; el.variant = variant; el.scheme = scheme; el.contrast = contrast; el.motion = 'expressive'; el.strongFocus = true;
+    // the brand's look: its own colours over the generated ones (index.css, html[data-brand])
+    const dark = scheme === 'dark' || (scheme === 'auto' && systemDark);
+    if (brand) document.documentElement.dataset.brand = dark ? 'dark' : 'light';
+    else delete document.documentElement.dataset.brand;
+    el.color = brand ? '#5A4FC8' : color; el.variant = brand ? 'expressive' : variant; el.scheme = scheme; el.contrast = contrast; el.motion = 'expressive'; el.strongFocus = true;
     const sync = () => {
       const meta = document.querySelector('meta[name=theme-color]');
       const bg = getComputedStyle(el).getPropertyValue('--md-sys-color-surface').trim();
@@ -152,7 +165,7 @@ function ThemeRoot({ children }: { children: React.ReactNode }) {
     const id = setTimeout(sync, 50);
     el.addEventListener('change', sync);
     return () => { clearTimeout(id); el.removeEventListener('change', sync); };
-  }, [color, variant, scheme, contrast]);
+  }, [color, variant, scheme, contrast, brand, systemDark]);
   return <>{children}</>;
 }
 

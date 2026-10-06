@@ -119,8 +119,11 @@ fun Root() {
   LaunchedEffect(signedOut) { if (signedOut) LoadCache.clear() }
   // the default colour of text and icons: the theme's "on background" (light text in the dark theme);
   // without a Scaffold or Surface above, Compose would fall back to black
-  CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onBackground) {
-    if (session == null) LoginScreen() else Main()
+  Box(Modifier.fillMaxSize()) {
+    CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onBackground) {
+      if (session == null) LoginScreen() else Main()
+    }
+    BrandIntro()
   }
   val crash by App.lastCrash.collectAsStateWithLifecycle()
   crash?.let { text ->

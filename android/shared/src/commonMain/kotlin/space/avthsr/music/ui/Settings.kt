@@ -81,7 +81,7 @@ fun SettingsScreen() {
           }
         }
       }
-      if (source != "system") {
+      if (source != "system" && source != "brand") {
         Group(tr("Вариант палитры")) { Choices(Look.variants, variant) { Look.set(variant = it) } }
         Group(tr("Контраст")) { Choices(Look.contrasts, contrast) { Look.set(contrast = it) } }
       }

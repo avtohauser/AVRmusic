@@ -41,6 +41,7 @@ data class Choice(val id: String, val label: String)
 object Look {
   val modes get() = listOf(Choice("auto", tr("Как в системе")), Choice("dark", tr("Тёмная")), Choice("light", tr("Светлая")))
   val sources get() = listOfNotNull(
+    Choice("brand", tr("Фирменные avr music")),
     if (Platform.hasDynamicColors) Choice("system", tr("Цвета Android")) else null,
     Choice("cover", tr("Из обложки трека")),
     Choice("seed", tr("Свой цвет")),
@@ -57,7 +58,7 @@ object Look {
   ).map { it.toInt() }
 
   val mode = MutableStateFlow("dark")
-  val source = MutableStateFlow(if (Platform.hasDynamicColors) "system" else "seed")
+  val source = MutableStateFlow("brand")
   val seed = MutableStateFlow(0xFF6750A4.toInt())
   val variant = MutableStateFlow("expressive")
   val contrast = MutableStateFlow("standard")
@@ -69,7 +70,9 @@ object Look {
   fun init() {
     val p = Api.prefs
     mode.value = p.getString("look.mode", mode.value) ?: mode.value
-    source.value = (p.getString("look.source", source.value) ?: source.value).takeIf { s -> sources.any { it.id == s } } ?: "seed"
+    // the brand's look came with the new sign: everyone sees it once, and may choose another after
+    if (!p.getBoolean("look.brand1", false)) p.edit().putString("look.source", "brand").putBoolean("look.brand1", true).apply()
+    source.value = (p.getString("look.source", source.value) ?: source.value).takeIf { s -> sources.any { it.id == s } } ?: "brand"
     seed.value = p.getInt("look.seed", seed.value)
     variant.value = p.getString("look.variant", variant.value) ?: variant.value
     contrast.value = p.getString("look.contrast", contrast.value) ?: contrast.value

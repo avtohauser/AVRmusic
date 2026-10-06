@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/stores/auth';
 import { Mascot, type MascotMood } from './Mascot';
-import { FlowText } from '@/components/FlowText';
+import { Wordmark } from './Brand';
 
 const KEY = 'avr.booted';
 
 /**
- * Launch screen: the star pops in, spins while the app starts, then bursts and hands over to the UI.
+ * Launch screen (avr music's teal with its rings): the star pops in and its waves go out, it spins while the
+ * app starts, then bursts and hands over to the UI.
  * Shown once per session (every cold start of the Android app, first load of a browser tab).
  */
 export function BootSplash() {
@@ -35,8 +36,13 @@ export function BootSplash() {
   if (!show) return null;
   return (
     <div className={`boot-splash ${leaving ? 'leaving' : ''}`} aria-hidden="true">
-      <Mascot mood={mood} burst={burst} className="w-28 h-28" />
-      <FlowText as="div" text="AVRmusic" className="boot-word md-headline-sm emph" speed={2.4} />
+      <svg className="boot-rings" viewBox="0 0 390 844" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+        <g fill="none" stroke="#D3E3E4" strokeWidth="1.5">
+          <circle cx="195" cy="422" r="150" strokeOpacity="0.10" /><circle cx="195" cy="422" r="220" strokeOpacity="0.07" /><circle cx="195" cy="422" r="290" strokeOpacity="0.04" />
+        </g>
+      </svg>
+      <Mascot mood={mood} burst={burst} waves className="w-[134px] h-24 relative" />
+      <Wordmark className="boot-word relative text-[44px]" />
     </div>
   );
 }

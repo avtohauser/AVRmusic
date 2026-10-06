@@ -12,6 +12,7 @@ import { useI18n, useT } from '@/lib/i18n';
 import { api } from '@/lib/api';
 import { fmtDurationLong, fmtNumber } from '@/lib/format';
 import { Cover } from '@/components/Cover';
+import { Mascot } from '@/components/Mascot';
 import { AvatarEditor } from '@/components/AvatarEditor';
 import { notificationsSupported, setShadeLike, shadeLikeSetting } from '@/lib/shadeLike';
 import { Shelf } from '@/components/Shelf';
@@ -67,6 +68,11 @@ function ThemeSettings() {
         </M3eSegmentedButton>
       </div>
       <label className="flex items-center justify-between gap-3 md-body-lg">
+        <span className="flex items-center gap-2 min-w-0"><Mascot waves className="w-9 h-6" /><span className="min-w-0"><span className="block">{lang === 'en' ? 'avr music colours' : 'Фирменные цвета avr music'}</span><span className="block md-body-sm muted">{lang === 'en' ? 'Teal, pink and violet of the brand' : 'Бирюзовый, розовый и фиолетовый — как в логотипе'}</span></span></span>
+        <M3eSwitch checked={th.brand || undefined} icons="selected" onChange={(e: Event) => th.set({ brand: !!(e.target as any).checked })} />
+      </label>
+      {!th.brand && <>
+      <label className="flex items-center justify-between gap-3 md-body-lg">
         <span className="flex items-center gap-2"><m3e-icon variant="rounded" name="format_color_fill" />{t('colorFromCover')}</span>
         <M3eSwitch checked={th.fromCover || undefined} icons="selected" onChange={(e: Event) => th.set({ fromCover: !!(e.target as any).checked })} />
       </label>
@@ -97,6 +103,7 @@ function ThemeSettings() {
           <M3eButtonSegment value="high" checked={th.contrast === 'high' || undefined}>{t('high')}</M3eButtonSegment>
         </M3eSegmentedButton>
       </div>
+      </>}
       <div>
         <div className="md-label-lg muted mb-2">{t('language')}</div>
         <M3eSegmentedButton onChange={(e: Event) => { const v = (e.target as any)?.value; if (v) setLang(v); }}>

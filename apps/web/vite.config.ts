@@ -17,8 +17,8 @@ export default defineConfig({
         short_name: 'AVRmusic',
         description: 'Ваш музыкальный сервис: поиск, стриминг, плейлисты, тексты и канвасы',
         lang: 'ru',
-        theme_color: '#141218',
-        background_color: '#141218',
+        theme_color: '#0B4248',
+        background_color: '#0B4248',
         display: 'standalone',
         // phones: no status/navigation bar; desktop: window controls overlay (fullscreen is not offered there)
         display_override: ['window-controls-overlay', 'fullscreen', 'standalone'],

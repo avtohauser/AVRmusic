@@ -31,7 +31,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.ContainedLoadingIndicator
@@ -119,6 +118,7 @@ fun HomeScreen() {
     item {
       Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         val greeting = localGreeting()
+        LiveMark(Modifier.padding(end = 10.dp).size(36.dp, 26.dp))
         FlowText(greeting, MaterialTheme.typography.headlineMedium, Modifier.weight(1f))
         IconButton(onClick = { nav.route("recognize") }) { Ico(Res.drawable.ic_mic, tr("Распознать песню")) }
         InboxButton()
@@ -139,7 +139,7 @@ fun HomeScreen() {
           TextButton(onClick = loader.reload) { Text(tr("Повторить")) }
         }
       }
-      else -> item { Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { LoadingIndicator() } }
+      else -> item { Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { LoadingMark() } }
     }
   }
   }

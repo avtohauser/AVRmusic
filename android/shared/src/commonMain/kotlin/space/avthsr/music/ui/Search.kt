@@ -29,7 +29,6 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -190,7 +189,7 @@ fun SearchScreen() {
           }
         }
         is Load.Err -> item { Text(s.message, Modifier.padding(24.dp), color = MaterialTheme.colorScheme.error) }
-        else -> item { Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { LoadingIndicator() } }
+        else -> item { Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { LoadingMark() } }
       }
       if (catalogOn && type == "all") {
         val c = remote.data

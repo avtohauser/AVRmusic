@@ -38,7 +38,6 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
@@ -185,7 +184,7 @@ private fun AdminOverview() {
         items(a.sources) { s -> SimpleRow(s.source, tracksWord(s.tracks), fmtBytes(s.bytes)) }
       }
     }
-    if (stats.state is Load.Loading) item { Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { LoadingIndicator() } }
+    if (stats.state is Load.Loading) item { Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { LoadingMark() } }
   }
 }
 
@@ -227,7 +226,7 @@ private fun AdminUsers() {
       }
     }
     items(list) { u -> UserRow(u) { nav.route("admin/user/${u.id}") } }
-    if (loader.state is Load.Loading) item { Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { LoadingIndicator() } }
+    if (loader.state is Load.Loading) item { Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { LoadingMark() } }
   }
 }
 
@@ -443,7 +442,7 @@ private fun AdminDownloads() {
       Spacer(Modifier.height(6.dp))
       Row(verticalAlignment = Alignment.CenterVertically) {
         Button(shapes = ButtonDefaults.shapes(), onClick = { pick() }, enabled = !uploading) { Ico(Res.drawable.ic_add, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(tr("Выбрать файлы")) }
-        if (uploading) { Spacer(Modifier.width(12.dp)); LoadingIndicator(Modifier.size(32.dp)); Text(tr("  загружается…")) }
+        if (uploading) { Spacer(Modifier.width(12.dp)); LoadingMark(Modifier.size(32.dp)); Text(tr("  загружается…")) }
       }
     }
     item {

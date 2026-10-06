@@ -11,7 +11,9 @@ export interface ThemeState {
   /** Seed derived from the cover (kept separately so switching fromCover off restores the chosen colour). */
   coverColor: string | null;
   contrast: 'standard' | 'medium' | 'high';
-  set: (p: Partial<Pick<ThemeState, 'color' | 'variant' | 'scheme' | 'fromCover' | 'contrast'>>) => void;
+  /** avr music's own colours (teal, pink, violet) instead of a generated palette. */
+  brand: boolean;
+  set: (p: Partial<Pick<ThemeState, 'color' | 'variant' | 'scheme' | 'fromCover' | 'contrast' | 'brand'>>) => void;
   setCoverColor: (c: string | null) => void;
 }
 
@@ -28,10 +30,12 @@ export const useTheme = create<ThemeState>((set, get) => ({
   fromCover: saved.fromCover ?? true,
   coverColor: null,
   contrast: saved.contrast ?? 'standard',
+  // came with the new sign: on for everyone until switched off
+  brand: saved.brand ?? true,
   set(p) {
     set(p);
-    const { color, variant, scheme, fromCover, contrast } = { ...get(), ...p };
-    try { localStorage.setItem(KEY, JSON.stringify({ color, variant, scheme, fromCover, contrast })); } catch { /* ignore */ }
+    const { color, variant, scheme, fromCover, contrast, brand } = { ...get(), ...p };
+    try { localStorage.setItem(KEY, JSON.stringify({ color, variant, scheme, fromCover, contrast, brand })); } catch { /* ignore */ }
   },
   setCoverColor: (coverColor) => set({ coverColor }),
 }));

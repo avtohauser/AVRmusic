@@ -28,7 +28,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -104,7 +103,7 @@ fun CatalogTrackRow(t: CatalogTrack, index: Int? = null, cover: String? = t.albu
     }
     when {
       have != null || !canAcquire -> {}
-      state == 1 -> Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) { LoadingIndicator(Modifier.size(30.dp)) }
+      state == 1 -> Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) { LoadingMark(Modifier.size(30.dp)) }
       state == 2 -> Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) { Ico(Res.drawable.ic_check, tr("Добавляется"), tint = MaterialTheme.colorScheme.primary) }
       else -> IconButton(onClick = { state = 1; acquire("track", t.id, tr("Трек")) { ok -> state = if (ok) 2 else 0 } }) {
         Ico(Res.drawable.ic_download, tr("Добавить на сервер"))

@@ -27,7 +27,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -115,7 +114,7 @@ private fun SpotifyCard(ready: Boolean?) {
   val nav = LocalNav.current
   Card("Spotify", tr("Любимые треки, все плейлисты, исполнители — треки находятся точно по ISRC"), Color(0xFF1DB954)) {
     when (ready) {
-      null -> LoadingIndicator(Modifier.size(32.dp))
+      null -> LoadingMark(Modifier.size(32.dp))
       true -> Button(onClick = {
         act { Platform.openUrl(Api.spotifyStart().url) }
         App.say(tr("Войдите в Spotify в браузере — перенос начнётся сам"))
@@ -171,7 +170,7 @@ private fun YandexCard() {
     val o = overview
     val code = login
     when {
-      busy != null -> Row(verticalAlignment = Alignment.CenterVertically) { LoadingIndicator(Modifier.size(32.dp)); Spacer(Modifier.width(10.dp)); Text(busy!!, style = MaterialTheme.typography.bodyLarge) }
+      busy != null -> Row(verticalAlignment = Alignment.CenterVertically) { LoadingMark(Modifier.size(32.dp)); Spacer(Modifier.width(10.dp)); Text(busy!!, style = MaterialTheme.typography.bodyLarge) }
       code != null -> {
         Text(tr("Откройте ya.ru/device, войдите в свой Яндекс и введите код:"), style = MaterialTheme.typography.bodyMedium)
         Text(
@@ -183,7 +182,7 @@ private fun YandexCard() {
           TextButton(onClick = { login = null }) { Text(tr("Отмена")) }
         }
         Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-          LoadingIndicator(Modifier.size(24.dp)); Spacer(Modifier.width(8.dp))
+          LoadingMark(Modifier.size(24.dp)); Spacer(Modifier.width(8.dp))
           Text(tr("Жду подтверждения… Яндекс спросит доступ для «Яндекс Музыки» — это нормально, читаем только вашу музыку."), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
       }

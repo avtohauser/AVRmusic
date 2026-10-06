@@ -48,7 +48,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -243,7 +242,7 @@ fun <T> Loaded(loader: Loader<T>, content: @Composable (T) -> Unit) {
 @Composable
 private fun <T> LoadState(state: Load<T>, loader: Loader<T>, content: @Composable (T) -> Unit) {
   when (val s = state) {
-    is Load.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { LoadingIndicator() }
+    is Load.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { LoadingMark() }
     is Load.Err -> Column(
       Modifier.fillMaxSize().padding(32.dp),
       verticalArrangement = Arrangement.Center,
@@ -542,7 +541,7 @@ fun PlaylistPicker(trackIds: List<String>, onDone: () -> Unit) {
             }
           }
           is Load.Err -> Text(s.message)
-          else -> LoadingIndicator()
+          else -> LoadingMark()
         }
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
         OutlinedTextField(title, { title = it }, label = { Text(tr("Новый плейлист")) }, singleLine = true, modifier = Modifier.fillMaxWidth())

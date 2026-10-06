@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { M3eButton, M3eFormField } from '@/md';
 import { Mascot } from '@/components/Mascot';
+import { Wordmark } from '@/components/Brand';
 import { useAuth } from '@/stores/auth';
 import { useLikes } from '@/stores/likes';
 import { useT } from '@/lib/i18n';
@@ -44,7 +45,7 @@ export default function Auth({ mode }: { mode: 'login' | 'register' }) {
   return (
     <div className="auth-shell text-on-surface">
       <form onSubmit={submit} className="surface-low rounded-[32px] w-full max-w-[400px] p-5 sm:p-7 space-y-3 fade-in elev-2">
-        <div className="flex items-center gap-2"><Mascot mood={busy ? 'think' : 'idle'} className="w-10 h-10" /><FlowText text="AVRmusic" className="md-title-lg emph text-primary" /></div>
+        <div className="flex items-center gap-3"><Mascot mood={busy ? 'think' : 'idle'} waves className="w-14 h-10" /><Wordmark className="text-[32px]" /></div>
         <div>
           <FlowText as="h1" text={setup ? t('setupTitle') : isRegister ? t('createAccount') : t('login')} className="md-headline-sm emph" />
           {setup && <p className="md-body-md muted mt-1">{t('setupHint')}</p>}

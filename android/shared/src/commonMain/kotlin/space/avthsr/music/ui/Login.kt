@@ -24,7 +24,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -44,6 +43,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import space.avthsr.music.App
 import space.avthsr.music.Links
@@ -101,11 +101,8 @@ fun LoginScreen() {
       horizontalAlignment = Alignment.CenterHorizontally,
       verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-      Box(
-        Modifier.size(96.dp).clip(LogoShape).background(MaterialTheme.colorScheme.primaryContainer),
-        contentAlignment = Alignment.Center,
-      ) { Ico(Res.drawable.ic_library, null, Modifier.size(40.dp), MaterialTheme.colorScheme.onPrimaryContainer) }
-      FlowText("AVRmusic", MaterialTheme.typography.displaySmall, maxLines = 1)
+      BrandMark(Modifier.size(112.dp, 80.dp))
+      Wordmark(44.sp)
       Text(
         when {
           setup -> tr("Первый запуск: создайте аккаунт администратора — он сможет приглашать друзей")
@@ -134,7 +131,7 @@ fun LoginScreen() {
       )
       error?.let { Text(it, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center) }
       Button(shapes = ButtonDefaults.shapes(), onClick = { submit() }, enabled = !busy, modifier = Modifier.fillMaxWidth().height(56.dp)) {
-        if (busy) LoadingIndicator(Modifier.size(32.dp))
+        if (busy) LoadingMark(Modifier.size(32.dp))
         else Text(if (register) tr("Создать аккаунт") else tr("Войти"), style = MaterialTheme.typography.titleMedium)
       }
       if (!setup) Row {

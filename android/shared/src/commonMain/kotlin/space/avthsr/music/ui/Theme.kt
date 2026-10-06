@@ -123,6 +123,7 @@ fun AvrTheme(content: @Composable () -> Unit) {
   val dark = when (mode) { "light" -> false; "dark" -> true; else -> isSystemInDarkTheme() }
   val target = remember(dark, source, seed, variant, contrast, coverSeed) {
     when {
+      source == "brand" -> if (dark) BrandDark else BrandLight
       source == "system" && Platform.hasDynamicColors -> systemScheme(dark) ?: schemeFrom(seed, dark, variant, contrast)
       source == "cover" -> schemeFrom(coverSeed ?: seed, dark, variant, contrast)
       else -> schemeFrom(seed, dark, variant, contrast)

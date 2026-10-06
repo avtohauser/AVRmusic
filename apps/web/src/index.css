@@ -7,6 +7,8 @@
 @font-face { font-family: 'Google Sans Flex'; font-style: normal; font-stretch: 100% 112%; font-weight: 400 900; font-display: swap; src: url(/fonts/gsf-latin.woff2) format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
 @font-face { font-family: 'Roboto Flex'; font-style: normal; font-stretch: 100% 112%; font-weight: 400 900; font-display: swap; src: url(/fonts/rf-cyrillic-ext.woff2) format('woff2'); unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F; }
 @font-face { font-family: 'Roboto Flex'; font-style: normal; font-stretch: 100% 112%; font-weight: 400 900; font-display: swap; src: url(/fonts/rf-cyrillic.woff2) format('woff2'); unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: 'Outfit'; font-style: normal; font-weight: 300; font-display: swap; src: url(/fonts/outfit-light.ttf) format('truetype'); }
+@font-face { font-family: 'Outfit'; font-style: normal; font-weight: 500; font-display: swap; src: url(/fonts/outfit-medium.ttf) format('truetype'); }
 
 /* Map Material 3 dynamic color roles (set at runtime by <m3e-theme>) onto Tailwind color utilities.
    `inline` makes utilities reference the M3 variables directly, so they resolve where the theme defines them. */
@@ -74,6 +76,51 @@
   --md-sys-typescale-title-font: "Google Sans Flex", "Roboto Flex", system-ui, sans-serif;
   --md-sys-typescale-label-font: "Google Sans Flex", "Roboto Flex", system-ui, sans-serif;
 }
+
+/* ---- avr music, the brand: deep teal, light-teal text, a pink → violet star ----
+   On <html> so it outranks the generated palette (m3e-theme writes `html { … }`) and reaches popups too. */
+html { --brand-word: var(--md-sys-color-on-surface); --brand-accent: var(--md-sys-color-primary); }
+html[data-brand="dark"] {
+  --brand-word: #D3E3E4; --brand-accent: #F2A5C3;
+  --md-sys-color-primary: #F2A5C3; --md-sys-color-on-primary: #3B0D26;
+  --md-sys-color-primary-container: #5A4FC8; --md-sys-color-on-primary-container: #F1EEFF; --md-sys-color-inverse-primary: #5A4FC8;
+  --md-sys-color-secondary: #A9C4C6; --md-sys-color-on-secondary: #0B3236;
+  --md-sys-color-secondary-container: #1E5B62; --md-sys-color-on-secondary-container: #D3E3E4;
+  --md-sys-color-tertiary: #C4BCFF; --md-sys-color-on-tertiary: #251A7A;
+  --md-sys-color-tertiary-container: #3F3591; --md-sys-color-on-tertiary-container: #E4DFFF;
+  --md-sys-color-background: #0B4248; --md-sys-color-on-background: #D3E3E4;
+  --md-sys-color-surface: #0B4248; --md-sys-color-on-surface: #D3E3E4;
+  --md-sys-color-surface-variant: #1E5B62; --md-sys-color-on-surface-variant: #A9C4C6; --md-sys-color-surface-tint: #F2A5C3;
+  --md-sys-color-inverse-surface: #D3E3E4; --md-sys-color-inverse-on-surface: #0B4248;
+  --md-sys-color-outline: #6F9497; --md-sys-color-outline-variant: #2A6168;
+  --md-sys-color-surface-bright: #1E6C74; --md-sys-color-surface-dim: #08353A;
+  --md-sys-color-surface-container-lowest: #062E33; --md-sys-color-surface-container-low: #0E4A50;
+  --md-sys-color-surface-container: #115158; --md-sys-color-surface-container-high: #155A62; --md-sys-color-surface-container-highest: #1A646C;
+  --md-sys-color-error: #FFB4AB; --md-sys-color-on-error: #690005; --md-sys-color-error-container: #93000A; --md-sys-color-on-error-container: #FFDAD6;
+}
+html[data-brand="light"] {
+  --brand-word: #0B4248; --brand-accent: #5A4FC8;
+  --md-sys-color-primary: #5A4FC8; --md-sys-color-on-primary: #FFFFFF;
+  --md-sys-color-primary-container: #E4E0FF; --md-sys-color-on-primary-container: #1E1478; --md-sys-color-inverse-primary: #F2A5C3;
+  --md-sys-color-secondary: #0B4248; --md-sys-color-on-secondary: #FFFFFF;
+  --md-sys-color-secondary-container: #CDE2E3; --md-sys-color-on-secondary-container: #062E33;
+  --md-sys-color-tertiary: #A23F6E; --md-sys-color-on-tertiary: #FFFFFF;
+  --md-sys-color-tertiary-container: #FFD9E6; --md-sys-color-on-tertiary-container: #3B0D26;
+  --md-sys-color-background: #E9EFEF; --md-sys-color-on-background: #0B4248;
+  --md-sys-color-surface: #EEF3F3; --md-sys-color-on-surface: #0B4248;
+  --md-sys-color-surface-variant: #D6E3E4; --md-sys-color-on-surface-variant: #3E5F63; --md-sys-color-surface-tint: #5A4FC8;
+  --md-sys-color-inverse-surface: #0B4248; --md-sys-color-inverse-on-surface: #D3E3E4;
+  --md-sys-color-outline: #6F8C8F; --md-sys-color-outline-variant: #BCCFD1;
+  --md-sys-color-surface-bright: #F7FAFA; --md-sys-color-surface-dim: #D3DEDF;
+  --md-sys-color-surface-container-lowest: #FFFFFF; --md-sys-color-surface-container-low: #F3F7F7;
+  --md-sys-color-surface-container: #EAF1F1; --md-sys-color-surface-container-high: #E2EBEC; --md-sys-color-surface-container-highest: #D9E5E6;
+  --md-sys-color-error: #BA1A1A; --md-sys-color-on-error: #FFFFFF; --md-sys-color-error-container: #FFDAD6; --md-sys-color-on-error-container: #410002;
+}
+html[data-brand] body { background-color: var(--md-sys-color-background); color: var(--md-sys-color-on-background); }
+
+/* the wordmark: "avr" medium + "music" light in the accent, Outfit */
+.wordmark { font-family: 'Outfit', var(--font-sans); font-weight: 500; letter-spacing: -0.026em; line-height: 1; white-space: nowrap; color: var(--brand-word); }
+.wordmark i { font-style: normal; font-weight: 300; margin-left: .14em; color: var(--brand-accent); }
 
 html, body, m3e-theme#root { height: 100%; }
 body {
@@ -299,7 +346,7 @@ m3e-nav-bar m3e-nav-item { min-width: 0; }
 /* ---- Mascot: the star, alive ---- */
 .mascot { position: relative; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .mascot-body { width: 100%; height: 100%; overflow: visible; transform-origin: 50% 50%; will-change: transform; }
-.mascot-shape { d: path("M50 3C50 21 21 50 3 50C21 50 50 79 50 97C50 79 79 50 97 50C79 50 50 21 50 3Z"); }
+.mascot-shape { d: path("M50 2C53 30 70 47 98 50C70 53 53 70 50 98C47 70 30 53 2 50C30 47 47 30 50 2Z"); }
 .mascot[data-mood="idle"] .mascot-body { animation: mascot-breathe 4.6s ease-in-out infinite; }
 .mascot[data-mood="dance"] .mascot-body { animation: mascot-dance .94s ease-in-out infinite; }
 .mascot[data-mood="dance"] { animation: mascot-pump .47s ease-in-out infinite alternate; }
@@ -318,9 +365,9 @@ m3e-nav-bar m3e-nav-item { min-width: 0; }
 @keyframes mascot-pump { from { transform: scale(1); } to { transform: scale(1.1, .92); } }
 @keyframes mascot-sleep { 0%,100% { transform: rotate(20deg) scale(.9); } 50% { transform: rotate(16deg) scale(.96); } }
 @keyframes mascot-spin { 0% { transform: rotate(0) scale(1); } 50% { transform: rotate(200deg) scale(.84); } 100% { transform: rotate(360deg) scale(1); } }
-@keyframes mascot-morph { 0%,100% { d: path("M50 3C50 21 21 50 3 50C21 50 50 79 50 97C50 79 79 50 97 50C79 50 50 21 50 3Z"); } 35% { d: path("M50 3C50 36 36 50 3 50C36 50 50 64 50 97C50 64 64 50 97 50C64 50 50 36 50 3Z"); } 70% { d: path("M50 3C50 8 8 50 3 50C8 50 50 92 50 97C50 92 92 50 97 50C92 50 50 8 50 3Z"); } }
+@keyframes mascot-morph { 0%,100% { d: path("M50 2C53 30 70 47 98 50C70 53 53 70 50 98C47 70 30 53 2 50C30 47 47 30 50 2Z"); } 35% { d: path("M50 2C52 42 58 48 98 50C58 52 52 58 50 98C48 58 42 52 2 50C42 48 48 42 50 2Z"); } 70% { d: path("M50 2C58 20 80 42 98 50C80 58 58 80 50 98C42 80 20 58 2 50C20 42 42 20 50 2Z"); } }
 @keyframes mascot-hello { 0% { transform: scale(.2) rotate(-240deg); opacity: 0; } 60% { transform: scale(1.18) rotate(18deg); opacity: 1; } 100% { transform: scale(1) rotate(0); } }
-@keyframes mascot-party { 0% { transform: rotate(0) scale(1); } 45% { transform: rotate(300deg) scale(1.32); filter: drop-shadow(0 0 10px #cf8fc9aa); } 100% { transform: rotate(360deg) scale(1); } }
+@keyframes mascot-party { 0% { transform: rotate(0) scale(1); } 45% { transform: rotate(300deg) scale(1.32); filter: drop-shadow(0 0 10px #f2a5c3aa); } 100% { transform: rotate(360deg) scale(1); } }
 .mascot-burst { position: absolute; inset: 0; pointer-events: none; }
 .mascot-burst i {
   position: absolute; left: 50%; top: 50%; width: 34%; height: 34%; margin: -17% 0 0 -17%;
@@ -337,16 +384,37 @@ m3e-nav-bar m3e-nav-item { min-width: 0; }
 .mascot-z i { position: absolute; font-style: normal; opacity: 0; animation: mascot-z 3s ease-in infinite; }
 .mascot-z i:nth-child(2) { animation-delay: 1.5s; font-size: 8px; }
 @keyframes mascot-z { 0% { opacity: 0; transform: translate(0, 6px); } 25% { opacity: .9; } 100% { opacity: 0; transform: translate(10px, -16px); } }
+/* the sign with its two sound waves: the star moves on its own, the waves go out while music plays or something loads */
+.mascot[data-waves] .mascot-body { animation: none !important; }
+.mascot[data-waves] .mascot-star { transform-box: fill-box; transform-origin: 50% 50%; }
+.mascot[data-waves][data-mood="idle"] .mascot-star { animation: mascot-breathe 4.6s ease-in-out infinite; }
+.mascot[data-waves][data-mood="dance"] .mascot-star { animation: mascot-dance .94s ease-in-out infinite; }
+.mascot[data-waves][data-mood="sleep"] .mascot-star { animation: mascot-sleep 5.2s ease-in-out infinite; }
+.mascot[data-waves][data-mood="think"] .mascot-star { animation: mascot-spin 1.25s cubic-bezier(.45,.05,.55,.95) infinite; }
+.mascot[data-waves][data-mood="hello"] .mascot-star { animation: mascot-hello 1s cubic-bezier(.34,1.56,.64,1) both; }
+.mascot[data-waves][data-burst] .mascot-star { animation: mascot-party .8s cubic-bezier(.34,1.56,.64,1); }
+.mascot[data-waves][data-mood="dance"] { animation: none; }
+.mascot-wave { transform-box: view-box; transform-origin: 30% 50%; }
+.mascot[data-mood="dance"] .mascot-wave, .mascot[data-mood="think"] .mascot-wave { animation: mascot-wave 1.1s ease-out infinite; }
+.mascot[data-mood="think"] .mascot-wave { animation-duration: 1.25s; }
+.mascot .mascot-wave2 { animation-delay: .2s !important; }
+.mascot[data-mood="hello"] .mascot-wave { opacity: 0; animation: mascot-wave-in .5s .45s ease-out forwards; }
+.mascot[data-mood="hello"] .mascot-wave2 { animation-delay: .6s !important; }
+.mascot[data-mood="sleep"] .mascot-wave { opacity: .25; }
+@keyframes mascot-wave { 0% { opacity: .15; transform: scale(.92); } 30% { opacity: 1; transform: scale(1); } 70% { opacity: 1; } 100% { opacity: .15; transform: scale(1.04); } }
+@keyframes mascot-wave-in { from { opacity: 0; transform: scale(.85); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .mascot, .mascot *, .mascot-body, .mascot-shape { animation: none !important; } }
 
 /* ---- Launch screen ---- */
 .boot-splash {
   position: fixed; inset: 0; z-index: 200; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
-  background: radial-gradient(60% 45% at 50% 45%, color-mix(in oklab, #655bd3 22%, transparent), transparent 70%), var(--md-sys-color-surface, #141218);
+  background: #0B4248; overflow: hidden;
   transition: opacity .42s ease, transform .42s cubic-bezier(.2,.8,.2,1);
 }
+.boot-rings { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; animation: boot-rings 1.2s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes boot-rings { from { opacity: 0; transform: scale(.85); } to { opacity: 1; transform: none; } }
 .boot-splash.leaving { opacity: 0; transform: scale(1.06); pointer-events: none; }
-.boot-word { color: var(--md-sys-color-on-surface, #e6e0e9); opacity: 0; animation: boot-word .6s .45s ease forwards; letter-spacing: .5px; }
+.boot-word { --brand-word: #D3E3E4; --brand-accent: #F2A5C3; opacity: 0; animation: boot-word .6s .45s ease forwards; }
 @keyframes boot-word { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
 /* ---- Now playing aura behind the art ---- */

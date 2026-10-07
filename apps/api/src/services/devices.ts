@@ -52,6 +52,16 @@ setInterval(() => {
   }
 }, 10 * 60_000).unref();
 
+/** The track one of the listener's devices plays right now (its own report, not the "show friends" one). */
+export function playingOn(userId: string): string | null {
+  const t = Date.now();
+  let best: Device | null = null;
+  for (const d of devices.get(userId)?.values() ?? []) {
+    if (t - d.seen < ONLINE_MS && d.state.playing && d.state.trackId && (!best || d.at > best.at)) best = d;
+  }
+  return best?.state.trackId ?? null;
+}
+
 /** Devices with the app open right now, and how many people they belong to. */
 export function onlineSummary(): { users: number; devices: number; byKind: Record<string, number> } {
   const t = Date.now();

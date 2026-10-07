@@ -11,11 +11,13 @@ import type { DB } from '../lib/db.js';
 import { config } from '../config.js';
 import { getMeta, setMeta } from './meta.js';
 import { nowPlaying } from './social.js';
+import { playingOn } from './devices.js';
+import { getTrack } from './library.js';
 
 /** Telegram's limit for the "about" line without Premium. */
 const ABOUT_MAX = 70;
-/** at most one change a minute (Telegram dislikes a profile edited too often) */
-const MIN_GAP = 60_000;
+/** at most one change every 15 s (a new song shows within that; Telegram's own "wait" is always respected) */
+const MIN_GAP = 15_000;
 /** the old line comes back this long after the music stopped */
 const RESTORE_AFTER = 5 * 60_000;
 const MARK = '🎧';
@@ -135,7 +137,7 @@ async function finish(db: DB, userId: string, p: Pending) {
     db.prepare(`INSERT INTO tg_profiles (user_id, session, username, original_about, enabled) VALUES (?,?,?,?,1)
       ON CONFLICT(user_id) DO UPDATE SET session = excluded.session, username = excluded.username, original_about = excluded.original_about, enabled = 1`)
       .run(userId, seal(session), me.username ?? null, about.startsWith(MARK) ? '' : about);
-    live.set(userId, { client: p.client, connectedAt: Date.now(), lastText: null, lastAt: 0, nextAllowed: 0, timer: null, shown: false, stoppedAt: null });
+    live.set(userId, { client: p.client, connectedAt: Date.now(), lastText: null, lastAt: 0, nextAllowed: 0, timer: null, shown: false, stoppedAt: null, busy: false, again: false, connecting: null });
   } catch (e) { void p.client.disconnect().catch(() => {}); throw explain(e); }
 }
 
@@ -146,32 +148,45 @@ export function tgProfile(db: DB, userId: string): { username: string | null; en
 
 /* ---------- keeping the line up to date ---------- */
 
-interface Live { client: TelegramClient | null; connectedAt: number; lastText: string | null; lastAt: number; nextAllowed: number; timer: NodeJS.Timeout | null; shown: boolean; stoppedAt: number | null }
+interface Live {
+  client: TelegramClient | null; connectedAt: number; lastText: string | null; lastAt: number; nextAllowed: number; timer: NodeJS.Timeout | null;
+  shown: boolean; stoppedAt: number | null;
+  /** a change on its way to Telegram (never two at once: one session may not connect twice) */
+  busy: boolean; again: boolean; connecting: Promise<TelegramClient | null> | null;
+}
 const live = new Map<string, Live>();
 
 function stateOf(userId: string): Live {
   let s = live.get(userId);
-  if (!s) live.set(userId, (s = { client: null, connectedAt: 0, lastText: null, lastAt: 0, nextAllowed: 0, timer: null, shown: false, stoppedAt: null }));
+  if (!s) live.set(userId, (s = { client: null, connectedAt: 0, lastText: null, lastAt: 0, nextAllowed: 0, timer: null, shown: false, stoppedAt: null, busy: false, again: false, connecting: null }));
   return s;
 }
 
-async function connected(db: DB, userId: string, s: Live): Promise<TelegramClient | null> {
-  if (s.client?.connected) return s.client;
-  const app = tgApp(db);
-  const row = db.prepare('SELECT session FROM tg_profiles WHERE user_id = ?').get(userId) as any;
-  if (!app || !row) return null;
-  const c = client(app, unseal(row.session));
-  await c.connect();
-  s.client = c;
-  s.connectedAt = Date.now();
-  return c;
+function connected(db: DB, userId: string, s: Live): Promise<TelegramClient | null> {
+  if (s.client?.connected) return Promise.resolve(s.client);
+  // one connection per session: callers at the same moment share it
+  s.connecting ??= (async () => {
+    const app = tgApp(db);
+    const row = db.prepare('SELECT session FROM tg_profiles WHERE user_id = ?').get(userId) as any;
+    if (!app || !row) return null;
+    void s.client?.disconnect().catch(() => {});
+    const c = client(app, unseal(row.session));
+    await c.connect();
+    s.client = c;
+    s.connectedAt = Date.now();
+    return c;
+  })().finally(() => { s.connecting = null; });
+  return s.connecting;
 }
 
 /** What the line should say for this listener now (null: the old line). */
 function wanted(db: DB, userId: string): string | null {
   const n = nowPlaying(db, userId);
-  if (!n || !n.playing) return null;
-  return aboutLine(n.track.artist.name, n.track.title);
+  if (n?.playing) return aboutLine(n.track.artist.name, n.track.title);
+  // "show friends what I play" may be off: the devices' own reports still say it
+  const id = playingOn(userId);
+  const t = id ? getTrack(db, id, userId) : null;
+  return t ? aboutLine(t.artist.name, t.title) : null;
 }
 
 async function apply(db: DB, userId: string, text: string | null) {
@@ -196,9 +211,11 @@ async function apply(db: DB, userId: string, text: string | null) {
     s.shown = !!text;
   } catch (e: any) {
     const m = String(e?.errorMessage ?? '');
-    if (/FLOOD/.test(m)) s.nextAllowed = Date.now() + (Number(e?.seconds) || 300) * 1000;
+    if (/FLOOD/.test(m)) s.nextAllowed = Date.now() + (Number(e?.seconds) || 60) * 1000;
     // the listener ended the session in Telegram (Settings → Devices): unlinked
-    else if (/AUTH_KEY_UNREGISTERED|SESSION_REVOKED|USER_DEACTIVATED|AUTH_KEY_DUPLICATED/.test(m)) forget(db, userId);
+    else if (/AUTH_KEY_UNREGISTERED|SESSION_REVOKED|USER_DEACTIVATED/.test(m)) forget(db, userId);
+    // anything else (a dropped connection, the key seen twice): a fresh connection next time
+    else { void s.client?.disconnect().catch(() => {}); s.client = null; s.nextAllowed = Date.now() + 10_000; }
   }
 }
 
@@ -213,7 +230,16 @@ export function tgSync(db: DB, userId: string) {
   if (!text && Date.now() - (s.stoppedAt ?? 0) < RESTORE_AFTER) return;
   const at = Math.max(s.lastAt + MIN_GAP, s.nextAllowed);
   if (s.timer) return;
-  const run = () => { s.timer = null; void apply(db, userId, wanted(db, userId)).catch(() => {}); };
+  if (s.busy) { s.again = true; return; }
+  const run = () => {
+    s.timer = null;
+    s.busy = true;
+    void apply(db, userId, wanted(db, userId)).catch(() => {}).finally(() => {
+      s.busy = false;
+      // the song changed again while Telegram was answering
+      if (s.again) { s.again = false; tgSync(db, userId); }
+    });
+  };
   if (Date.now() >= at) run();
   else { s.timer = setTimeout(run, at - Date.now()); s.timer.unref(); }
 }
@@ -244,18 +270,18 @@ export async function tgUnlink(db: DB, userId: string) {
   forget(db, userId);
 }
 
-/** Every minute: lines of people who stopped listening go back; idle connections close. */
+/** Every 15 s: new songs show, lines of people who stopped listening go back; idle connections close. */
 export function startTgProfiles(db: DB) {
   setInterval(() => {
     for (const r of db.prepare('SELECT user_id FROM tg_profiles WHERE enabled = 1').all() as any[]) {
       try { tgSync(db, r.user_id); } catch { /* next time */ }
     }
     for (const [u, s] of live) {
-      if (s.client && !s.timer && !s.shown && Date.now() - s.lastAt > 20 * 60_000 && Date.now() - s.connectedAt > 60_000) {
+      if (s.client && !s.timer && !s.busy && !s.shown && Date.now() - s.lastAt > 20 * 60_000 && Date.now() - s.connectedAt > 60_000) {
         void s.client.disconnect().catch(() => {});
         s.client = null;
       }
       if (!tgProfile(db, u)) live.delete(u);
     }
-  }, 60_000).unref();
+  }, 15_000).unref();
 }

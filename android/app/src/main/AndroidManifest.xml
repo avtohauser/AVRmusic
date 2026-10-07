@@ -18,6 +18,8 @@
   <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
   <!-- the app updates itself: the new APK goes to the system installer as an update of this app -->
   <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+  <!-- and once it installed itself, later updates need no confirmation (Android 12+) -->
+  <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
 
   <!-- voice search: the system's speech recogniser -->
   <queries>

@@ -70,7 +70,7 @@ actual object Updater {
     c.instanceFollowRedirects = true
     try {
       if (c.responseCode !in 200..299) throw IllegalStateException("HTTP ${c.responseCode}")
-      val total = c.contentLengthLong.takeIf { it > 0 } ?: rel.size
+      val total = c.getHeaderField("Content-Length")?.toLongOrNull()?.takeIf { it > 0 } ?: rel.size
       c.inputStream.use { input ->
         part.outputStream().use { out ->
           val buf = ByteArray(64 * 1024)

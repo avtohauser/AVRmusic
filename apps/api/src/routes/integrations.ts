@@ -8,6 +8,8 @@ import { lastfmApp, lastfmAuthUrl, lastfmCallback, lastfmLink, setLastfmApp, unl
 import { checkCitySoon, concertCities, concertsOf } from '../services/concerts.js';
 import { backupNow, listBackups } from '../services/backup.js';
 import { getMeta } from '../services/meta.js';
+import { setTgApp, tgApp, tgLoginCode, tgLoginPassword, tgLoginStart, tgProfile, tgSetEnabled, tgUnlink } from '../services/tgProfile.js';
+import { latestApp } from '../services/appUpdate.js';
 
 const page = (title: string, text: string) => `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${title}</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0B4248;color:#E6F4F1;font:16px system-ui,sans-serif}
@@ -23,6 +25,7 @@ export default async function integrationRoutes(app: FastifyInstance) {
   app.get('/api/me/integrations', auth, async (req) => ({
     telegram: { available: !!telegramBot(db), bot: telegramBot(db), linked: telegramLink(db, req.userId!) },
     lastfm: { available: !!lastfmApp(db), linked: lastfmLink(db, req.userId!) },
+    tgProfile: { available: !!tgApp(db), linked: tgProfile(db, req.userId!) },
     city: (db.prepare('SELECT city FROM users WHERE id = ?').get(req.userId!) as any)?.city ?? null,
   }));
 
@@ -38,6 +41,40 @@ export default async function integrationRoutes(app: FastifyInstance) {
     const b = z.object({ token: z.string().trim().regex(/^\d+:[\w-]{30,}$/, 'Это не похоже на токен от @BotFather').nullable() }).parse(req.body ?? {});
     try { return await setTelegramToken(db, b.token); } catch (e: any) { throw badRequest(`Telegram не принял токен: ${e.message}`); }
   });
+
+  /* ---------- what plays, in the listener's Telegram profile ---------- */
+
+  const fail = (e: any) => badRequest(e?.message ?? 'Не получилось');
+  app.post('/api/me/tg-profile/start', auth, async (req) => {
+    const { phone } = z.object({ phone: z.string().trim().regex(/^\+?[0-9 ()-]{7,20}$/, 'Номер в международном формате, например +79001234567') }).parse(req.body ?? {});
+    try { return await tgLoginStart(db, req.userId!, phone.replace(/[^0-9+]/g, '')); } catch (e) { throw fail(e); }
+  });
+  app.post('/api/me/tg-profile/code', auth, async (req) => {
+    const { code } = z.object({ code: z.string().trim().regex(/^[0-9]{4,8}$/, 'Код — это цифры из Telegram') }).parse(req.body ?? {});
+    try { return await tgLoginCode(db, req.userId!, code); } catch (e) { throw fail(e); }
+  });
+  app.post('/api/me/tg-profile/password', auth, async (req) => {
+    const { password } = z.object({ password: z.string().min(1).max(256) }).parse(req.body ?? {});
+    try { await tgLoginPassword(db, req.userId!, password); return { ok: true }; } catch (e) { throw fail(e); }
+  });
+  app.put('/api/me/tg-profile', auth, async (req) => {
+    const { enabled } = z.object({ enabled: z.boolean() }).parse(req.body ?? {});
+    await tgSetEnabled(db, req.userId!, enabled);
+    return tgProfile(db, req.userId!);
+  });
+  app.delete('/api/me/tg-profile', auth, async (req) => { await tgUnlink(db, req.userId!); return { ok: true }; });
+
+  app.get('/api/admin/tg-app', admin, async () => ({ apiId: Number(getMeta(db, 'tgapp.id')) || null, hasHash: !!tgApp(db) }));
+  app.put('/api/admin/tg-app', admin, async (req) => {
+    const b = z.object({ apiId: z.number().int().positive(), apiHash: z.string().trim().regex(/^[0-9a-f]{32}$/i, 'API hash — 32 символа').optional().or(z.literal('')) }).parse(req.body ?? {});
+    if (!b.apiHash && !tgApp(db)) throw badRequest('Нужен и API hash');
+    setTgApp(db, b.apiId, b.apiHash || null);
+    return { ok: true };
+  });
+
+  /* ---------- the newest Android app ---------- */
+
+  app.get('/api/app/latest', async () => latestApp());
 
   /* ---------- Last.fm ---------- */
 

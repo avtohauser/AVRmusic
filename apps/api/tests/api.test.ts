@@ -687,7 +687,20 @@ test('listen together votes, guess the melody, and devices controlling each othe
 test('integrations: Telegram and Last.fm settings, concerts matching, scrobble rule, backups', async () => {
   const h = { authorization: `Bearer ${access}` };
   const integ = (await app.inject({ method: 'GET', url: '/api/me/integrations', headers: h })).json();
-  assert.deepEqual(integ, { telegram: { available: false, bot: null, linked: null }, lastfm: { available: false, linked: null }, city: null });
+  assert.deepEqual(integ, { telegram: { available: false, bot: null, linked: null }, lastfm: { available: false, linked: null }, tgProfile: { available: false, linked: null }, city: null });
+  // what plays, in the Telegram profile: needs the admin's API app first; the session is kept encrypted
+  assert.equal((await app.inject({ method: 'POST', url: '/api/me/tg-profile/start', headers: h, payload: { phone: '+79001234567' } })).statusCode, 400);
+  assert.equal((await app.inject({ method: 'PUT', url: '/api/admin/tg-app', headers: h, payload: { apiId: 123 } })).statusCode, 400);
+  assert.equal((await app.inject({ method: 'PUT', url: '/api/admin/tg-app', headers: h, payload: { apiId: 123, apiHash: 'c'.repeat(32) } })).statusCode, 200);
+  assert.deepEqual((await app.inject({ method: 'GET', url: '/api/admin/tg-app', headers: h })).json(), { apiId: 123, hasHash: true });
+  assert.equal((await app.inject({ method: 'GET', url: '/api/me/integrations', headers: h })).json().tgProfile.available, true);
+  const { aboutLine, seal, unseal } = await import('../src/services/tgProfile.js');
+  assert.equal(aboutLine('Kai Angel', 'Shh!'), '🎧 Kai Angel — Shh!');
+  assert.ok(aboutLine('A'.repeat(50), 'B'.repeat(50)).length <= 70);
+  assert.ok(aboutLine('A'.repeat(50), 'B'.repeat(50)).endsWith('…'));
+  const sealed = seal('session-string');
+  assert.ok(!sealed.includes('session-string'));
+  assert.equal(unseal(sealed), 'session-string');
   assert.equal((await app.inject({ method: 'PUT', url: '/api/admin/telegram', headers: h, payload: { token: 'not a token' } })).statusCode, 400);
   assert.equal((await app.inject({ method: 'POST', url: '/api/me/telegram/link', headers: h })).statusCode, 400);
 

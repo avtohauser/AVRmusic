@@ -14,6 +14,7 @@ import { compatibility, profileStats, recap } from '../services/stats.js';
 import { getGame } from '../services/game.js';
 import { badgesOf } from '../services/badges.js';
 import { lastfmNowPlaying } from '../services/lastfm.js';
+import { tgSync } from '../services/tgProfile.js';
 
 export default async function socialRoutes(app: FastifyInstance) {
   const db = app.db;
@@ -59,6 +60,7 @@ export default async function socialRoutes(app: FastifyInstance) {
     const b = z.object({ trackId: z.string().nullable(), positionMs: z.number().min(0).default(0), playing: z.boolean().default(false) }).parse(req.body ?? {});
     setNowPlaying(req.userId!, b.trackId, b.positionMs, b.playing);
     lastfmNowPlaying(db, req.userId!, b.trackId, b.playing);
+    tgSync(db, req.userId!);
     return { ok: true };
   });
 

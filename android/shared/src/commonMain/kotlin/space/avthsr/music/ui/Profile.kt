@@ -28,6 +28,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -43,6 +44,7 @@ import kotlinx.coroutines.launch
 import space.avthsr.music.App
 import space.avthsr.music.res.*
 import space.avthsr.music.api.Api
+import space.avthsr.music.api.myBadges
 import space.avthsr.music.api.Yandex
 import space.avthsr.music.api.importLibrary
 import space.avthsr.music.api.Likes
@@ -68,6 +70,7 @@ fun ProfileScreen() {
   var logout by remember { mutableStateOf(false) }
   var importLink by remember { mutableStateOf(false) }
   val stats = rememberLoad(Unit) { Api.myStats() }
+  val badges = rememberLoad(Unit) { Api.myBadges() }
   val pickAvatar = rememberPicker(Pick.IMAGE) { f ->
     f.firstOrNull()?.let { file -> act(tr("Аватар обновлён")) { Api.uploadAvatarSquare(file) } }
   }
@@ -91,6 +94,7 @@ fun ProfileScreen() {
           }
         }
       }
+      badges.data?.takeIf { it.isNotEmpty() }?.let { list -> item { Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp)) { BadgeChips(list) } } }
       val s = stats.data
       if (s != null) {
         item { SectionTitle(tr("Статистика")) }
@@ -136,13 +140,16 @@ fun ProfileScreen() {
           ProfileItem(Res.drawable.ic_queue, tr("История прослушиваний"), tr("Что и когда вы слушали")) { nav.route("history") }
           ProfileItem(Res.drawable.ic_download, tr("Загрузки на сервер"), tr("Что сейчас качается и кто в очереди")) { nav.jobs() }
           ProfileItem(Res.drawable.ic_palette, tr("Оформление"), tr("Язык, тема, цвета, скорость, канвасы")) { nav.route("settings") }
-          ProfileItem(Res.drawable.ic_link, tr("Сервисы"), tr("Telegram-бот, Last.fm, город для концертов")) { nav.route("connections") }
+          ProfileItem(Res.drawable.ic_link, tr("Сервисы"), tr("Telegram-бот и статус, Last.fm, город для концертов")) { nav.route("connections") }
+          ProfileItem(Res.drawable.ic_download, tr("Помочь с загрузками"), tr("Дать запасной аккаунт YouTube — треки будут качаться быстрее")) { nav.route("give-accounts") }
           ProfileItem(Res.drawable.ic_offline, tr("Скачанные"), tr("Треки, сохранённые в приложении")) { nav.downloads() }
           ProfileItem(Res.drawable.ic_person, tr("Имя и email"), u.displayName.ifBlank { u.username }) { editName = true }
           ProfileItem(Res.drawable.ic_settings, tr("Сменить пароль"), "") { editPassword = true }
           ProfileItem(Res.drawable.ic_logout, tr("Выйти"), "") { logout = true }
           Spacer(Modifier.height(16.dp))
-          Text(tr("AVRmusic для {} {}", Platform.name, Platform.version), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+          Text(tr("avr music для {} {}", Platform.name, Platform.version), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+          val update by space.avthsr.music.player.AppUpdate.available.collectAsStateWithLifecycle()
+          update?.let { r -> TextButton(onClick = { space.avthsr.music.player.AppUpdate.prompt.value = true }) { Text(tr("Обновить до {}", r.version)) } }
         }
       }
     }

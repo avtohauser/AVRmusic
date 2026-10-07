@@ -148,8 +148,9 @@ fun Root() {
 private fun Main() {
   // the listener's other devices see this one while it is open
   LifecycleStartEffect(Unit) {
+    App.visible = true
     Devices.visible(true)
-    onStopOrDispose { Devices.visible(false) }
+    onStopOrDispose { App.visible = false; Devices.visible(false) }
   }
   val controller = rememberNavController()
   var playerOpen by rememberSaveable { mutableStateOf(false) }
@@ -165,6 +166,12 @@ private fun Main() {
   // news: checked while the app is open (the background check notifies when it is not)
   // and what friends sent
   LaunchedEffect(Unit) { while (true) { News.refresh(); Inbox.refresh(); delay(2 * 60_000L) } }
+  // invitations (to play, to listen together) shouldn't wait for the background check: a quick look while open
+  LaunchedEffect(Unit) { while (true) { delay(20_000L); if (App.visible) runCatching { Inbox.check() } } }
+  var invite by remember { mutableStateOf<space.avthsr.music.api.Share?>(null) }
+  LaunchedEffect(Unit) { Inbox.arrived.collect { list -> list.firstOrNull { it.kind == "game" || it.kind == "jam" }?.let { invite = it } } }
+  // a newer build of the app: a banner (and the dialog from its notification)
+  LaunchedEffect(Unit) { while (true) { runCatching { space.avthsr.music.player.AppUpdate.check(background = false) }; delay(6 * 3600_000L) } }
   // notifications need the listener's yes, asked once
   AskNotificationsOnce()
   val open by Links.openPlayer.collectAsStateWithLifecycle()
@@ -177,6 +184,7 @@ private fun Main() {
       Links.deepLink.value = null
       // the alarm's notification: the music starts and the player opens
       if (it == "play:alarm") { App.scope.launch { space.avthsr.music.player.Alarm.ring() }; playerOpen = true }
+      else if (it == "update") space.avthsr.music.player.AppUpdate.prompt.value = true
       else { playerOpen = false; nav.route(it) }
     }
   }
@@ -250,8 +258,10 @@ private fun Main() {
           screen("alarm") { AlarmScreen() }
           screen("transfer") { TransferScreen() }
           screen("game") { GameScreen() }
+          screen("game/{join}") { GameScreen(join = it.arg("join")) }
           screen("concerts") { ConcertsScreen() }
           screen("connections") { ConnectionsScreen() }
+          screen("give-accounts") { GiveAccountsScreen() }
           screen("admin") { AdminScreen() }
           screen("admin/user/{id}") { AdminUserScreen(it.arg("id")) }
           screen("admin/track/{id}") { AdminTrackScreen(it.arg("id")) }
@@ -300,6 +310,11 @@ private fun Main() {
         }
       }
       SnackbarHost(snack, Modifier.align(Alignment.BottomCenter).padding(bottom = if (playerOpen) 104.dp else edges.bottom))
+      // on top of everything: an invitation that just came, a newer version of the app
+      Column(Modifier.align(Alignment.TopCenter).padding(top = cutout + 8.dp, start = 12.dp, end = 12.dp)) {
+        invite?.let { s -> InviteBanner(s, onOpen = { invite = null; playerOpen = false }, onClose = { invite = null }) }
+        UpdateBanner()
+      }
     }
     // after the NavHost, so that with the player open a back closes the player, not the page under it
     PlayerBackHandler(playerOpen, onProgress = { backTarget = it }, onBack = { playerOpen = false }, onCancel = { backTarget = 0f })

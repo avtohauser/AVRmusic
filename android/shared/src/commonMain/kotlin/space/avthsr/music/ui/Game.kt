@@ -151,9 +151,13 @@ object GameRoom {
 }
 
 @Composable
-fun GameScreen() {
+fun GameScreen(join: String? = null) {
   val view by GameRoom.view.collectAsStateWithLifecycle()
-  LaunchedEffect(Unit) { runCatching { GameRoom.resume() } }
+  // an invitation (from its notification or banner): straight into that game
+  LaunchedEffect(join) {
+    if (join != null && view?.id != join) runCatching { GameRoom.join(join) }.onFailure { App.say(it.message ?: tr("Игра уже закончилась")) }
+    else runCatching { GameRoom.resume() }
+  }
   Page {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding(top = 8.dp, bottom = 24.dp)).padding(horizontal = 20.dp)) {
       Row(verticalAlignment = Alignment.CenterVertically) {

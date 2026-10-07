@@ -119,6 +119,12 @@ fun SettingsScreen() {
       SwitchRow(tr("Показывать друзьям, что я слушаю"), tr("Друзья видят трек на главной и могут присоединиться"), showNow) { showNow = it; NowReport.setEnabled(it) }
       val auto by AutoOffline.enabled.collectAsStateWithLifecycle()
       SwitchRow(tr("Скачивать избранное по Wi-Fi"), tr("Всё, что вы лайкнули, само сохраняется на телефон"), auto) { AutoOffline.set(it) }
+      if (space.avthsr.music.player.Updater.supported) {
+        var autoUpdate by remember { mutableStateOf(space.avthsr.music.player.AppUpdate.auto) }
+        SwitchRow(tr("Обновляться само"), tr("Новая версия приложения скачивается по Wi-Fi и ставится сама (в первый раз Android спросит разрешение)"), autoUpdate) {
+          autoUpdate = it; space.avthsr.music.player.AppUpdate.auto = it
+        }
+      }
     }
   }
 }

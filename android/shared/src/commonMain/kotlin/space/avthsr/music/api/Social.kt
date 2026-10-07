@@ -29,6 +29,7 @@ data class Friend(
   val lastSeenAt: String? = null,
   val now: FriendNow? = null,
   val jamId: String? = null,
+  val badges: List<Badge> = emptyList(),
 ) {
   val name get() = displayName.ifBlank { username }
   val ref get() = FriendRef(id, name, avatarUrl)
@@ -49,6 +50,7 @@ data class FriendPage(
   val lastSeenAt: String? = null,
   val now: FriendNow? = null,
   val jamId: String? = null,
+  val badges: List<Badge> = emptyList(),
   val createdAt: String = "",
   val stats: FriendStats = FriendStats(),
   val compat: Compat? = null,
@@ -217,6 +219,8 @@ object Friends {
 
 object Inbox {
   val items = MutableStateFlow<List<Share>>(emptyList())
+  /** shares that just came (an invitation to play or listen together shows as a banner in the app) */
+  val arrived = kotlinx.coroutines.flow.MutableSharedFlow<List<Share>>(extraBufferCapacity = 4)
 
   fun unread(list: List<Share>) = list.count { !it.seen }
 
@@ -248,6 +252,7 @@ object Inbox {
       "playlist" -> if (s.message == "invite") tr("плейлист «{}» — вместе", str("title")) else tr("плейлист «{}»", str("title"))
       "jam" -> tr("слушать вместе")
       "game" -> tr("в «Угадай мелодию»")
+      "badge" -> "${str("emoji")} ${str("title")}"
       "concert" -> "${str("artist")} — ${str("date")}"
       "digest" -> tr("{} мин музыки за неделю", str("minutes"))
       "release" -> "${str("artist")} — ${str("title")}"
@@ -272,6 +277,7 @@ object Inbox {
       val title = when (s.kind) {
         "jam" -> tr("{} зовёт слушать вместе", who)
         "game" -> tr("{} зовёт в «Угадай мелодию»", who)
+        "badge" -> tr("Новая ачивка: {}", what(s))
         "digest" -> tr("Ваша неделя в музыке")
         "concert" -> tr("Концерт: {}", what(s))
         "release" -> tr("Новый релиз: {}", what(s))
@@ -286,9 +292,11 @@ object Inbox {
         "report" -> what(s)
         else -> s.message.takeIf { it.isNotBlank() && it != "invite" } ?: tr("Откройте, чтобы послушать")
       }
-      NewsAlerts.notify("share-${s.id}", title, body, "inbox")
+      // an invitation to a game opens the game itself
+      NewsAlerts.notify("share-${s.id}", title, body, if (s.kind == "game") "game/${s.refId}" else "inbox")
     }
     noted(fresh.first().createdAt)
+    arrived.tryEmit(fresh)
     items.value = (fresh + items.value).distinctBy { it.id }
     return true
   }

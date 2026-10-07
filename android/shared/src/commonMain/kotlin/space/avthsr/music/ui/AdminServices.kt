@@ -18,19 +18,25 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import space.avthsr.music.api.Api
 import space.avthsr.music.api.backupNow
+import space.avthsr.music.api.autofetch
 import space.avthsr.music.api.backups
+import space.avthsr.music.api.setAutofetch
+import space.avthsr.music.api.setTgApp
+import space.avthsr.music.api.tgAppAdmin
 import space.avthsr.music.api.lastfmAdmin
 import space.avthsr.music.api.setLastfmApp
 import space.avthsr.music.api.setTelegramToken
@@ -71,6 +77,35 @@ internal fun AdminServices() {
         singleLine = true, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth(),
       )
       Button(enabled = key.length == 32, onClick = { act(tr("Сохранено"), { secret = ""; lf.reload() }) { Api.setLastfmApp(key, secret) } }, shapes = ButtonDefaults.shapes()) { Text(tr("Сохранить")) }
+    }
+    Block(tr("Статус в Telegram")) {
+      val app = rememberLoad(Unit) { Api.tgAppAdmin() }
+      Text(
+        tr("Чтобы друзья могли показывать в профиле Telegram, что сейчас играет, нужен API ID и API hash: my.telegram.org → API development tools (создать приложение). Хранятся только на сервере."),
+        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
+      var id by remember(app.data) { mutableStateOf(app.data?.apiId?.toString().orEmpty()) }
+      var hash by remember { mutableStateOf("") }
+      OutlinedTextField(id, { id = it.filter { c -> c.isDigit() } }, label = { Text("API ID") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+      OutlinedTextField(
+        hash, { hash = it.trim() }, label = { Text(if (app.data?.hasHash == true) tr("API hash (пусто — не менять)") else "API hash") },
+        singleLine = true, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth(),
+      )
+      Button(enabled = id.isNotBlank(), onClick = { act(tr("Сохранено"), { hash = ""; app.reload() }) { Api.setTgApp(id.toLong(), hash) } }, shapes = ButtonDefaults.shapes()) { Text(tr("Сохранить")) }
+    }
+    Block(tr("Дискографии любимых исполнителей")) {
+      val af = rememberLoad(Unit) { Api.autofetch() }
+      Text(
+        tr("Сервер сам докачивает дискографии тех, кого лайкают, на кого подписаны и кого много слушают — по одной за раз, после ваших загрузок."),
+        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
+      af.data?.let { a ->
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          Text(if (a.on) tr("Включено") else tr("Выключено"), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+          Switch(checked = a.on, onCheckedChange = { on -> act(null, { af.reload() }) { Api.setAutofetch(on) } })
+        }
+        if (a.on && a.next.isNotEmpty()) Text(tr("Следующие: {}", a.next.joinToString(", ")), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+      }
     }
     Block(tr("Резервные копии")) {
       val b = bk.data

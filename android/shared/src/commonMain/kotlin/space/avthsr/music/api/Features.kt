@@ -159,7 +159,7 @@ data class TelegramState(val available: Boolean = false, val bot: String? = null
 data class LastfmState(val available: Boolean = false, val linked: LinkedAccount? = null)
 
 @Serializable
-data class Integrations(val telegram: TelegramState = TelegramState(), val lastfm: LastfmState = LastfmState(), val city: String? = null)
+data class Integrations(val telegram: TelegramState = TelegramState(), val lastfm: LastfmState = LastfmState(), val tgProfile: TgProfileState = TgProfileState(), val city: String? = null)
 
 @Serializable
 data class UrlReply(val url: String)
@@ -215,3 +215,93 @@ suspend fun Api.setLastfmApp(key: String, secret: String) {
 }
 suspend fun Api.backups(): Backups = get("/api/admin/backups")
 suspend fun Api.backupNow(): BackupFile = post("/api/admin/backups")
+
+/* ---------- badges ---------- */
+
+@Serializable
+data class Badge(val id: String, val title: String = "", val emoji: String = "", val color: String = "#F2A0C4", val description: String = "", val givenAt: String? = null, val holders: Int? = null)
+
+suspend fun Api.badges(): List<Badge> = get("/api/badges")
+suspend fun Api.myBadges(): List<Badge> = get("/api/me/badges")
+suspend fun Api.saveBadge(id: String?, title: String, emoji: String, color: String, description: String): Badge {
+  val body = buildJsonObject { put("title", title.trim()); put("emoji", emoji.trim()); put("color", color); put("description", description.trim()) }.toString()
+  return if (id == null) post("/api/admin/badges", body) else json.decodeFromString(call("PUT", "/api/admin/badges/${enc(id)}", body))
+}
+suspend fun Api.deleteBadge(id: String) { call("DELETE", "/api/admin/badges/${enc(id)}") }
+suspend fun Api.badgeHolders(id: String): List<FriendRef> = get("/api/admin/badges/${enc(id)}/holders")
+suspend fun Api.giveBadge(id: String, userIds: List<String>) { call("POST", "/api/admin/badges/${enc(id)}/give", buildJsonObject { put("userIds", strs(userIds)) }.toString()) }
+suspend fun Api.takeBadge(id: String, userId: String) { call("DELETE", "/api/admin/badges/${enc(id)}/give/${enc(userId)}") }
+
+/* ---------- the servers' state ---------- */
+
+@Serializable
+data class DiskInfo(val name: String, val total: Long = 0, val free: Long = 0, val used: Long = 0)
+
+@Serializable
+data class ServerSample(val at: String, val load: Float = 0f, val mem: Float = 0f, val online: Int = 0, val listening: Int = 0)
+
+@Serializable
+data class ServerStats(
+  val disks: List<DiskInfo> = emptyList(),
+  val music: MusicInfo = MusicInfo(),
+  val cpu: CpuInfo = CpuInfo(),
+  val memory: MemInfo = MemInfo(),
+  val uptime: UptimeInfo = UptimeInfo(),
+  val people: PeopleInfo = PeopleInfo(),
+  val downloads: DownloadsInfo = DownloadsInfo(),
+  val history: List<ServerSample> = emptyList(),
+) {
+  @Serializable data class MusicInfo(val bytes: Long = 0, val tracks: Int = 0, val avgTrackBytes: Long = 0)
+  @Serializable data class CpuInfo(val cores: Int = 1, val busy: Float = 0f, val load: List<Float> = emptyList())
+  @Serializable data class MemInfo(val total: Long = 0, val free: Long = 0, val app: Long = 0)
+  @Serializable data class UptimeInfo(val server: Double = 0.0, val app: Double = 0.0)
+  @Serializable data class PeopleInfo(val online: Int = 0, val devices: Int = 0, val listening: Int = 0, val today: Int = 0)
+  @Serializable data class DownloadsInfo(val running: Int = 0, val queued: Int = 0, val slots: Int = 0, val accounts: Int = 0, val exits: Int = 1)
+}
+
+suspend fun Api.serverStats(): ServerStats = get("/api/admin/server")
+
+/* ---------- spare YouTube accounts from friends ---------- */
+
+@Serializable
+data class GivenAccount(val id: String, val label: String = "", val createdAt: String = "", val loggedIn: Boolean = false, val coolingUntil: String? = null, val ok: Int = 0, val failed: Int = 0, val lastError: String? = null)
+
+@Serializable
+data class GivenAccounts(val max: Int = 3, val accounts: List<GivenAccount> = emptyList())
+
+suspend fun Api.givenAccounts(): GivenAccounts = get("/api/me/youtube-accounts")
+suspend fun Api.giveAccount(file: space.avthsr.music.PickedFile): GivenAccounts = json.decodeFromString(multipart("/api/me/youtube-accounts") { addFile(file) })
+suspend fun Api.takeAccount(id: String): GivenAccounts = json.decodeFromString(call("DELETE", "/api/me/youtube-accounts/${enc(id)}"))
+
+/* ---------- loved artists fetched by themselves; the Telegram API app ---------- */
+
+@Serializable
+data class Autofetch(val on: Boolean = true, val next: List<String> = emptyList())
+
+suspend fun Api.autofetch(): Autofetch = get("/api/admin/autofetch")
+suspend fun Api.setAutofetch(on: Boolean): Autofetch = json.decodeFromString(call("PUT", "/api/admin/autofetch", buildJsonObject { put("on", on) }.toString()))
+
+@Serializable
+data class TgAppAdmin(val apiId: Long? = null, val hasHash: Boolean = false)
+
+suspend fun Api.tgAppAdmin(): TgAppAdmin = get("/api/admin/tg-app")
+suspend fun Api.setTgApp(apiId: Long, apiHash: String) {
+  call("PUT", "/api/admin/tg-app", buildJsonObject { put("apiId", apiId); put("apiHash", apiHash.trim()) }.toString())
+}
+
+/* ---------- what plays, in the listener's Telegram profile ---------- */
+
+@Serializable
+data class TgProfileLink(val username: String? = null, val enabled: Boolean = true)
+
+@Serializable
+data class TgProfileState(val available: Boolean = false, val linked: TgProfileLink? = null)
+
+@Serializable
+data class TgCodeReply(val viaApp: Boolean = true, val needPassword: Boolean = false)
+
+suspend fun Api.tgProfileStart(phone: String): TgCodeReply = post("/api/me/tg-profile/start", buildJsonObject { put("phone", phone.trim()) }.toString())
+suspend fun Api.tgProfileCode(code: String): TgCodeReply = post("/api/me/tg-profile/code", buildJsonObject { put("code", code.trim()) }.toString())
+suspend fun Api.tgProfilePassword(password: String) { call("POST", "/api/me/tg-profile/password", buildJsonObject { put("password", password) }.toString()) }
+suspend fun Api.tgProfileEnabled(on: Boolean) { call("PUT", "/api/me/tg-profile", buildJsonObject { put("enabled", on) }.toString()) }
+suspend fun Api.tgProfileUnlink() { call("DELETE", "/api/me/tg-profile") }

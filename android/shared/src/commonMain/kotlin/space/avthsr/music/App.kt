@@ -70,6 +70,8 @@ object App {
 
   /** Short messages shown as a snackbar. */
   val messages = MutableSharedFlow<String>(extraBufferCapacity = 8)
+  /** the app is on screen (set by the root screen's lifecycle) */
+  var visible = false
   fun say(text: String) { messages.tryEmit(text) }
 }
 

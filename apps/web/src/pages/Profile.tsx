@@ -18,6 +18,7 @@ import { notificationsSupported, setShadeLike, shadeLikeSetting } from '@/lib/sh
 import { Shelf } from '@/components/Shelf';
 import { ArtistCard, TrackCard } from '@/components/Cards';
 import type { ArtistSummary, Track, User } from '@avrmusic/shared';
+import { BadgeChips, type Badge } from '@/components/Badges';
 
 const VARIANTS: Array<[string, string]> = [['expressive', 'Expressive'], ['vibrant', 'Vibrant'], ['tonal-spot', 'Tonal Spot'], ['fidelity', 'Fidelity'], ['content', 'Content'], ['rainbow', 'Rainbow'], ['fruit-salad', 'Fruit Salad'], ['neutral', 'Neutral'], ['monochrome', 'Monochrome']];
 
@@ -166,6 +167,7 @@ export default function Profile() {
           <m3e-icon variant="rounded" name="chevron_right" />
         </Link>
       )}
+      <MyBadges />
       <ProfileLinks />
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
@@ -200,6 +202,12 @@ export default function Profile() {
   );
 }
 
+function MyBadges() {
+  const { data } = useQuery({ queryKey: ['my-badges'], queryFn: () => api.get<Badge[]>('/api/me/badges') });
+  if (!data?.length) return null;
+  return <div className="mb-4"><BadgeChips badges={data} /></div>;
+}
+
 function ProfileLinks() {
   const tr = useTr();
   const links: Array<[string, string, string, string]> = [
@@ -208,7 +216,8 @@ function ProfileLinks() {
     ['/recap', 'leaderboard', tr('Мои итоги', 'My recap'), tr('Месяц и год в цифрах', 'Your month and year in numbers')],
     ['/transfer', 'swap_horiz', tr('Перенести музыку', 'Move your music'), tr('Из Spotify, Яндекс Музыки, списком', 'From Spotify, Yandex Music, a list')],
     ['/game', 'quiz', tr('Угадай мелодию', 'Guess the song'), tr('Игра с друзьями на скорость', 'A speed game with friends')],
-    ['/services', 'hub', tr('Сервисы', 'Services'), tr('Telegram-бот, Last.fm, концерты', 'Telegram bot, Last.fm, concerts')],
+    ['/services', 'hub', tr('Сервисы', 'Services'), tr('Telegram, Last.fm, концерты', 'Telegram, Last.fm, concerts')],
+    ['/help-downloads', 'volunteer_activism', tr('Помочь с загрузками', 'Help with downloads'), tr('Запасной аккаунт YouTube — быстрее качается', 'A spare YouTube account — faster downloads')],
   ];
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">

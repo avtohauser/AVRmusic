@@ -59,6 +59,8 @@ object News {
     val news = checkNews()
     // things friends sent come with the same background check
     val shares = Inbox.check()
+    // a newer build of the app: a notification, and on Wi-Fi it installs itself
+    runCatching { space.avthsr.music.player.AppUpdate.check(background = true) }
     return news && shares
   }
 

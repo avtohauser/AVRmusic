@@ -1,6 +1,6 @@
 // The admin's outside services: the Telegram bot's token, the Last.fm app, nightly copies of the database.
 import { useEffect, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { M3eButton, M3eFormField } from '@/md';
 import { api } from '@/lib/api';
 import { useBackups, useLastfmAdmin, useTelegramAdmin } from '@/lib/features';
@@ -64,6 +64,8 @@ export function AdminServices() {
         </M3eFormField>
         <M3eButton variant="filled" className="mt-3" disabled={key.length !== 32 || busy || undefined} onClick={() => void run(async () => { await api.put('/api/admin/lastfm', { key, secret }); setSecret(''); }, tr('Сохранено', 'Saved'), ['admin-lastfm'])}>{tr('Сохранить', 'Save')}</M3eButton>
       </Block>
+      <TgAppBlock />
+      <AutofetchBlock />
       <Block icon="backup" title={tr('Резервные копии', 'Backups')}>
         <p className="md-body-md text-on-surface-variant mb-2">
           {tr('Каждую ночь база (и входы YouTube) копируется на сервер-хранилище, хранятся последние 14 копий.', 'Every night the database (and the YouTube sign-ins) is copied to the storage server; the last 14 copies are kept.')}
@@ -73,5 +75,45 @@ export function AdminServices() {
         <M3eButton variant="tonal" className="mt-3" disabled={busy || undefined} onClick={() => void run(() => api.post('/api/admin/backups', {}), tr('Копия сделана', 'Backup made'), ['admin-backups'])}>{tr('Сделать копию сейчас', 'Back up now')}</M3eButton>
       </Block>
     </div>
+  );
+}
+
+function TgAppBlock() {
+  const tr = useTr();
+  const qc = useQueryClient();
+  const { data } = useQuery({ queryKey: ['admin-tg-app'], queryFn: () => api.get<{ apiId: number | null; hasHash: boolean }>('/api/admin/tg-app') });
+  const [id, setId] = useState('');
+  const [hash, setHash] = useState('');
+  useEffect(() => { if (data?.apiId) setId(String(data.apiId)); }, [data?.apiId]);
+  const save = async () => {
+    try { await api.put('/api/admin/tg-app', { apiId: Number(id), apiHash: hash }); setHash(''); useUI.getState().toast(tr('Сохранено', 'Saved'), 'success'); await qc.invalidateQueries({ queryKey: ['admin-tg-app'] }); }
+    catch (e: any) { useUI.getState().toast(e.message, 'error'); }
+  };
+  return (
+    <Block icon="badge" title={tr('Статус в Telegram', 'Telegram status')}>
+      <p className="md-body-md text-on-surface-variant mb-3">{tr('Чтобы друзья могли показывать в профиле Telegram, что сейчас играет, нужны API ID и API hash: my.telegram.org → API development tools. Хранятся только на сервере.', 'For friends to show what plays in their Telegram profile, an API ID and API hash are needed: my.telegram.org → API development tools. Kept on the server only.')}</p>
+      <M3eFormField variant="outlined" className="w-full block"><span slot="label">API ID</span><input inputMode="numeric" value={id} onChange={(e) => setId(e.target.value.replace(/\D/g, ''))} /></M3eFormField>
+      <M3eFormField variant="outlined" className="w-full block mt-2">
+        <span slot="label">{data?.hasHash ? tr('API hash (пусто — не менять)', 'API hash (empty — keep it)') : 'API hash'}</span>
+        <input type="password" autoComplete="off" value={hash} onChange={(e) => setHash(e.target.value.trim())} />
+      </M3eFormField>
+      <M3eButton variant="filled" className="mt-3" disabled={!id || undefined} onClick={() => void save()}>{tr('Сохранить', 'Save')}</M3eButton>
+    </Block>
+  );
+}
+
+function AutofetchBlock() {
+  const tr = useTr();
+  const qc = useQueryClient();
+  const { data } = useQuery({ queryKey: ['admin-autofetch'], queryFn: () => api.get<{ on: boolean; next: string[] }>('/api/admin/autofetch') });
+  const set = async (on: boolean) => { await api.put('/api/admin/autofetch', { on }).catch((e) => useUI.getState().toast(e.message, 'error')); await qc.invalidateQueries({ queryKey: ['admin-autofetch'] }); };
+  return (
+    <Block icon="library_add" title={tr('Дискографии любимых исполнителей', "Loved artists' discographies")}>
+      <p className="md-body-md text-on-surface-variant mb-3">{tr('Сервер сам докачивает дискографии тех, кого лайкают, на кого подписаны и кого много слушают — по одной за раз, после ваших загрузок.', 'The server tops up the discographies of artists people like, follow and play a lot — one at a time, after your own downloads.')}</p>
+      {data && <>
+        <M3eButton variant={data.on ? 'tonal' : 'filled'} onClick={() => void set(!data.on)}>{data.on ? tr('Выключить', 'Turn off') : tr('Включить', 'Turn on')}</M3eButton>
+        {data.on && !!data.next.length && <p className="md-body-sm text-on-surface-variant mt-2">{tr('Следующие:', 'Next:')} {data.next.join(', ')}</p>}
+      </>}
+    </Block>
   );
 }

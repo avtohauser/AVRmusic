@@ -40,6 +40,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.DrawableResource
+import kotlinx.coroutines.launch
+import space.avthsr.music.App
 import space.avthsr.music.Platform
 import space.avthsr.music.api.Api
 import space.avthsr.music.api.Concert
@@ -51,6 +53,11 @@ import space.avthsr.music.api.lastfmUnlink
 import space.avthsr.music.api.setCity
 import space.avthsr.music.api.telegramLink
 import space.avthsr.music.api.telegramUnlink
+import space.avthsr.music.api.tgProfileCode
+import space.avthsr.music.api.tgProfileEnabled
+import space.avthsr.music.api.tgProfilePassword
+import space.avthsr.music.api.tgProfileStart
+import space.avthsr.music.api.tgProfileUnlink
 import space.avthsr.music.res.*
 import space.avthsr.music.tr
 
@@ -77,6 +84,7 @@ fun ConnectionsScreen() {
           ) { Text(tr("Привязать")) }
           if (s.telegram.linked == null && s.telegram.available) TextButton(onClick = { loader.reload() }) { Text(tr("Я привязал(а)")) }
         }
+        TgProfileCard(s.tgProfile) { loader.reload() }
         Service(
           Res.drawable.ic_chart, "Last.fm",
           when {
@@ -99,7 +107,7 @@ fun ConnectionsScreen() {
 }
 
 @Composable
-private fun Service(icon: DrawableResource, title: String, text: String, actions: @Composable () -> Unit) {
+private fun Service(icon: DrawableResource, title: String, text: String, actions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit) {
   val cs = MaterialTheme.colorScheme
   Column(Modifier.padding(vertical = 6.dp).fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(cs.surfaceContainer).padding(16.dp)) {
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -183,4 +191,58 @@ fun CityDialog(onDismiss: () -> Unit, onDone: () -> Unit) {
     confirmButton = { TextButton(onClick = { act(tr("Город убран"), onDone) { Api.setCity(null) } }) { Text(tr("Не искать")) } },
     dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Отмена")) } },
   )
+}
+
+/** What plays now, in the listener's Telegram profile: linking (phone → code → cloud password), on/off, unlink. */
+@Composable
+private fun TgProfileCard(st: space.avthsr.music.api.TgProfileState, reload: () -> Unit) {
+  var step by remember { mutableStateOf(0) } // 0 idle, 1 phone, 2 code, 3 password
+  var value by remember { mutableStateOf("") }
+  var busy by remember { mutableStateOf(false) }
+  val linked = st.linked
+  val go = { work: suspend () -> Unit ->
+    busy = true
+    App.scope.launch {
+      runCatching { work() }.onFailure { App.say(it.message ?: tr("Не получилось")) }
+      busy = false
+    }
+  }
+  Service(
+    Res.drawable.ic_headphones, tr("Статус в Telegram"),
+    when {
+      !st.available -> tr("Администратор ещё не подключил Telegram API")
+      linked != null -> tr("В описании профиля{} показывается, что играет: «🎧 Исполнитель — Трек». Когда музыка стоит, возвращается ваше описание.", linked.username?.let { " @$it" } ?: "")
+      else -> tr("В описании вашего профиля Telegram будет видно, что вы сейчас слушаете. Нужно один раз войти: номер, код из Telegram и облачный пароль, если он есть. Вход используется только для этой строчки.")
+    },
+  ) {
+    when {
+      linked != null -> {
+        androidx.compose.material3.Switch(checked = linked.enabled, onCheckedChange = { on -> go { Api.tgProfileEnabled(on); reload() } })
+        Text(if (linked.enabled) tr("Показывать") else tr("Не показывать"), Modifier.weight(1f))
+        OutlinedButton(onClick = { go { Api.tgProfileUnlink(); App.say(tr("Telegram отвязан — описание вернулось")); reload() } }, enabled = !busy, shapes = ButtonDefaults.shapes()) { Text(tr("Отвязать")) }
+      }
+      step == 0 -> Button(enabled = st.available, onClick = { step = 1; value = "" }, shapes = ButtonDefaults.shapes()) { Text(tr("Подключить")) }
+      else -> Column(Modifier.fillMaxWidth()) {
+        OutlinedTextField(
+          value, { value = it }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+          label = { Text(when (step) { 1 -> tr("Номер телефона (+7…)"); 2 -> tr("Код из Telegram"); else -> tr("Облачный пароль") }) },
+          visualTransformation = if (step == 3) androidx.compose.ui.text.input.PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
+        )
+        if (step == 2) Text(tr("Код пришёл в Telegram (чат «Telegram»). Не пересылайте его никому."), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+          TextButton(onClick = { step = 0; value = "" }) { Text(tr("Отмена")) }
+          Button(enabled = value.isNotBlank() && !busy, shapes = ButtonDefaults.shapes(), onClick = {
+            val v = value
+            go {
+              when (step) {
+                1 -> { Api.tgProfileStart(v); step = 2; value = "" }
+                2 -> { val r = Api.tgProfileCode(v); value = ""; if (r.needPassword) step = 3 else { step = 0; App.say(tr("Готово — теперь в Telegram видно, что вы слушаете")); reload() } }
+                else -> { Api.tgProfilePassword(v); value = ""; step = 0; App.say(tr("Готово — теперь в Telegram видно, что вы слушаете")); reload() }
+              }
+            }
+          }) { Text(if (step == 1) tr("Получить код") else tr("Войти")) }
+        }
+      }
+    }
+  }
 }

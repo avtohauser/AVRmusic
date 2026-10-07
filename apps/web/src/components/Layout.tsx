@@ -20,6 +20,7 @@ import { FlowText } from '@/components/FlowText';
 import { NewsBanner } from './NewsBanner';
 import { Wordmark } from './Brand';
 import { FriendPickerModal, JamBar, ReportModal } from './Social';
+import { InviteBanner } from './InviteBanner';
 
 export function Layout() {
   const user = useAuth((s) => s.user);
@@ -70,7 +71,7 @@ export function Layout() {
       <ContextMenu />
       <AddToPlaylistModal />
       <PlaylistEditorModal />
-      {user && <><JamBar /><FriendPickerModal /><ReportModal /></>}
+      {user && <><JamBar /><FriendPickerModal /><ReportModal /><InviteBanner /></>}
     </div>
   );
 }

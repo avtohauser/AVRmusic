@@ -43,6 +43,7 @@ export interface DeviceCommand { seq: number; from: string | null; type: string;
 export interface Integrations {
   telegram: { available: boolean; bot: string | null; linked: { username: string | null } | null };
   lastfm: { available: boolean; linked: { username: string | null } | null };
+  tgProfile: { available: boolean; linked: { username: string | null; enabled: boolean } | null };
   city: string | null;
 }
 export interface Concert { id: string; artist: string; title: string; startsAt: string; date: string; place: string | null; address: string | null; url: string | null; imageUrl: string | null }

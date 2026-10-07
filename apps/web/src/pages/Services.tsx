@@ -56,6 +56,7 @@ export default function Services() {
           {s?.telegram.available && !s.telegram.linked && <M3eButton variant="text" onClick={() => void qc.invalidateQueries({ queryKey: ['integrations'] })}>{tr('Я привязал(а)', "I've linked it")}</M3eButton>}
         </div>
       </Block>
+      <TgProfileBlock state={s?.tgProfile} />
       <Block icon="graphic_eq" title="Last.fm">
         <p className="md-body-md text-on-surface-variant mb-3">
           {!s?.lastfm.available ? tr('Администратор ещё не подключил Last.fm', "The admin hasn't connected Last.fm yet")
@@ -126,5 +127,61 @@ function CityDialog({ onClose }: { onClose: () => void }) {
         <M3eButton variant="text" onClick={onClose}>{tr('Отмена', 'Cancel')}</M3eButton>
       </div>
     </Modal>
+  );
+}
+
+/** What plays now, in the listener's Telegram profile: linking (phone → code → cloud password), on/off, unlink. */
+function TgProfileBlock({ state }: { state?: { available: boolean; linked: { username: string | null; enabled: boolean } | null } }) {
+  const tr = useTr();
+  const qc = useQueryClient();
+  const [step, setStep] = useState<0 | 1 | 2 | 3>(0);
+  const [value, setValue] = useState('');
+  const [busy, setBusy] = useState(false);
+  const reload = () => qc.invalidateQueries({ queryKey: ['integrations'] });
+  const go = async (work: () => Promise<unknown>) => {
+    setBusy(true);
+    try { await work(); } catch (e: any) { useUI.getState().toast(e.message, 'error'); } finally { setBusy(false); }
+  };
+  const next = () => go(async () => {
+    const v = value.trim();
+    if (step === 1) { await api.post('/api/me/tg-profile/start', { phone: v }); setStep(2); setValue(''); return; }
+    if (step === 2) {
+      const r = await api.post<{ needPassword: boolean }>('/api/me/tg-profile/code', { code: v });
+      setValue('');
+      if (r.needPassword) { setStep(3); return; }
+    } else await api.post('/api/me/tg-profile/password', { password: value });
+    setStep(0); setValue('');
+    useUI.getState().toast(tr('Готово — теперь в Telegram видно, что вы слушаете', 'Done — Telegram now shows what you listen to'), 'success');
+    await reload();
+  });
+  const linked = state?.linked;
+  return (
+    <Block icon="badge" title={tr('Статус в Telegram', 'Telegram status')}>
+      <p className="md-body-md text-on-surface-variant mb-3">
+        {!state?.available ? tr('Администратор ещё не подключил Telegram API', "The admin hasn't connected the Telegram API yet")
+          : linked ? tr(`В описании профиля${linked.username ? ` @${linked.username}` : ''} показывается, что играет: «🎧 Исполнитель — Трек». Когда музыка стоит, возвращается ваше описание.`, `Your profile${linked.username ? ` @${linked.username}` : ''} shows what plays: “🎧 Artist — Track”. When the music stops, your own bio comes back.`)
+            : tr('В описании вашего профиля Telegram будет видно, что вы сейчас слушаете. Нужно один раз войти: номер, код из Telegram и облачный пароль, если он есть. Вход используется только для этой строчки.', 'Your Telegram bio will show what you are listening to. Sign in once: your number, the code from Telegram and the cloud password if you have one. It is used only for that line.')}
+      </p>
+      {linked ? (
+        <div className="flex flex-wrap gap-2">
+          <M3eButton variant="tonal" disabled={busy || undefined} onClick={() => void go(async () => { await api.put('/api/me/tg-profile', { enabled: !linked.enabled }); await reload(); })}>{linked.enabled ? tr('Не показывать', 'Hide') : tr('Показывать', 'Show')}</M3eButton>
+          <M3eButton variant="outlined" disabled={busy || undefined} onClick={() => void go(async () => { await api.del('/api/me/tg-profile'); await reload(); })}>{tr('Отвязать', 'Unlink')}</M3eButton>
+        </div>
+      ) : step === 0 ? (
+        <M3eButton variant="filled" disabled={!state?.available || undefined} onClick={() => { setStep(1); setValue(''); }}>{tr('Подключить', 'Connect')}</M3eButton>
+      ) : (
+        <div>
+          <M3eFormField variant="outlined" className="w-full block">
+            <span slot="label">{step === 1 ? tr('Номер телефона (+7…)', 'Phone number (+…)') : step === 2 ? tr('Код из Telegram', 'Code from Telegram') : tr('Облачный пароль', 'Cloud password')}</span>
+            <input type={step === 3 ? 'password' : 'text'} inputMode={step === 2 ? 'numeric' : undefined} value={value} autoFocus onChange={(e) => setValue(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && value.trim()) void next(); }} />
+          </M3eFormField>
+          {step === 2 && <p className="md-body-sm text-on-surface-variant mt-1">{tr('Код пришёл в Telegram (чат «Telegram»). Не пересылайте его никому.', 'The code came to Telegram (the “Telegram” chat). Never forward it.')}</p>}
+          <div className="flex gap-2 mt-3">
+            <M3eButton variant="text" onClick={() => { setStep(0); setValue(''); }}>{tr('Отмена', 'Cancel')}</M3eButton>
+            <M3eButton variant="filled" disabled={!value.trim() || busy || undefined} onClick={() => void next()}>{step === 1 ? tr('Получить код', 'Get the code') : tr('Войти', 'Sign in')}</M3eButton>
+          </div>
+        </div>
+      )}
+    </Block>
   );
 }

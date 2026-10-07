@@ -43,6 +43,7 @@ const Recap = lazy(() => import('@/pages/Recap'));
 const Transfer = lazy(() => import('@/pages/Transfer'));
 const Game = lazy(() => import('@/pages/Game'));
 const Services = lazy(() => import('@/pages/Services'));
+const HelpDownloads = lazy(() => import('@/pages/HelpDownloads'));
 
 const qc = new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false, staleTime: 15_000 } } });
 
@@ -210,6 +211,7 @@ export default function App() {
               <Route path="/transfer" element={<RequireAuth><Transfer /></RequireAuth>} />
               <Route path="/game" element={<RequireAuth><Game /></RequireAuth>} />
               <Route path="/services" element={<RequireAuth><Services /></RequireAuth>} />
+              <Route path="/help-downloads" element={<RequireAuth><HelpDownloads /></RequireAuth>} />
               <Route path="/admin" element={<RequireAuth admin><Admin /></RequireAuth>} />
               <Route path="/admin/track/:id" element={<RequireAuth admin><AdminTrack /></RequireAuth>} />
               <Route path="*" element={<NotFound />} />

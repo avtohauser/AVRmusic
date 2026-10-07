@@ -111,7 +111,7 @@ import space.avthsr.music.api.uploadTracks
 import space.avthsr.music.api.wakeYtAccount
 import space.avthsr.music.api.ytAccounts
 
-private val adminTabs get() = listOf(tr("Обзор"), tr("Новости"), tr("Пользователи"), tr("Приглашения"), tr("Загрузки"), "YouTube", tr("Треки"), tr("Жалобы и Spotify"), tr("Сервисы"), tr("Ошибки"))
+private val adminTabs get() = listOf(tr("Обзор"), tr("Новости"), tr("Пользователи"), tr("Приглашения"), tr("Загрузки"), "YouTube", tr("Треки"), tr("Жалобы и Spotify"), tr("Сервисы"), tr("Сервер"), tr("Ачивки"), tr("Ошибки"))
 
 @Composable
 fun AdminScreen() {
@@ -133,6 +133,8 @@ fun AdminScreen() {
           6 -> AdminTracks()
           7 -> AdminReports()
           8 -> AdminServices()
+          9 -> AdminServer()
+          10 -> AdminBadges()
           else -> AdminErrors()
         }
       }
@@ -581,7 +583,7 @@ private fun AdminYoutube() {
         Row(verticalAlignment = Alignment.CenterVertically) {
           Dot(a.busy || a.coolingUntil == null)
           Spacer(Modifier.width(8.dp))
-          Text(a.label, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+          Text(a.label + (a.ownerName?.let { tr(" · дал(а) {}", it) } ?: ""), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
           Text(state, style = MaterialTheme.typography.labelMedium, color = if (a.coolingUntil != null) cs.error else cs.primary)
         }
         Text(

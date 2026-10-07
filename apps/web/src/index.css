@@ -432,3 +432,10 @@ m3e-nav-bar m3e-nav-item { min-width: 0; }
 }
 .topbar { transition: transform .28s cubic-bezier(.2,.8,.2,1); }
 .topbar[data-hidden] { transform: translateY(calc(-100% - 2px)); }
+
+/* badges circling around a friend's photo (each one keeps upright while the ring turns) */
+.badge-orbit { animation: badge-turn 28s linear infinite; }
+.badge-counter { animation: badge-turn 28s linear infinite reverse, badge-bob 1.8s ease-in-out infinite alternate; }
+@keyframes badge-turn { to { transform: rotate(360deg); } }
+@keyframes badge-bob { to { translate: 0 -4px; } }
+@media (prefers-reduced-motion: reduce) { .badge-orbit, .badge-counter { animation: none; } }

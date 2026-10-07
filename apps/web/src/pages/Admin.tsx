@@ -13,8 +13,10 @@ import { fmtBytes, fmtDurationLong, fmtMs, fmtNumber } from '@/lib/format';
 import { Cover } from '@/components/Cover';
 import { useDebounced } from '@/lib/hooks';
 import { AdminServices } from '@/components/AdminServices';
+import { ServerPanel } from '@/components/ServerPanel';
+import { AdminBadges } from '@/components/Badges';
 
-type Tab = 'overview' | 'upload' | 'import' | 'tracks' | 'users' | 'reports' | 'services';
+type Tab = 'overview' | 'server' | 'upload' | 'import' | 'tracks' | 'users' | 'reports' | 'services' | 'badges';
 
 export interface ImportJob { id: string; kind: 'url' | 'lyrics' | 'acquire' | 'canvas'; url?: string; mode?: 'audio' | 'video'; title?: string; status: 'queued' | 'running' | 'done' | 'error'; progress: number; log: string[]; imported: Track[]; error?: string; createdAt: string; stats?: Record<string, number> }
 interface Capabilities { ytdlp: boolean; ytdlpVersion: string | null; ffmpeg: boolean; musicDir: string | null; mediaDir: string; sources?: Array<{ name: string; label: string; enabled: boolean; ok: boolean; reason?: string }> }
@@ -23,7 +25,7 @@ export default function Admin() {
   const [params, setParams] = useSearchParams();
   const tab = (params.get('tab') as Tab) || 'overview';
   const t = useT();
-  const tabs: Array<[Tab, string, string]> = [['overview', t('overview'), 'bar_chart'], ['upload', t('upload'), 'upload'], ['import', 'Импорт по ссылке', 'link'], ['tracks', t('manageTracks'), 'queue_music'], ['users', t('users'), 'group'], ['reports', 'Жалобы и Spotify', 'flag'], ['services', 'Сервисы', 'hub']];
+  const tabs: Array<[Tab, string, string]> = [['overview', t('overview'), 'bar_chart'], ['server', 'Сервер', 'monitor_heart'], ['upload', t('upload'), 'upload'], ['import', 'Импорт по ссылке', 'link'], ['tracks', t('manageTracks'), 'queue_music'], ['users', t('users'), 'group'], ['reports', 'Жалобы и Spotify', 'flag'], ['services', 'Сервисы', 'hub'], ['badges', 'Ачивки', 'military_tech']];
   return (
     <div className="page pt-4">
       <h1 className="md-headline-lg emph mb-4">{t('admin')}</h1>
@@ -37,6 +39,8 @@ export default function Admin() {
       {tab === 'users' && <UsersTab />}
       {tab === 'reports' && <ReportsTab />}
       {tab === 'services' && <AdminServices />}
+      {tab === 'server' && <ServerPanel />}
+      {tab === 'badges' && <AdminBadges />}
     </div>
   );
 }
@@ -287,7 +291,7 @@ function YoutubeAccountsSection() {
           return (
             <div key={a.id} className="surface rounded-[18px] px-4 py-3 flex flex-wrap items-center gap-3">
               <div className="min-w-0 flex-1">
-                <div className="md-title-sm">{a.label} <span className={`md-label-md ${a.coolingUntil ? 'text-error' : a.busy ? 'text-primary' : 'muted'}`}>· {state}</span></div>
+                <div className="md-title-sm">{a.label}{(a as any).ownerName ? ` · дал(а) ${(a as any).ownerName}` : ''} <span className={`md-label-md ${a.coolingUntil ? 'text-error' : a.busy ? 'text-primary' : 'muted'}`}>· {state}</span></div>
                 <div className="md-body-sm muted">
                   {a.cookies} cookies{a.loggedIn ? ', вход есть' : ' — входа в аккаунт нет'} · скачано {a.ok}, ошибок {a.failed}
                   {a.lastUsedAt ? ` · последний раз ${new Date(a.lastUsedAt).toLocaleString()}` : ''}

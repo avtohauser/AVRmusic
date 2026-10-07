@@ -89,6 +89,11 @@ function ShareCard({ s }: { s: Share }) {
       if (c.url) action = { icon: 'open_in_new', label: tr('Билеты', 'Tickets'), run: () => window.open(c.url!, '_blank', 'noreferrer') };
       break;
     }
+    case 'badge': {
+      const b = s.item as { emoji: string; title: string; description: string; color: string };
+      what = tr('выдал(а) вам ачивку', 'gave you a badge'); title = `${b.emoji} ${b.title}`; sub = b.description; to = '/profile';
+      break;
+    }
     case 'report': { const t = s.item as Track; what = tr('пожаловался(ась) на трек', 'reported a track'); title = t.title; sub = t.artist.name; cover = t.coverUrl; to = '/admin?tab=reports'; break; }
   }
   const message = s.message && s.from && s.message !== 'invite' && s.kind !== 'report' ? s.message : '';

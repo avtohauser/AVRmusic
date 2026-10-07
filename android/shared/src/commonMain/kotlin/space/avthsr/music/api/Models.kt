@@ -395,6 +395,8 @@ data class YtAccount(
   val failed: Int = 0,
   val lastError: String? = null,
   val lastUsedAt: String? = null,
+  /** a friend who gave this spare account */
+  val ownerName: String? = null,
 )
 
 @Serializable

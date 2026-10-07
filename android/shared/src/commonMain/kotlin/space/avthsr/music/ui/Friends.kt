@@ -258,9 +258,11 @@ fun FriendScreen(id: String) {
       LazyColumn(Modifier.fillMaxSize(), contentPadding = screenPadding(top = 56.dp, bottom = 24.dp)) {
         item {
           Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            FriendAvatar(p.avatarUrl, 132.dp, listening = p.now?.playing == true)
+            // the badges the admin gave them circle around the photo
+            BadgeOrbit(p.badges, 132.dp) { FriendAvatar(p.avatarUrl, 132.dp, listening = p.now?.playing == true) }
             Spacer(Modifier.height(12.dp))
             FlowText(p.name, MaterialTheme.typography.headlineMedium, maxLines = 1)
+            if (p.badges.isNotEmpty()) { Spacer(Modifier.height(6.dp)); BadgeChips(p.badges) }
             Text(
               "@${p.username} · " + if (p.now?.playing == true) tr("слушает сейчас") else tr("был(а) {}", fmtAgo(p.lastSeenAt)),
               style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant, textAlign = TextAlign.Center,
@@ -479,6 +481,16 @@ private fun ShareCard(s: Share) {
         }
       }
       "digest" -> DigestCard(o)
+      "badge" -> o.decodeAs(space.avthsr.music.api.Badge.serializer())?.let { b ->
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          BadgeDot(b, 52.dp)
+          Spacer(Modifier.width(12.dp))
+          Column(Modifier.weight(1f)) {
+            Text(tr("Новая ачивка: {}", b.title), style = MaterialTheme.typography.titleMedium)
+            if (b.description.isNotBlank()) Text(b.description, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+          }
+        }
+      }
       "concert" -> {
         fun str(k: String) = (o[k] as? kotlinx.serialization.json.JsonPrimitive)?.content
         SharedItem(str("imageUrl"), "${str("artist").orEmpty()} — ${str("title").orEmpty()}", listOfNotNull(str("date"), str("place")).joinToString(" · ")) {

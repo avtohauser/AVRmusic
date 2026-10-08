@@ -19,7 +19,7 @@ import { lastSearchUrl } from '@/lib/nav';
 import { FlowText } from '@/components/FlowText';
 import { NewsBanner } from './NewsBanner';
 import { Wordmark } from './Brand';
-import { FriendPickerModal, JamBar, ReportModal } from './Social';
+import { FollowBar, FriendPickerModal, JamBar, ReportModal } from './Social';
 import { InviteBanner } from './InviteBanner';
 
 export function Layout() {
@@ -71,7 +71,7 @@ export function Layout() {
       <ContextMenu />
       <AddToPlaylistModal />
       <PlaylistEditorModal />
-      {user && <><JamBar /><FriendPickerModal /><ReportModal /><InviteBanner /></>}
+      {user && <><JamBar /><FollowBar /><FriendPickerModal /><ReportModal /><InviteBanner /></>}
     </div>
   );
 }

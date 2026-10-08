@@ -54,7 +54,7 @@ fun act(ok: String? = null, then: () -> Unit = {}, work: suspend () -> Unit) {
   App.scope.launch {
     runCatching { work() }
       .onSuccess { ok?.let { App.say(it) }; then() }
-      .onFailure { App.say(it.message ?: tr("Не получилось")) }
+      .onFailure { App.say(space.avthsr.music.api.friendlyError(it)) }
   }
 }
 

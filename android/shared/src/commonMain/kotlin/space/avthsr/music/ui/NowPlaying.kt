@@ -211,7 +211,9 @@ private fun NowPlayingContent(deck: Deck, onClose: () -> Unit) {
         IconButton(onClick = onClose) { Ico(Res.drawable.ic_expand_more, tr("Свернуть")) }
         Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
           val v = jam
+          val along by space.avthsr.music.player.Follow.friend.collectAsStateWithLifecycle()
           if (v != null) JamBanner(v) { jamOpen = true }
+          else if (along != null) FollowChip(along!!.displayName) { space.avthsr.music.player.Follow.stop() }
           else {
             Text(if (inWave) tr("Моя волна") else tr("Сейчас играет"), style = MaterialTheme.typography.labelLarge, color = cs.onSurfaceVariant)
             if (inWave) Text(Queue.modeLabel(Queue.waveMode.value), style = MaterialTheme.typography.labelSmall, color = cs.primary)

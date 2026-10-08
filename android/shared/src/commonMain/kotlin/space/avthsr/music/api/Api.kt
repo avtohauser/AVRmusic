@@ -103,6 +103,25 @@ object Api {
     return r.status.value to r.bodyAsText()
   }
 
+  /**
+   * A dropped connection (mobile internet, a VPN reconnecting — iPhones then say "A TLS error caused the
+   * secure connection to fail") is tried again twice for reads; writes are not repeated by themselves.
+   */
+  private suspend fun <T> withRetries(method: String, block: suspend () -> T): T {
+    var attempt = 0
+    while (true) {
+      try {
+        return block()
+      } catch (e: kotlinx.coroutines.CancellationException) {
+        throw e
+      } catch (e: Exception) {
+        if (method != "GET" || attempt >= 2 || !isNetworkError(e)) throw e
+        kotlinx.coroutines.delay(if (attempt == 0) 600L else 2000L)
+        attempt++
+      }
+    }
+  }
+
   private val refreshLock = Mutex()
 
   private suspend fun refresh(failedToken: String): Boolean = refreshLock.withLock {
@@ -120,7 +139,7 @@ object Api {
 
   suspend fun call(method: String, path: String, body: String? = null): String {
     val token = _session.value?.accessToken
-    var r = raw(method, path, body, token)
+    var r = withRetries(method) { raw(method, path, body, token) }
     if (r.first == 401 && token != null && refresh(token)) r = raw(method, path, body, _session.value?.accessToken)
     return check(r)
   }
@@ -275,4 +294,21 @@ object Api {
   /** Asks the server to fetch a track / album / discography from the catalogue. */
   suspend fun acquire(kind: String, id: Long): AcquireResult =
     post("/api/catalog/acquire", buildJsonObject { put("kind", kind); put("id", id) }.toString())
+}
+
+private val NETWORK = Regex(
+  "TLS|SSL|NSURLErrorDomain|Code=-1(00[1-9]|20[0-9])|Unable to resolve|UnknownHost|timed? ?out|Timeout|Connection (reset|refused|closed|abort)|" +
+    "Network is unreachable|failed to connect|Software caused connection abort|unexpected end of stream|Broken pipe|EOF",
+  RegexOption.IGNORE_CASE,
+)
+
+/** A failure of the connection itself (not an answer of the server). */
+fun isNetworkError(e: Throwable): Boolean =
+  e !is ApiException && NETWORK.containsMatchIn("${e::class.simpleName} ${e.message} ${e.cause?.message ?: ""}")
+
+/** What to tell the listener about a failure: the server's own words, or plain ones for a lost connection. */
+fun friendlyError(e: Throwable): String = when {
+  e is ApiException -> e.message ?: tr("Не получилось")
+  isNetworkError(e) -> tr("Нет связи с сервером. Проверьте интернет или VPN и попробуйте ещё раз.")
+  else -> e.message?.takeIf { it.length < 160 } ?: tr("Не получилось")
 }

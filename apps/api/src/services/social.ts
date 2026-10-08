@@ -16,9 +16,38 @@ export function friendRef(db: DB, userId: string): FriendRef | null {
 interface Now { trackId: string | null; positionMs: number; playing: boolean; at: number }
 const now = new Map<string, Now>();
 
+/** Changes of what someone plays (a new song, play / pause, a jump in it): friends listening along wait for them. */
+const nowVersion = new Map<string, number>();
+const nowWaiters = new Map<string, Array<() => void>>();
+
 /** The apps tell the server what they play (on every change and every 15 s while playing). */
 export function setNowPlaying(userId: string, trackId: string | null, positionMs: number, playing: boolean) {
-  now.set(userId, { trackId, positionMs: Math.max(0, positionMs), playing, at: Date.now() });
+  const before = now.get(userId);
+  const t = Date.now();
+  now.set(userId, { trackId, positionMs: Math.max(0, positionMs), playing, at: t });
+  const expected = before ? (before.playing ? before.positionMs + (t - before.at) : before.positionMs) : 0;
+  const changed = !before || before.trackId !== trackId || before.playing !== playing || Math.abs(expected - positionMs) > 4000;
+  if (!changed) return;
+  nowVersion.set(userId, (nowVersion.get(userId) ?? 0) + 1);
+  const list = nowWaiters.get(userId) ?? [];
+  nowWaiters.delete(userId);
+  list.forEach((w) => w());
+}
+
+export const nowVersionOf = (userId: string) => nowVersion.get(userId) ?? 0;
+
+/** Waits (up to [ms]) until what [userId] plays changes past [version]. */
+export function waitNow(userId: string, version: number, ms: number): Promise<void> {
+  if (nowVersionOf(userId) !== version) return Promise.resolve();
+  return new Promise((resolve) => {
+    const done = () => { clearTimeout(timer); resolve(); };
+    const timer = setTimeout(() => {
+      const list = nowWaiters.get(userId);
+      if (list) nowWaiters.set(userId, list.filter((w) => w !== done));
+      resolve();
+    }, ms);
+    nowWaiters.set(userId, [...(nowWaiters.get(userId) ?? []), done]);
+  });
 }
 
 /** How many listen right now (their apps spoke in the last 90 s, playing). */
@@ -34,7 +63,9 @@ export function nowPlaying(db: DB, userId: string, viewerId?: string): { track: 
   const n = now.get(userId);
   if (!n || !n.trackId || Date.now() - n.at > 90_000) return null;
   if (!n.playing && Date.now() - n.at > 30_000) return null;
-  const track = getTrack(db, n.trackId, viewerId);
+  // a catalogue song the friend plays straight away: theirs once it is in the library
+  const id = n.trackId.startsWith('dz:') ? (db.prepare('SELECT id FROM tracks WHERE deezer_id = ?').get(Number(n.trackId.slice(3))) as any)?.id : n.trackId;
+  const track = id ? getTrack(db, id, viewerId) : null;
   if (!track) return null;
   const positionMs = n.playing ? n.positionMs + (Date.now() - n.at) : n.positionMs;
   return { track, positionMs, playing: n.playing, at: new Date(n.at).toISOString() };

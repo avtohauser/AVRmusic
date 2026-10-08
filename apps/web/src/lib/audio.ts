@@ -10,7 +10,7 @@ import { api, streamUrl } from './api';
 import { offlineSrc } from './offline';
 import { inNativeApp, nativeBridge, onNative } from './native';
 import { NativeAudio } from './nativeAudio';
-import { aliases } from './instant';
+import { aliases, broken, streamFailed } from './instant';
 
 let audio: HTMLAudioElement | null = null;
 let currentId: string | null = null;
@@ -68,7 +68,7 @@ function bind(a: HTMLAudioElement) {
   a.addEventListener('playing', () => { s()._setLoading(false); lastTick = performance.now(); if (!s().playing) s()._setPlaying(true); });
   a.addEventListener('pause', () => { lastTick = 0; if (s().playing && !a.ended) s()._setPlaying(false); });
   a.addEventListener('ended', () => { flush(); s().next(true); });
-  a.addEventListener('error', () => { s()._setLoading(false); });
+  a.addEventListener('error', () => { s()._setLoading(false); if (currentId?.startsWith('dz:')) streamFailed(currentId); });
 }
 
 function flush() {
@@ -150,7 +150,7 @@ export function initAudioEngine() {
     const cur = st.queue[st.index] ?? null;
     // Track change or restart
     // a catalogue song that became the library's track while playing: the same audio, keep going
-    if (cur && currentId && cur.id !== currentId && aliases.get(currentId) === cur.id) currentId = cur.id;
+    if (cur && currentId && cur.id !== currentId && aliases.get(currentId) === cur.id && !broken.delete(currentId)) currentId = cur.id;
     if (cur && (cur.id !== currentId || st.nonce !== currentNonce)) {
       if (cur.id !== currentId) {
         flush(); currentId = cur.id; switching = true;

@@ -44,6 +44,20 @@ object Instant {
   }
 
   private val following = mutableSetOf<String>()
+  /** catalogue songs that failed to stream: they start again by themselves once they are on the server */
+  private val retryWhenReady = mutableSetOf<String>()
+
+  /**
+   * The player could not play [id]. For a catalogue song that is still being fetched that is no dead end:
+   * it waits for the song to reach the server and plays it then. True when handled (no error to show).
+   */
+  fun playbackFailed(id: String?): Boolean {
+    if (id == null || !id.startsWith("dz:")) return false
+    retryWhenReady.add(id)
+    App.say(tr("Трек ещё скачивается на сервер — включу, как только будет готов"))
+    follow(id)
+    return true
+  }
 
   private fun follow(id: String) {
     if (!following.add(id)) return
@@ -58,10 +72,16 @@ object Instant {
           Queue.alias(id, t)
           PlayerConn.refresh()
           following.remove(id)
+          // it failed to stream: now that it is here, it plays (if it is still the one on)
+          if (retryWhenReady.remove(id) && PlayerConn.state.value.track?.let { it.id == id || it.id == t.id } == true) PlayerConn.retryCurrent()
           return@launch
         }
         // nobody is fetching it (no rights, or it failed) and it is no longer queued: stop asking
-        if (st?.status == "failed" || PlayerConn.state.value.queue.none { it.id == id || Queue.track(id)?.id == it.id }) { following.remove(id); return@launch }
+        if (st?.status == "failed" || PlayerConn.state.value.queue.none { it.id == id || Queue.track(id)?.id == it.id }) {
+          if (retryWhenReady.remove(id) && st?.status == "failed") App.say(tr("Этот трек не удалось найти — попробуйте другую версию"))
+          following.remove(id)
+          return@launch
+        }
       }
       following.remove(id)
     }

@@ -160,12 +160,22 @@ object PlayerConn {
 
   fun position(): Long = engine?.positionMs ?: 0L
 
+  /** The current song again from where it failed (a catalogue song that has just reached the server). */
+  fun retryCurrent() = withController { c ->
+    val i = c.index
+    if (i >= 0) c.seekToDefault(i)
+    c.prepare()
+    c.play()
+  }
+
   /** The queue's tracks read again (a catalogue song became the library's track). */
   fun refresh() { if (engine != null) sync(true) }
 
   /** Plays a list starting at [index]; [context] says where it comes from (for the stats and the wave). */
   fun play(tracks: List<Track>, index: Int = 0, context: String? = null, shuffle: Boolean = false) {
     if (tracks.isEmpty()) return
+    // listening along with a friend: something of the listener's own ends it
+    if (context != Follow.CONTEXT) Follow.stop()
     // listening together: everyone gets it
     if (Jam.active) return Jam.replace(tracks, if (shuffle) Random.nextInt(tracks.size) else index)
     Queue.remember(tracks)

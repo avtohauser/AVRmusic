@@ -305,3 +305,13 @@ suspend fun Api.tgProfileCode(code: String): TgCodeReply = post("/api/me/tg-prof
 suspend fun Api.tgProfilePassword(password: String) { call("POST", "/api/me/tg-profile/password", buildJsonObject { put("password", password) }.toString()) }
 suspend fun Api.tgProfileEnabled(on: Boolean) { call("PUT", "/api/me/tg-profile", buildJsonObject { put("enabled", on) }.toString()) }
 suspend fun Api.tgProfileUnlink() { call("DELETE", "/api/me/tg-profile") }
+
+/* ---------- is a library album whole? ---------- */
+
+@Serializable
+data class MissingTrack(val id: Long, val title: String = "")
+
+@Serializable
+data class Completeness(val checkable: Boolean = false, val total: Int = 0, val have: Int = 0, val missing: List<MissingTrack> = emptyList(), val deezerId: Long? = null)
+
+suspend fun Api.albumCompleteness(id: String): Completeness = get("/api/albums/${enc(id)}/completeness")

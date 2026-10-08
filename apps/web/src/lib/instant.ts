@@ -9,6 +9,16 @@ import { trNow } from './social';
 
 /** a catalogue id ("dz:…") that became a library track while playing */
 export const aliases = new Map<string, string>();
+/** catalogue songs whose straight-away stream failed: they start over once the server has them */
+export const broken = new Set<string>();
+
+/** The engine couldn't play a catalogue song (its source refused): wait for the server's copy instead. */
+export function streamFailed(id: string) {
+  if (broken.has(id)) return;
+  broken.add(id);
+  useUI.getState().toast(trNow('Трек ещё скачивается на сервер — включу, как только будет готов', 'The track is still being fetched — it will start as soon as it is ready'));
+  watch();
+}
 
 /** a library artist's page, or a catalogue search for a song still on its way to the server */
 export const artistHref = (a: { id: string; name: string }) => (a.id ? `/artist/${a.id}` : `/search?scope=catalog&q=${encodeURIComponent(a.name)}`);
@@ -51,7 +61,10 @@ function watch() {
         aliases.set(id, s.track.id);
         const real = s.track;
         usePlayer.setState((st) => ({ queue: st.queue.map((q) => (q.id === id ? real : q)), original: st.original.map((q) => (q.id === id ? real : q)) }));
-      } else if (s?.status === 'failed') { clearInterval(timer); following.delete(id); }
+      } else if (s?.status === 'failed') {
+        clearInterval(timer); following.delete(id);
+        if (broken.delete(id)) useUI.getState().toast(trNow('Этот трек не удалось найти — попробуйте другую версию', 'Could not find this track — try another version'), 'error');
+      }
     }, 5000);
   }
 }

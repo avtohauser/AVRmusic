@@ -11,6 +11,8 @@ export interface Want {
   /** Every other artist credited on the recording (may be wider than `featuring`). */
   credits?: string[];
   album?: string | null;
+  /** the year the recording first came out (an upload re-released much later may be an edited one) */
+  year?: number | null;
 }
 
 export interface SourceCandidate {

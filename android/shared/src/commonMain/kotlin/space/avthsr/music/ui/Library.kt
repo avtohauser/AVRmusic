@@ -38,6 +38,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -305,6 +306,7 @@ fun AlbumScreen(id: String) {
             IconButton(onClick = { share("/album/${a.id}", "${a.artist.name} — ${a.title}") }) { Ico(Res.drawable.ic_share, tr("Поделиться")) }
             if (Api.user?.isAdmin == true) AlbumAdminMenu(a) { loader.reload() }
           }
+          AlbumCheck(a.id) { loader.reload() }
         }
         itemsIndexed(a.tracks) { i, t ->
           TrackRow(
@@ -484,4 +486,43 @@ fun ownersLine(names: List<String>): String = when (names.size) {
   0 -> ""
   1 -> names[0]
   else -> names.dropLast(1).joinToString(", ") + tr(" и ") + names.last()
+}
+
+/** Is the album whole on the server? A card with what is missing and a button to fetch it, or a check button. */
+@Composable
+private fun AlbumCheck(albumId: String, onFetched: () -> Unit) {
+  var checked by remember(albumId) { mutableStateOf<space.avthsr.music.api.Completeness?>(null) }
+  var busy by remember { mutableStateOf(false) }
+  // looked at once by itself: an incomplete album says so without being asked
+  LaunchedEffect(albumId) { checked = runCatching { Api.albumCompleteness(albumId) }.getOrNull() }
+  val c = checked
+  val cs = MaterialTheme.colorScheme
+  if (c == null || !c.checkable) return
+  if (c.missing.isEmpty()) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+      TextButton(enabled = !busy, onClick = {
+        busy = true
+        App.scope.launch {
+          runCatching { Api.albumCompleteness(albumId) }
+            .onSuccess { checked = it; App.say(if (it.missing.isEmpty()) tr("Альбом целый: все {} на месте", tracksWord(it.total)) else tr("Не хватает: {}", tracksWord(it.missing.size))) }
+            .onFailure { App.say(space.avthsr.music.api.friendlyError(it)) }
+          busy = false
+        }
+      }) { Ico(Res.drawable.ic_check, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(tr("Проверить целостность")) }
+    }
+    return
+  }
+  Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp).fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(cs.errorContainer).padding(16.dp)) {
+    Text(tr("На сервере {} из {} треков", c.have, c.total), style = MaterialTheme.typography.titleMedium, color = cs.onErrorContainer)
+    Text(
+      tr("Не хватает: {}", c.missing.take(6).joinToString(", ") { it.title } + if (c.missing.size > 6) "…" else ""),
+      style = MaterialTheme.typography.bodySmall, color = cs.onErrorContainer.copy(alpha = 0.85f), maxLines = 3,
+    )
+    Spacer(Modifier.height(10.dp))
+    c.deezerId?.let { did ->
+      Button(onClick = { acquire("album", did, tr("Недостающие треки")) { ok -> if (ok) onFetched() } }, shapes = ButtonDefaults.shapes()) {
+        Ico(Res.drawable.ic_download, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(tr("Докачать альбом"))
+      }
+    }
+  }
 }

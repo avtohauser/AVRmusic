@@ -1,7 +1,7 @@
 // A friend's page: what they play now, how close your tastes are, their month and playlists.
 import { useNavigate, useParams } from 'react-router-dom';
 import { M3eButton } from '@/md';
-import { usePlayer } from '@/stores/player';
+import { startFollow, stopFollow, useFollow } from '@/lib/follow';
 import { useI18n } from '@/lib/i18n';
 import { fmtNumber } from '@/lib/format';
 import { joinJam } from '@/lib/jam';
@@ -22,9 +22,11 @@ export default function Friend() {
   const tr = useTr();
   const lang = useI18n((s) => s.lang);
   const nav = useNavigate();
+  const following = useFollow((s) => s.friend?.id);
   if (error) return <div className="page pt-10"><EmptyState icon="error" title={(error as any).message} /></div>;
   if (isLoading || !f) return <div className="page pt-8"><TrackListSkeleton /></div>;
   const c = f.compat;
+  const along = following === f.id;
   return (
     <div className="page pt-4">
       <div className="flex items-center gap-5 mb-6">
@@ -49,7 +51,10 @@ export default function Friend() {
             <div className="md-title-md emph line-1">{f.now.track.title}</div>
             <div className="md-body-sm muted line-1">{f.now.track.artist.name}</div>
           </div>
-          <M3eButton variant="filled" onClick={() => usePlayer.getState().playTrack(f.now!.track, `friend:${f.id}`)}><m3e-icon variant="rounded" slot="icon" name="play_arrow" filled />{tr('Тоже', 'Me too')}</M3eButton>
+          {along
+            ? <M3eButton variant="tonal" onClick={() => stopFollow()}><m3e-icon variant="rounded" slot="icon" name="stop" filled />{tr('Хватит', 'Stop')}</M3eButton>
+            : <M3eButton variant="filled" title={tr('Играть то же, что у друга, и переключаться вслед за ним', 'Play what your friend plays and switch along with them')}
+                onClick={() => void startFollow({ id: f.id, displayName: f.displayName, avatarUrl: f.avatarUrl })}><m3e-icon variant="rounded" slot="icon" name="headphones" filled />{tr('Слушать с ним', 'Listen along')}</M3eButton>}
           <M3eButton variant="text" onClick={() => sendToFriends('track', f.now!.track.id, f.now!.track.title)}><m3e-icon variant="rounded" slot="icon" name="send" /></M3eButton>
         </div>
       )}

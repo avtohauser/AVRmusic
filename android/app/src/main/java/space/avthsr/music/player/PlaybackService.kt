@@ -402,6 +402,8 @@ class PlaybackService : MediaLibraryService() {
     }
 
     override fun onPlayerError(error: PlaybackException) {
+      // a catalogue song still on its way to the server waits for it and plays then
+      if (Instant.playbackFailed(active.currentMediaItem?.mediaId)) return
       App.say(tr("Не удалось воспроизвести трек ({})", error.errorCodeName))
     }
   }

@@ -9,7 +9,7 @@ import { newId } from '../lib/util.js';
 import { enqueue } from '../services/jobs.js';
 import { ALBUM_FROM, ALBUM_SELECT, avatarUrl, getTrack, mapAlbumSummary, mapArtistSummary } from '../services/library.js';
 import { PLAYLIST_FROM, PLAYLIST_SELECT, mapPlaylistSummary } from '../services/playlists.js';
-import { applyJam, friendRef, getJam, jamOf, jamView, joinJam, leaveJam, listJams, nowPlaying, setNowPlaying, startJam, waitJam, type JamOp } from '../services/social.js';
+import { applyJam, friendRef, getJam, jamOf, jamView, joinJam, leaveJam, listJams, nowPlaying, nowVersionOf, setNowPlaying, startJam, waitJam, waitNow, type JamOp } from '../services/social.js';
 import { compatibility, profileStats, recap } from '../services/stats.js';
 import { getGame } from '../services/game.js';
 import { badgesOf } from '../services/badges.js';
@@ -51,6 +51,15 @@ export default async function socialRoutes(app: FastifyInstance) {
       compat: id === req.userId ? null : compatibility(db, req.userId!, id, req.userId!),
       playlists,
     };
+  });
+
+  /** Listening along: what a friend plays now; with `v` it waits (up to 25 s) until that changes. */
+  app.get('/api/users/:id/now', auth, async (req) => {
+    const id = (req.params as any).id as string;
+    if (!userRow(id)) throw notFound('Пользователь не найден');
+    const v = Number((req.query as any)?.v);
+    if (Number.isFinite(v)) await waitNow(id, v, 25_000);
+    return { version: nowVersionOf(id), now: nowPlaying(db, id, req.userId!), serverNow: Date.now() };
   });
 
   app.get('/api/users/:id/compat', auth, async (req) => compatibility(db, req.userId!, (req.params as any).id, req.userId!));

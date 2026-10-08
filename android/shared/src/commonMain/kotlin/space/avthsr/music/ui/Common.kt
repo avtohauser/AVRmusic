@@ -223,7 +223,7 @@ fun <T> rememberLoad(vararg keys: Any?, load: suspend () -> T): Loader<T> {
     } catch (e: CancellationException) {
       throw e
     } catch (e: Exception) {
-      if (state is Load.Ok) state else Load.Err(e.message ?: tr("Не удалось загрузить"))
+      if (state is Load.Ok) state else Load.Err(space.avthsr.music.api.friendlyError(e))
     }
   }
   return Loader(state) { version++ }

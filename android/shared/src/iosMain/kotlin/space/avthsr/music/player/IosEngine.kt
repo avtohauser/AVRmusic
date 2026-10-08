@@ -441,7 +441,7 @@ class IosEngine : PlayerEngine {
     val item = player.currentItem
     if (item != null && item.status == AVPlayerItemStatusFailed && failedItem != item) {
       failedItem = item
-      App.say(tr("Не удалось воспроизвести трек ({})", item.error?.localizedDescription ?: "AVPlayer"))
+      if (!Instant.playbackFailed(currentId)) App.say(tr("Не удалось воспроизвести трек ({})", item.error?.localizedDescription ?: "AVPlayer"))
     }
     val playing = isPlaying
     if (playing != wasPlaying) {

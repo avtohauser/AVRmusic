@@ -35,7 +35,9 @@ android {
 
   buildTypes {
     release {
-      minifyEnabled false
+      // R8: Compose and the other libraries run much faster optimized (the app's own code is kept as is)
+      minifyEnabled true
+      proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
       if (keystoreFile) signingConfig signingConfigs.release
     }
   }

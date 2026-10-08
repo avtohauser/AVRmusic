@@ -156,7 +156,10 @@ export async function searchCatalog(db: DB, q: string, limit = 10): Promise<Cata
     dz(db, `/search/artist?q=${enc}&limit=${limit}`, TTL_MS.search).catch(() => ({ data: [] })),
     dz(db, `/search/album?q=${enc}&limit=${limit}`, TTL_MS.search).catch(() => ({ data: [] })),
   ]);
-  const out: CatalogSearchResult = { ...empty, tracks: (tr.data ?? []).map((t: any) => mapTrack(l, t)), artists: (ar.data ?? []).map((a: any) => mapArtist(l, a)), albums: (al.data ?? []).map((a: any) => mapAlbum(l, a)) };
+  const out: CatalogSearchResult = {
+    ...empty, tracks: preferOriginal((tr.data ?? []).map((t: any) => mapTrack(l, t))), artists: (ar.data ?? []).map((a: any) => mapArtist(l, a)),
+    albums: preferOriginal((al.data ?? []).map((a: any) => mapAlbum(l, a))),
+  };
   const lq = q.toLowerCase();
   const a = out.artists.find((x) => x.name.toLowerCase() === lq) ?? (out.artists[0] && out.artists[0].name.toLowerCase().startsWith(lq) ? out.artists[0] : undefined);
   if (a) out.top = { kind: 'artist', item: a };
@@ -164,6 +167,26 @@ export async function searchCatalog(db: DB, q: string, limit = 10): Promise<Cata
   else if (out.albums[0]) out.top = { kind: 'album', item: out.albums[0] };
   else if (out.artists[0]) out.top = { kind: 'artist', item: out.artists[0] };
   return out;
+}
+
+/**
+ * One release per title: when the catalogue has both the explicit original and an edited ("clean") one —
+ * labels have been putting out edited versions since March 2026 — the original stays, the edit goes.
+ */
+export function preferOriginal<T extends { title: string; explicit?: boolean; type?: string; releaseDate?: string | null; durationMs?: number; artist?: { name: string } }>(list: T[]): T[] {
+  const marked = (y: T) => /(clean|edited|censored|без мата|цензур)/i.test(y.title);
+  const key = (x: T) => `${nameKey(x.title.replace(/[([](clean|edited|censored|радио версия|без мата)[^)\]]*[)\]]/gi, ''))}|${x.type ?? ''}|${nameKey(x.artist?.name ?? '')}|${x.durationMs ? Math.round(x.durationMs / 10_000) : ''}`;
+  const groups = new Map<string, T[]>();
+  for (const x of list) groups.set(key(x), [...(groups.get(key(x)) ?? []), x]);
+  const drop = new Set<T>();
+  for (const g of groups.values()) {
+    // only an original next to an edit is collapsed: two real releases of one name both stay
+    if (g.length < 2 || (g.every((y) => !!y.explicit === !!g[0].explicit) && !g.some(marked))) continue;
+    const score = (y: T) => (y.explicit ? 2 : 0) - (marked(y) ? 2 : 0);
+    const best = [...g].sort((a, b) => score(b) - score(a) || (a.releaseDate ?? '9').localeCompare(b.releaseDate ?? '9'))[0];
+    g.forEach((y) => { if (y !== best) drop.add(y); });
+  }
+  return list.filter((x) => !drop.has(x));
 }
 
 export async function catalogArtist(db: DB, id: number): Promise<CatalogArtistPage> {
@@ -175,7 +198,7 @@ export async function catalogArtist(db: DB, id: number): Promise<CatalogArtistPa
     dz(db, `/artist/${id}/related?limit=12`).catch(() => ({ data: [] })),
     dz(db, `/search/track?q=${encodeURIComponent(`"${a.name}"`)}&limit=40`, TTL_MS.search).catch(() => ({ data: [] })),
   ]);
-  const all = (albums.data ?? []).map((x: any) => mapAlbum(l, x, a)).sort((x: CatalogAlbum, y: CatalogAlbum) => (y.releaseDate ?? '').localeCompare(x.releaseDate ?? ''));
+  const all = preferOriginal((albums.data ?? []).map((x: any) => mapAlbum(l, x, a)) as CatalogAlbum[]).sort((x: CatalogAlbum, y: CatalogAlbum) => (y.releaseDate ?? '').localeCompare(x.releaseDate ?? ''));
   const nameLc = a.name.toLowerCase();
   const appearsOn = (appears.data ?? [])
     .filter((t: any) => t.artist?.id !== a.id && (t.title ?? '').toLowerCase().includes(nameLc))

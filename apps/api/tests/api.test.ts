@@ -787,3 +787,49 @@ test('badges, the servers panel, spare YouTube accounts from friends, loved arti
   assert.equal((await app.inject({ method: 'GET', url: '/api/admin/autofetch', headers: h })).json().next[0], someArtist.name);
   assert.equal((await app.inject({ method: 'PUT', url: '/api/admin/autofetch', headers: h, payload: { on: false } })).json().on, false);
 });
+
+test('listening along with a friend, album completeness, originals over edited versions', async () => {
+  const h = { authorization: `Bearer ${access}` };
+  const hp = { authorization: `Bearer ${(await app.inject({ method: 'POST', url: '/api/auth/login', payload: { login: 'petya', password: 'secret1' } })).json().accessToken}` };
+  const petya = (await app.inject({ method: 'GET', url: '/api/auth/me', headers: hp })).json().id;
+  const [a, b] = (app.db.prepare('SELECT id FROM tracks LIMIT 2').all() as any[]).map((r) => r.id);
+
+  // the friend plays a song; a long poll answers as soon as they switch to another one
+  await app.inject({ method: 'POST', url: '/api/me/now', headers: hp, payload: { trackId: a, positionMs: 1000, playing: true } });
+  const first = (await app.inject({ method: 'GET', url: `/api/users/${petya}/now`, headers: h })).json();
+  assert.equal(first.now.track.id, a);
+  const waiting = app.inject({ method: 'GET', url: `/api/users/${petya}/now?v=${first.version}`, headers: h });
+  await new Promise((r) => setTimeout(r, 50));
+  // the same song a few seconds on is no change; another song is
+  await app.inject({ method: 'POST', url: '/api/me/now', headers: hp, payload: { trackId: a, positionMs: 1050, playing: true } });
+  await app.inject({ method: 'POST', url: '/api/me/now', headers: hp, payload: { trackId: b, positionMs: 0, playing: true } });
+  const next = (await waiting).json();
+  assert.equal(next.now.track.id, b);
+  assert.ok(next.version > first.version);
+
+  // an album without a catalogue link can't be checked; one with it lists what is missing
+  const artistId = (app.db.prepare('SELECT id FROM artists LIMIT 1').get() as any).id;
+  app.db.prepare("INSERT INTO albums (id, artist_id, title, title_key) VALUES ('alb-check', ?, 'Check', 'check-album')").run(artistId);
+  const album = { id: 'alb-check' };
+  assert.equal((await app.inject({ method: 'GET', url: `/api/albums/${album.id}/completeness`, headers: h })).json().checkable, false);
+
+  // edited versions: the original wins when both are there
+  const { preferOriginal } = await import('../src/services/catalog.js');
+  const list = [
+    { title: 'Опиум для никого', explicit: false, type: 'single', releaseDate: '2026-03-10', artist: { name: 'Агата Кристи' } },
+    { title: 'Опиум для никого', explicit: true, type: 'single', releaseDate: '1995-01-01', artist: { name: 'Агата Кристи' } },
+    { title: 'Intro', explicit: false, type: 'single', releaseDate: '2020-01-01', artist: { name: 'X' } },
+    { title: 'Intro', explicit: false, type: 'single', releaseDate: '2021-01-01', artist: { name: 'X' } },
+  ];
+  const kept = preferOriginal(list);
+  assert.equal(kept.filter((x) => x.title === 'Опиум для никого').length, 1);
+  assert.equal(kept.find((x) => x.title === 'Опиум для никого')!.explicit, true);
+  assert.equal(kept.filter((x) => x.title === 'Intro').length, 2, 'two real releases of one name both stay');
+  const { scoreCandidate } = await import('../src/services/acquire.js');
+  const want = { title: 'Song', artist: 'Band', durationSec: 200, year: 2019 };
+  const orig = scoreCandidate({ title: 'Band - Song', duration: 200, channel: 'Band - Topic', source: 'youtube' }, want);
+  const clean = scoreCandidate({ title: 'Band - Song (Clean)', duration: 200, channel: 'Band - Topic', source: 'youtube' }, want);
+  const rereleased = scoreCandidate({ title: 'Band - Song', duration: 200, channel: 'Band - Topic', source: 'youtube', description: 'Provided to YouTube by X\n\nSong · Band\n\nSong\n\nReleased on: 2026-04-01' }, want);
+  assert.ok(orig > clean, `${orig} > ${clean}`);
+  assert.ok(orig > rereleased, `${orig} > ${rereleased}`);
+});

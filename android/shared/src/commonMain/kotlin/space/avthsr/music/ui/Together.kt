@@ -167,3 +167,17 @@ private fun SuggestionRow(s: JamSuggestion) {
     }
   }
 }
+
+/** Listening along with a friend: their name under the player's title; a tap stops it. */
+@Composable
+fun FollowChip(name: String, onStop: () -> Unit) {
+  val cs = MaterialTheme.colorScheme
+  Row(
+    Modifier.clip(CircleShape).background(cs.secondaryContainer).clickable(onClick = onStop).padding(horizontal = 12.dp, vertical = 5.dp),
+    verticalAlignment = Alignment.CenterVertically,
+  ) {
+    Ico(Res.drawable.ic_headphones, null, Modifier.size(16.dp), cs.onSecondaryContainer)
+    Spacer(Modifier.width(6.dp))
+    Text(tr("С {} · выйти", name), style = MaterialTheme.typography.labelLarge, color = cs.onSecondaryContainer, maxLines = 1, overflow = TextOverflow.Ellipsis)
+  }
+}

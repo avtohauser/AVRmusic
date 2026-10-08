@@ -282,7 +282,7 @@ fun FriendScreen(id: String) {
             }
           }
         }
-        p.now?.let { n -> item { NowCard(p.name, n, p.jamId) } }
+        p.now?.let { n -> item { NowCard(space.avthsr.music.api.FriendRef(p.id, p.name, p.avatarUrl), n, p.jamId) } }
         p.compat?.let { c -> item { CompatCard(p.name, c) } }
         item {
           Spacer(Modifier.height(8.dp))
@@ -305,10 +305,13 @@ fun FriendScreen(id: String) {
   }
 }
 
-/** What a friend plays right now: join them at the same moment, or listen together. */
+/** What a friend plays right now: listen along with them (this phone follows what they play). */
 @Composable
-private fun NowCard(name: String, n: FriendNow, jamId: String?) {
+private fun NowCard(friend: space.avthsr.music.api.FriendRef, n: FriendNow, jamId: String?) {
   val cs = MaterialTheme.colorScheme
+  val name = friend.displayName
+  val following by space.avthsr.music.player.Follow.friend.collectAsStateWithLifecycle()
+  val on = following?.id == friend.id
   Column(
     Modifier.padding(16.dp).fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(cs.secondaryContainer).padding(16.dp),
   ) {
@@ -321,15 +324,16 @@ private fun NowCard(name: String, n: FriendNow, jamId: String?) {
         Text(n.track.title, style = MaterialTheme.typography.titleMedium, color = cs.onSecondaryContainer, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(n.track.artists, style = MaterialTheme.typography.bodyMedium, color = cs.onSecondaryContainer.copy(alpha = 0.8f), maxLines = 1, overflow = TextOverflow.Ellipsis)
       }
-      MorphPlayButton(false, {
-        // the same track from the same moment
-        PlayerConn.play(listOf(n.track), 0, "friend-now")
-        if (n.positionMs > 3000) PlayerConn.seek(n.positionMs)
-      }, 52.dp)
+      // listening along: the same song at the same moment, and every next one they switch to
+      MorphPlayButton(on, { if (on) space.avthsr.music.player.Follow.stop() else space.avthsr.music.player.Follow.start(friend) }, 52.dp)
     }
     if (jamId == null) {
       Spacer(Modifier.height(8.dp))
-      Text(tr("Нажмите ▶, чтобы включить с того же места"), style = MaterialTheme.typography.bodySmall, color = cs.onSecondaryContainer.copy(alpha = 0.7f))
+      Text(
+        if (on) tr("Вы слушаете вместе: включается всё, что включает {}. Своё включите — и вы снова сами по себе.", name)
+        else tr("Нажмите ▶ — и будете слушать вместе: то же место и следующие треки, которые включит {}", name),
+        style = MaterialTheme.typography.bodySmall, color = cs.onSecondaryContainer.copy(alpha = 0.75f),
+      )
     }
   }
 }

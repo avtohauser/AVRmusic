@@ -7,7 +7,7 @@ import type { DB } from '../lib/db.js';
 import type { Track } from '@avrmusic/shared';
 import { config } from '../config.js';
 import { hashFile, moveFile, nameKey, newId } from '../lib/util.js';
-import { findLibraryTrack, rawAlbum, rawArtist, rawArtistAllAlbums, rawArtistFeatures, rawFeaturing, rawTrack, parseFeaturing } from './catalog.js';
+import { findLibraryTrack, preferOriginal, rawAlbum, rawArtist, rawArtistAllAlbums, rawArtistFeatures, rawFeaturing, rawTrack, parseFeaturing } from './catalog.js';
 import { saveCover } from './importer.js';
 import { indexAlbum, indexArtist, indexTrack } from './search.js';
 import { getTracksByIds } from './library.js';
@@ -23,6 +23,14 @@ type JobApi = { log: (s: string) => void; progress: (p: number) => void; onCance
 export type Candidate = SourceCandidate;
 export type { Want };
 
+/**
+ * Edited versions: since March 2026 labels replace songs on Russian services with versions where words are
+ * cut out or bleeped ("clean", "без мата", "цензура"), often as a new release. The original is wanted.
+ */
+export const CENSORED = /(\bclean\b|\bcensored\b|radio edit|radio version|\bedited\b|без мата|цензур|чистая версия|безопасная версия)/i;
+const UNCENSORED = /(\bexplicit\b|uncensored|без цензуры|\buncut\b|original version|оригинальная версия)/i;
+/** The date YouTube Music's own uploads say the release came out ("Released on: 2026-03-14"). */
+export const releasedOn = (description?: string | null) => /Released on:\s*(\d{4}-\d{2}-\d{2})/i.exec(description ?? '')?.[1] ?? null;
 const BAD = /\b(live|cover|karaoke|instrumental|remix|reaction|slowed|sped ?up|nightcore|8d|tutorial|lesson|lyrics? video|dance video|choreo|parody|mashup|edit|extended|acoustic|версия|кавер|минус|караоке|ремикс)\b/i;
 
 /** Where a library file came from (`youtube:<id>`, `audius:<id>` …): one source per track. */
@@ -60,6 +68,11 @@ export function assessCandidate(c: Scorable, w: Want): { score: number; verdict:
     s += d <= 3 ? 25 : d <= 8 ? 18 : d <= 15 ? 8 : d <= 30 ? -5 : -40;
   } else s -= 5;
   if (!BAD.test(w.title) && BAD.test(c.title)) s -= 35;
+  // an edited (censored) version loses to the original — still taken when nothing else is there
+  if (!CENSORED.test(w.title) && CENSORED.test(`${c.title} ${c.credits?.album ?? ''}`)) s -= 45;
+  if (UNCENSORED.test(c.title)) s += 8;
+  const released = releasedOn(c.description);
+  if (released && released >= '2026-03-01' && w.year && w.year < 2026) s -= 20; // re-released after the law: likely edited
   if (/\bvideo\b|клип/i.test(c.title) && !/audio/i.test(c.title)) s -= 4;
   if (c.quality?.lossless) s += 12;
   else if ((c.quality?.bitrate ?? 0) >= 256) s += 4;
@@ -278,7 +291,8 @@ export function applyPendingLikes(db: DB, deezerId: number, trackId: string) {
 /** What a catalogue track wants from a source: title, main artist, every other credited artist, album, length. */
 export function wantOf(t: any): Want {
   const { title, featuring } = parseFeaturing(t.title ?? '', t.title_short);
-  return { title, artist: t.artist?.name ?? 'Unknown', durationSec: Number(t.duration ?? 0), featuring, credits: rawFeaturing(t), album: t.album?.title ?? null };
+  const year = Number(String(t.release_date ?? t.album?.release_date ?? '').slice(0, 4)) || null;
+  return { title, artist: t.artist?.name ?? 'Unknown', durationSec: Number(t.duration ?? 0), featuring, credits: rawFeaturing(t), album: t.album?.title ?? null, year };
 }
 
 /** Log which uploads were considered and why they were taken or refused. */
@@ -372,7 +386,8 @@ export async function runAcquireAlbum(db: DB, job: Job, deezerAlbumId: number, a
 export async function runAcquireArtist(db: DB, job: Job, deezerArtistId: number, api: JobApi) {
   const artist = await rawArtist(db, deezerArtistId);
   const artistKey = nameKey(artist.name ?? '');
-  const releases = await rawArtistAllAlbums(db, deezerArtistId);
+  // an edited ("clean") re-release next to the original: only the original is fetched
+  const releases = preferOriginal(((await rawArtistAllAlbums(db, deezerArtistId)) as any[]).map((a) => ({ ...a, explicit: !!a.explicit_lyrics, type: a.record_type, releaseDate: a.release_date ?? null, artist: a.artist ?? { name: '' } })));
   const order: Record<string, number> = { album: 0, ep: 1, single: 2, compile: 3 };
   releases.sort((a: any, b: any) => (order[a.record_type] ?? 4) - (order[b.record_type] ?? 4) || String(a.release_date ?? '').localeCompare(String(b.release_date ?? '')));
   const kinds = releases.reduce((m: Record<string, number>, a: any) => { m[a.record_type ?? 'album'] = (m[a.record_type ?? 'album'] ?? 0) + 1; return m; }, {});
@@ -418,23 +433,34 @@ async function acquireMany(db: DB, job: Job, ids: number[], api: JobApi, album: 
   api.onCancel(() => { cancelled = true; refs.forEach((r) => r.cancel?.()); });
   const stats = { total: ids.length, imported: 0, exists: 0, failed: 0 };
   summarize(job, stats);
-  let next = 0, done = 0;
+  let list = ids, next = 0, done = 0, retry = false;
+  const failedIds: number[] = [];
   const worker = async () => {
     const cancelRef: { cancel?: () => void } = {};
     refs.push(cancelRef);
-    while (!cancelled && next < ids.length) {
-      const id = ids[next++];
+    while (!cancelled && next < list.length) {
+      const id = list[next++];
+      let ok = false;
       try {
         const r = await acquireTrack(db, id, api, cancelRef, albumsByTrack?.get(id) ?? album, job.requestedBy ?? null);
-        if (r.status === 'imported') { stats.imported++; job.imported.push(...getTracksByIds(db, [r.trackId!])); }
-        else if (r.status === 'exists') stats.exists++;
-        else { stats.failed++; api.log(`   ✗ ${r.message ?? r.status}`); }
-      } catch (e: any) { stats.failed++; api.log(`   ✗ ${e?.message ?? e}`); }
+        if (r.status === 'imported') { ok = true; stats.imported++; job.imported.push(...getTracksByIds(db, [r.trackId!])); }
+        else if (r.status === 'exists') { ok = true; stats.exists++; }
+        else api.log(`   ✗ ${r.message ?? r.status}`);
+      } catch (e: any) { api.log(`   ✗ ${e?.message ?? e}`); }
+      if (ok && retry) stats.failed--;
+      if (!ok && !retry) { stats.failed++; failedIds.push(id); }
       summarize(job, { ...stats });
-      api.progress((++done / ids.length) * 100);
+      if (!retry) api.progress((++done / list.length) * 100);
     }
   };
-  await Promise.all(Array.from({ length: Math.min(parallelTracks(), ids.length) }, worker));
+  await Promise.all(Array.from({ length: Math.min(parallelTracks(), list.length) }, worker));
+  // a busy source or a dropped connection loses a few songs of a big album: one more go at those
+  if (!cancelled && failedIds.length && failedIds.length < ids.length) {
+    api.log(`Повторяю не скачавшиеся: ${failedIds.length}`);
+    await new Promise((r) => setTimeout(r, 5000));
+    list = failedIds; next = 0; retry = true;
+    await Promise.all(Array.from({ length: Math.min(parallelTracks(), list.length) }, worker));
+  }
   if (cancelled) throw new Error('Отменено');
   if (!stats.imported && !stats.exists && ids.length) throw new Error('Ни один трек не удалось получить');
   if (stats.imported) queueCanvasesForImported(db, job);

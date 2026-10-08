@@ -7,6 +7,7 @@ import { Modal } from './Modal';
 import { Cover } from './Cover';
 import { useUI } from '@/stores/ui';
 import { useJam, leaveJam, voteInJam } from '@/lib/jam';
+import { stopFollow, useFollow } from '@/lib/follow';
 import { sendToFriends, useFriends, useSocialUI, useTr, report, type Friend } from '@/lib/social';
 import type { FriendRef } from '@avrmusic/shared';
 
@@ -153,6 +154,22 @@ export function JamBar() {
           </div>
         ))}
       </Modal>
+    </div>
+  );
+}
+
+/** While listening along with a friend: whose music this is, and a way out. */
+export function FollowBar() {
+  const friend = useFollow((s) => s.friend);
+  const jam = useJam((s) => s.view);
+  const tr = useTr();
+  if (!friend || jam) return null;
+  return (
+    <div className="jam-bar fixed left-1/2 -translate-x-1/2 z-[60] flex items-center gap-2 pl-2 pr-1 py-1 rounded-full bg-tertiary-container text-on-tertiary-container elev-2 fade-in max-w-[calc(100vw-32px)]"
+      style={{ bottom: 'calc(var(--player-h) + var(--nav-h) + var(--safe-b) + 12px)' }}>
+      <Avatar user={friend} className="w-7 h-7" />
+      <Link to={`/user/${friend.id}`} className="min-w-0 px-1 md-label-lg line-1">{tr(`Слушаете вместе с ${friend.displayName}`, `Listening along with ${friend.displayName}`)}</Link>
+      <M3eIconButton size="small" title={tr('Выйти', 'Leave')} onClick={() => stopFollow()}><m3e-icon variant="rounded" name="close" /></M3eIconButton>
     </div>
   );
 }

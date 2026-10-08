@@ -9,6 +9,8 @@ import { addAccount, listAccounts, MAX_GIVEN, removeAccount } from '../services/
 import { autofetchOn, lovedArtists } from '../services/autofetch.js';
 import { getMeta, setMeta } from '../services/meta.js';
 import { friendRef } from '../services/social.js';
+import { rawAlbum } from '../services/catalog.js';
+import { nameKey } from '../lib/util.js';
 
 export default async function extraRoutes(app: FastifyInstance) {
   const db = app.db;
@@ -47,6 +49,25 @@ export default async function extraRoutes(app: FastifyInstance) {
     const p = req.params as any;
     takeBadge(db, p.id, p.userId);
     return { ok: true };
+  });
+
+  /* ---------- is a library album whole? ---------- */
+
+  /** The album's tracks in the catalogue against the ones on the server: what is missing (to fetch it). */
+  app.get('/api/albums/:id/completeness', auth, async (req) => {
+    const al = db.prepare('SELECT id, deezer_id FROM albums WHERE id = ?').get((req.params as any).id) as any;
+    if (!al) throw notFound('Альбом не найден');
+    if (!al.deezer_id) return { checkable: false, total: 0, have: 0, missing: [], deezerId: null };
+    let raw: any;
+    try { raw = await rawAlbum(db, Number(al.deezer_id)); } catch (e: any) { throw badRequest(`Каталог не ответил: ${e?.message ?? e}`); }
+    const want = ((raw.tracks?.data ?? []) as any[]).map((t) => ({ id: Number(t.id), title: String(t.title ?? ''), duration: Number(t.duration ?? 0) }));
+    const mine = db.prepare('SELECT deezer_id, title, duration_ms FROM tracks WHERE album_id = ?').all(al.id) as any[];
+    const byId = new Set(mine.map((t) => Number(t.deezer_id)).filter(Boolean));
+    const byTitle = new Set(mine.map((t) => nameKey(t.title)));
+    // the same recording may sit on the server under another catalogue id (a single, a re-release)
+    const elsewhere = db.prepare('SELECT 1 FROM tracks WHERE deezer_id = ?');
+    const missing = want.filter((t) => !byId.has(t.id) && !byTitle.has(nameKey(t.title)) && !elsewhere.get(t.id));
+    return { checkable: true, total: want.length, have: want.length - missing.length, missing: missing.map((t) => ({ id: t.id, title: t.title })), deezerId: Number(al.deezer_id) };
   });
 
   /* ---------- the servers' state ---------- */

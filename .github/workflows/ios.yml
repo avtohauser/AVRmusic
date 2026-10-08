@@ -32,7 +32,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch'
     # Intel: 14 GB of memory (the arm64 runner's 7 GB ran out linking the release framework)
     runs-on: macos-15-intel
-    timeout-minutes: 60
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4

@@ -30,7 +30,8 @@ jobs:
   ipa:
     needs: check
     if: github.event_name == 'workflow_dispatch'
-    runs-on: macos-15
+    # Intel: 14 GB of memory (the arm64 runner's 7 GB ran out linking the release framework)
+    runs-on: macos-15-intel
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
@@ -42,7 +43,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.konan
-          key: konan-${{ runner.os }}-2.3.20
+          key: konan-${{ runner.os }}-${{ runner.arch }}-2.3.20
       - name: Xcode 26 (Compose Multiplatform 1.11 links against the iOS 26 SDK)
         run: |
           ls -d /Applications/Xcode*.app
@@ -53,6 +54,8 @@ jobs:
       - name: Build the app
         run: |
           set -e
+          # Kotlin/Native links the whole app in one go: give it most of the machine
+          mkdir -p ~/.gradle && echo "org.gradle.jvmargs=-Xmx10g -XX:+UseParallelGC -Dfile.encoding=UTF-8" >> ~/.gradle/gradle.properties
           ver="$(node -p "require('./package.json').version")"
           echo "APP_VERSION=$ver.${{ github.run_number }}" >> "$GITHUB_ENV"
           brew list xcodegen >/dev/null 2>&1 || brew install xcodegen

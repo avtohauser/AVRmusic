@@ -97,7 +97,8 @@ jobs:
           ver="$(node -p "require('./package.json').version").${{ github.run_number }}"
           echo "APP_VERSION=$ver" >> "$GITHUB_ENV"
           cd android
-          APP_VERSION_NAME="$ver" gradle assembleRelease --no-daemon --console=plain -q
+          set -o pipefail
+          APP_VERSION_NAME="$ver" gradle assembleRelease --no-daemon --console=plain -q 2>&1 | tee ../build.log || { bash ../.github/scripts/build-errors.sh ../build.log; exit 1; }
           apk=app/build/outputs/apk/release/app-release.apk
           test -f "$apk" || { echo "::error::APK not produced"; ls -R app/build/outputs || true; exit 1; }
           mkdir -p ../out && cp "$apk" "../out/AVRmusic-$ver.apk"

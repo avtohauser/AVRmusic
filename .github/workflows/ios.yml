@@ -24,7 +24,8 @@ jobs:
       - name: Compile the iOS code (klibs, on Linux)
         run: |
           cd android
-          gradle :shared:compileKotlinIosArm64 -Pkotlin.native.enableKlibsCrossCompilation=true --no-daemon --console=plain -q
+          set -o pipefail
+          gradle :shared:compileKotlinIosArm64 -Pkotlin.native.enableKlibsCrossCompilation=true --no-daemon --console=plain -q 2>&1 | tee ../build.log || { bash ../.github/scripts/build-errors.sh ../build.log; exit 1; }
 
   ipa:
     needs: check

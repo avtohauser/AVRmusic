@@ -62,8 +62,14 @@ jobs:
             -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build \
             MARKETING_VERSION="$ver" CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
-            GRADLE_BIN="$(command -v gradle)" build | tail -n 80
-          test "${PIPESTATUS[0]}" = 0
+            GRADLE_BIN="$(command -v gradle)" build > "$GITHUB_WORKSPACE/build.log" 2>&1 || status=$?
+          tail -n 80 "$GITHUB_WORKSPACE/build.log"
+          if [ "${status:-0}" != 0 ]; then
+            # the compiler's and Xcode's errors as annotations, readable without the whole log
+            bash "$GITHUB_WORKSPACE/.github/scripts/build-errors.sh" "$GITHUB_WORKSPACE/build.log"
+            grep -E "(^|[^a-z])error: |\*\* BUILD FAILED|Command .* failed with" "$GITHUB_WORKSPACE/build.log" | grep -v "^e: " | sed -E "s#$GITHUB_WORKSPACE/##g" | sort -u | head -n 8 | sed -E 's/^/::error::/'
+            exit 1
+          fi
       - name: Package the IPA
         run: |
           set -e

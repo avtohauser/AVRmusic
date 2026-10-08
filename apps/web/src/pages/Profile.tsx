@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { M3eButton, M3eButtonSegment, M3eFormField, M3eSegmentedButton, M3eSwitch, M3eThemeIcon } from '@/md';
+import { M3eButton, M3eButtonSegment, M3eFormField, M3eSegmentedButton, M3eSwitch, M3eThemeIcon, M3eIconButton } from '@/md';
 import { useTr } from '@/lib/social';
 import { lockLyricsOn, setLockLyrics } from '@/lib/lockLyrics';
 import { useAuth } from '@/stores/auth';
@@ -146,18 +146,18 @@ export default function Profile() {
 
   return (
     <div className="page pt-4">
-      <div className="flex items-center gap-5 mb-8">
+      <div className="flex items-center gap-4 md:gap-5 mb-6 pt-2">
         <button className="relative group shrink-0" onClick={() => setAvatarOpen(true)} title={t('changePhoto')} aria-label={t('changePhoto')}>
-          <Cover src={user.avatarUrl} round kind="artist" className="w-24 h-24 md:w-32 md:h-32 spring group-hover:scale-105" />
+          <Cover src={user.avatarUrl} shape="cookie12" kind="artist" className="w-24 h-24 md:w-32 md:h-32 spring group-hover:rotate-12" />
           <span className="absolute right-0 bottom-0 w-9 h-9 rounded-full bg-primary text-on-primary flex items-center justify-center elev-2 spring group-hover:rotate-12"><m3e-icon variant="rounded" name="photo_camera" style={{ ['--m3e-icon-size' as any]: '20px' }} /></span>
         </button>
         <AvatarEditor open={avatarOpen} onClose={() => setAvatarOpen(false)} />
         <div className="min-w-0">
-          <div className="md-label-lg muted uppercase tracking-wider">{t('profile')}{user.role === 'admin' && <span className="ml-2 inline-flex items-center gap-1 text-primary"><m3e-icon variant="rounded" name="shield" style={{ ['--m3e-icon-size' as any]: '14px' }} />admin</span>}</div>
-          <h1 className="emph flow-soft line-2" style={{ fontSize: 'clamp(24px, 6.4vw, 45px)', lineHeight: 1.15, hyphens: 'auto', overflowWrap: 'break-word' }}>{user.displayName}</h1>
+          <div className="md-label-lg muted">{t('profile')}{user.role === 'admin' && <span className="ml-2 inline-flex items-center gap-1 text-primary"><m3e-icon variant="rounded" name="shield" style={{ ['--m3e-icon-size' as any]: '14px' }} />admin</span>}</div>
+          <h1 className="md-headline-md flow-soft line-2" style={{ fontSize: 'clamp(22px, 5.4vw, 40px)', lineHeight: 1.15, overflowWrap: 'anywhere' }}>{user.displayName}</h1>
           <div className="md-body-md muted">@{user.username} · {user.email}</div>
         </div>
-        <M3eButton variant="tonal" className="ml-auto shrink-0" onClick={async () => { await logout(); useLikes.getState().clear(); nav('/'); }}><m3e-icon variant="rounded" slot="icon" name="logout" /><span className="hidden sm:inline">{t('logout')}</span></M3eButton>
+        <M3eIconButton variant="tonal" className="ml-auto shrink-0 self-start" title={t('logout')} aria-label={t('logout')} onClick={async () => { await logout(); useLikes.getState().clear(); nav('/'); }}><m3e-icon variant="rounded" name="logout" /></M3eIconButton>
       </div>
 
       {user.role === 'admin' && (

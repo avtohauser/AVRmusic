@@ -1,23 +1,19 @@
 import { Link } from 'react-router-dom';
 import type { AlbumSummary, ArtistSummary, Genre, PlaylistSummary, Track } from '@avrmusic/shared';
-import { M3eCard, M3eIconButton } from '@/md';
+import { M3eIconButton } from '@/md';
 import { Cover } from './Cover';
 import { PlayButton } from './PlayButton';
+import { MorphPlay } from './MorphPlay';
 import { usePlayer } from '@/stores/player';
 import { useUI } from '@/stores/ui';
 import { api } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 
-const cardBase = 'group relative w-36 sm:w-40 md:w-44 shrink-0 snap-start';
-const SHAPES: Array<'cookie' | 'clover' | 'sunny' | 'circle'> = ['cookie', 'clover', 'sunny', 'circle'];
-const shapeFor = (id: string) => SHAPES[[...id].reduce((a, c) => a + c.charCodeAt(0), 0) % SHAPES.length];
-
-function MediaCard({ to, onContextMenu, children }: { to: string; onContextMenu?: (e: any) => void; children: React.ReactNode }) {
+/** A card as in the app: no box around it — the cover, the title and a line under it; it squashes when pressed. */
+function MediaCard({ to, onContextMenu, children, center }: { to: string; onContextMenu?: (e: any) => void; children: React.ReactNode; center?: boolean }) {
   return (
-    <Link to={to} className={cardBase} onContextMenu={onContextMenu}>
-      <M3eCard variant="filled" actionable className="media-card block w-full">
-        <div className="p-3">{children}</div>
-      </M3eCard>
+    <Link to={to} className={`media-tile group ${center ? 'text-center' : ''}`} onContextMenu={onContextMenu}>
+      {children}
     </Link>
   );
 }
@@ -33,10 +29,10 @@ export function AlbumCard({ album }: { album: AlbumSummary }) {
   return (
     <MediaCard to={`/album/${album.id}`} onContextMenu={(e) => { e.preventDefault(); openMenu(e.clientX, e.clientY, { kind: 'album', album }); }}>
       <div className="relative">
-        <Cover src={album.coverUrl} alt={album.title} className="w-full aspect-square !rounded-[20px] elev-1" />
-        <PlayButton onClick={play} size="md" className="absolute right-2 bottom-2 opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all" />
+        <Cover src={album.coverUrl} alt={album.title} className="w-full aspect-square !rounded-[16px]" />
+        <span className="tile-play"><MorphPlay playing={false} onClick={play} size={48} /></span>
       </div>
-      <div className="mt-3 md-title-sm line-1">{album.title}</div>
+      <div className="mt-2 md-title-sm line-1">{album.title}</div>
       <div className="md-body-sm muted line-1">{sub} · {album.artist.name}</div>
     </MediaCard>
   );
@@ -49,12 +45,12 @@ export function ArtistCard({ artist }: { artist: ArtistSummary }) {
     usePlayer.getState().playTracks(full.topTracks, 0, `artist:${artist.id}`);
   };
   return (
-    <MediaCard to={`/artist/${artist.id}`}>
+    <MediaCard to={`/artist/${artist.id}`} center>
       <div className="relative">
-        <Cover src={artist.imageUrl} alt={artist.name} shape={shapeFor(artist.id)} kind="artist" className="w-full aspect-square spring group-hover:rotate-6" />
-        <PlayButton onClick={play} size="md" className="absolute right-1 bottom-1 opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all" />
+        <Cover src={artist.imageUrl} alt={artist.name} shape="cookie" kind="artist" className="w-full aspect-square spring group-hover:rotate-[20deg]" />
+        <span className="tile-play"><MorphPlay playing={false} onClick={play} size={48} /></span>
       </div>
-      <div className="mt-3 md-title-sm line-1 text-center">{artist.name}</div>
+      <div className="mt-2 md-title-sm line-1 text-center">{artist.name}</div>
       <div className="md-body-sm muted text-center">{t('artist')}</div>
     </MediaCard>
   );
@@ -70,11 +66,11 @@ export function PlaylistCard({ playlist }: { playlist: PlaylistSummary & { mosai
   return (
     <MediaCard to={`/playlist/${playlist.id}`} onContextMenu={(e) => { e.preventDefault(); openMenu(e.clientX, e.clientY, { kind: 'playlist', playlist }); }}>
       <div className="relative">
-        <Cover src={playlist.coverUrl} mosaic={playlist.mosaic} alt={playlist.title} className="w-full aspect-square !rounded-[20px] elev-1" />
-        <PlayButton onClick={play} size="md" className="absolute right-2 bottom-2 opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all" />
+        <Cover src={playlist.coverUrl} mosaic={playlist.mosaic} alt={playlist.title} className="w-full aspect-square !rounded-[16px]" />
+        <span className="tile-play"><MorphPlay playing={false} onClick={play} size={48} /></span>
       </div>
-      <div className="mt-3 md-title-sm line-1">{playlist.title}</div>
-      <div className="md-body-sm muted line-2">{playlist.description || `${t('playlist')} · ${playlist.owner.displayName}`}</div>
+      <div className="mt-2 md-title-sm line-1">{playlist.title}</div>
+      <div className="md-body-sm muted line-1">{playlist.description || `${t('playlist')} · ${playlist.owner.displayName}`}</div>
     </MediaCard>
   );
 }
@@ -92,11 +88,11 @@ export function TrackCard({ track, list, index }: { track: Track; list?: Track[]
   return (
     <MediaCard to={track.album ? `/album/${track.album.id}` : `/artist/${track.artist.id}`} onContextMenu={(e) => { e.preventDefault(); openMenu(e.clientX, e.clientY, { kind: 'track', track }); }}>
       <div className="relative">
-        <Cover src={track.coverUrl} alt={track.title} className="w-full aspect-square !rounded-[20px] elev-1" />
-        <PlayButton playing={isCur && playing} onClick={play} size="md" className={`absolute right-2 bottom-2 transition-all ${isCur ? 'opacity-100' : 'opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0'}`} />
+        <Cover src={track.coverUrl} alt={track.title} className="w-full aspect-square !rounded-[16px]" />
+        <span className="tile-play" data-on={isCur || undefined}><MorphPlay playing={isCur && playing} onClick={play} size={48} /></span>
         <M3eIconButton size="small" variant="tonal" className="absolute left-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity" aria-label="menu" onClick={(e: any) => { e.preventDefault(); e.stopPropagation(); openMenu(e.clientX, e.clientY, { kind: 'track', track }); }}><m3e-icon variant="rounded" name="more_horiz" /></M3eIconButton>
       </div>
-      <div className={`mt-3 md-title-sm line-1 ${isCur ? 'text-primary' : ''}`}>{track.title}</div>
+      <div className={`mt-2 md-title-sm line-1 ${isCur ? 'text-primary' : ''}`}>{track.title}</div>
       <div className="md-body-sm muted line-1">{track.artist.name}</div>
     </MediaCard>
   );
@@ -123,11 +119,11 @@ export function GenreCard({ genre, wide = false }: { genre: Genre; wide?: boolea
 
 export function QuickPick({ title, cover, mosaic, to, onPlay, liked }: { title: string; cover?: string | null; mosaic?: string[]; to: string; onPlay: () => void; liked?: boolean }) {
   return (
-    <Link to={to} className="group surface-mid rounded-[16px] hover:rounded-[24px] spring flex items-center gap-3 pr-2 overflow-hidden h-14 sm:h-16 state-layer">
+    <Link to={to} className="group surface-high rounded-[16px] press flex items-center gap-3 pr-2 overflow-hidden h-[60px] state-layer">
       {liked ? (
-        <div className="w-14 sm:w-16 h-full bg-primary text-on-primary flex items-center justify-center shrink-0"><m3e-icon variant="rounded" name="favorite" filled /></div>
+        <div className="w-[60px] h-full bg-primary text-on-primary flex items-center justify-center shrink-0"><m3e-icon variant="rounded" name="favorite" filled /></div>
       ) : (
-        <Cover src={cover} mosaic={mosaic} alt={title} className="w-14 sm:w-16 h-full !rounded-none" />
+        <Cover src={cover} mosaic={mosaic} alt={title} className="w-[60px] h-full !rounded-none" />
       )}
       <span className="md-title-sm line-2 text-xs sm:text-sm flex-1 min-w-0 pr-2">{title}</span>
       <PlayButton onClick={onPlay} size="sm" className="!hidden md:!flex opacity-0 group-hover:opacity-100 transition-opacity mr-1" />

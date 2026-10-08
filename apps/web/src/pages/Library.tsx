@@ -40,11 +40,11 @@ export default function Library() {
 
 function AutoTile({ icon, title, sub, color, onClick }: { icon: string; title: string; sub: string; color: string; onClick: () => void }) {
   return (
-    <button onClick={onClick} className="group surface-low rounded-[24px] hover:rounded-[32px] spring state-layer text-left"><div className="p-3">
-      <div className="w-full aspect-square rounded-[20px] flex items-center justify-center elev-1 text-white" style={{ background: color }}><m3e-icon variant="rounded" name={icon} style={{ ['--m3e-icon-size' as any]: '48px' }} /></div>
-      <div className="mt-3 md-title-sm line-1">{title}</div>
+    <button onClick={onClick} className="media-tile !w-full text-left">
+      <div className="w-full aspect-square rounded-[16px] flex items-center justify-center text-white" style={{ background: color }}><m3e-icon variant="rounded" name={icon} style={{ ['--m3e-icon-size' as any]: '48px' }} /></div>
+      <div className="mt-2 md-title-sm line-1">{title}</div>
       <div className="md-body-sm muted line-1">{sub}</div>
-    </div></button>
+    </button>
   );
 }
 
@@ -64,9 +64,9 @@ function Playlists() {
       {user && (
         <>
           <div className={grid}>
-            <Link to="/liked" className="group surface-low rounded-[24px] hover:rounded-[32px] spring p-3 state-layer">
-              <div className="w-full aspect-square rounded-[20px] bg-primary text-on-primary flex items-center justify-center elev-1"><m3e-icon variant="rounded" name="favorite" filled style={{ ['--m3e-icon-size' as any]: '48px' }} /></div>
-              <div className="mt-3 md-title-sm">{t('likedSongs')}</div>
+            <Link to="/liked" className="media-tile !w-full">
+              <div className="w-full aspect-square rounded-[16px] text-on-primary flex items-center justify-center" style={{ background: 'linear-gradient(135deg, var(--md-sys-color-primary), var(--md-sys-color-tertiary))' }}><m3e-icon variant="rounded" name="favorite" filled style={{ ['--m3e-icon-size' as any]: '48px' }} /></div>
+              <div className="mt-2 md-title-sm">{t('likedSongs')}</div>
               <div className="md-body-sm muted">{t('playlist')}</div>
             </Link>
             <AutoTile icon="radar" title={tr('Радар новинок', 'Release radar')} sub={tr('Свежее от ваших исполнителей', 'Fresh from your artists')} color="var(--md-sys-color-tertiary)" onClick={async () => { try { nav(`/playlist/${(await radar()).id}`); } catch (e: any) { useUI.getState().toast(e.message, 'error'); } }} />

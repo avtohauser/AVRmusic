@@ -16,6 +16,7 @@ import { FlowText } from '@/components/FlowText';
 import { WaveCard } from '@/components/WaveCard';
 import { useFriends, useInbox, useTr } from '@/lib/social';
 import { Avatar } from '@/components/Social';
+import { Cover } from '@/components/Cover';
 
 export default function Home() {
   const { data, isLoading, error } = useHome();
@@ -58,8 +59,10 @@ export default function Home() {
   const empty = !data.sections.length;
   return (
     <div className="page pt-4">
-      <div className="flex items-center gap-2 mb-5">
-        <FlowText as="h1" text={`${greeting}${user ? `, ${user.displayName}` : ''}`} className="md-headline-lg emph block min-w-0" />
+      <div className="flex items-center gap-2.5 mb-3 pt-2">
+        <LiveMark />
+        <FlowText as="h1" text={greeting} className="md-headline-md block min-w-0 flex-1" />
+        {user?.role === 'admin' && <Link to="/admin" className="md:hidden w-10 h-10 grid place-items-center rounded-full state-layer" title={t('admin')}><m3e-icon variant="rounded" name="shield" /></Link>}
         {user && <InboxButton />}
       </div>
       {user && !empty && <WaveCard />}
@@ -100,23 +103,31 @@ function InboxButton() {
   );
 }
 
-/** Friends listening right now: tap to see their page, or play the same song. */
+/** The sign beside the greeting: its waves pulse while music plays (LiveMark in the app). */
+function LiveMark() {
+  const playing = usePlayer((s) => s.playing);
+  return <Mascot mood={playing ? 'dance' : 'idle'} waves className="w-9 h-[26px] shrink-0" />;
+}
+
+/** Friends as in the app: their photos in a row, the cover of what each plays pinned to it. */
 function FriendsNow() {
   const { data } = useFriends();
   const tr = useTr();
-  const play = usePlayer.getState().playTrack;
-  const live = (data ?? []).filter((f) => f.now);
-  if (!live.length) return null;
+  const friends = data ?? [];
+  if (!friends.length) return null;
+  const listening = friends.filter((f) => f.now?.playing).length;
   return (
-    <Shelf title={tr('Друзья сейчас слушают', 'Friends are listening')} to="/friends">
-      {live.map((f) => (
-        <div key={f.id} className="w-64 shrink-0 snap-start surface-low rounded-[24px] p-3 flex items-center gap-3">
-          <Link to={`/user/${f.id}`} className="relative shrink-0"><Avatar user={f} className="w-12 h-12" />{f.now!.playing && <span className="absolute -right-1 -bottom-1 w-5 h-5 rounded-full bg-primary flex items-center justify-center"><span className="eq scale-50"><i /><i /><i /></span></span>}</Link>
-          <button className="min-w-0 flex-1 text-left" onClick={() => play(f.now!.track, `friend:${f.id}`)} title={tr('Включить этот трек', 'Play this track')}>
-            <span className="block md-title-sm line-1">{f.displayName}</span>
-            <span className="block md-body-sm muted line-1">{f.now!.track.artist.name} — {f.now!.track.title}</span>
-          </button>
-        </div>
+    <Shelf title={tr('Друзья', 'Friends')} subtitle={listening ? tr(`Сейчас слушают: ${listening}`, `Listening now: ${listening}`) : undefined} to="/friends">
+      {friends.map((f) => (
+        <Link key={f.id} to={`/user/${f.id}`} className="w-[92px] shrink-0 snap-start flex flex-col items-center py-1.5 rounded-[20px] press state-layer">
+          <span className="relative">
+            <Avatar user={f} className="w-[72px] h-[72px]" />
+            {f.now && <Cover src={f.now.track.coverUrl} className="absolute -right-1 -bottom-0.5 w-[30px] h-[30px] !rounded-[9px] ring-2 ring-[var(--md-sys-color-background)]" />}
+            {f.jamId && <span className="absolute -right-1 -top-1 w-6 h-6 rounded-full bg-tertiary text-on-tertiary grid place-items-center"><m3e-icon variant="rounded" name="headphones" style={{ ['--m3e-icon-size' as any]: '14px' }} /></span>}
+          </span>
+          <span className="mt-1.5 md-label-lg line-1 max-w-full">{f.displayName}</span>
+          <span className={`md-label-sm line-1 max-w-full ${f.now?.playing ? 'text-primary' : 'muted'}`}>{f.now ? f.now.track.title : ''}</span>
+        </Link>
       ))}
     </Shelf>
   );

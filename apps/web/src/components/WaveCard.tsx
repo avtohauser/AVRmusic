@@ -7,6 +7,7 @@ import { useFriends } from '@/lib/social';
 import type { WaveMode } from '@avrmusic/shared';
 import { Mascot } from './Mascot';
 import { FlowText } from './FlowText';
+import { MorphPlay } from './MorphPlay';
 
 export function WaveCard() {
   const mode = useWave((s) => s.mode);
@@ -27,19 +28,20 @@ export function WaveCard() {
   };
 
   return (
-    <section className="wave-card mb-8 fade-in" data-live={live || undefined}>
+    <section className="wave-card mb-6 fade-in" data-live={live || undefined}>
       <div className="wave-blob wave-blob-a" /><div className="wave-blob wave-blob-b" /><div className="wave-blob wave-blob-c" />
+      {/* as in the app: the title and why on the left, the big sunny play button on the right */}
       <div className="relative flex items-center gap-4 md:gap-6">
-        <button className="wave-play" onClick={() => void go()} aria-label={live ? 'Пауза' : 'Включить Мою волну'} disabled={loading}>
-          <Mascot mood={loading ? 'think' : live ? 'dance' : 'idle'} className="w-14 h-14 md:w-16 md:h-16" />
-          <span className="wave-play-icon"><m3e-icon variant="rounded" name={live ? 'pause' : 'play_arrow'} filled /></span>
-        </button>
         <div className="min-w-0 flex-1">
-          <FlowText as="h2" text="Моя волна" className="md-headline-md emph block" />
-          <p className="md-body-md opacity-80 line-1 mt-0.5">
+          <FlowText as="h2" text="Моя волна" className="md-display-sm block" />
+          <p className="md-body-md opacity-85 line-2 mt-1">
             {inWave && current ? <>{current.artist.name} — {current.title}{reason ? <span className="opacity-80"> · {reason}</span> : null}</> : all.find((x) => x.id === mode)?.hint}
           </p>
         </div>
+        {loading
+          ? <span className="w-[72px] h-[72px] grid place-items-center shrink-0"><Mascot mood="think" className="w-14 h-14" /></span>
+          : <MorphPlay playing={live} onClick={() => void go()} size={72} paused="sunny" label={live ? 'Пауза' : 'Включить Мою волну'}
+              container="var(--md-sys-color-on-primary-container)" content="var(--md-sys-color-primary-container)" />}
       </div>
       <div className="relative flex gap-2 mt-4 overflow-x-auto no-scrollbar -mx-1 px-1">
         {all.map((m, i) => (<span key={m.id} className="contents">

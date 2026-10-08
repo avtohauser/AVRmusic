@@ -68,6 +68,7 @@ export default function Auth({ mode }: { mode: 'login' | 'register' }) {
             {isRegister ? <>{t('haveAccount')} <Link to="/login" className="text-primary md-label-lg hover:underline">{t('login')}</Link></> : regAllowed ? <>{t('noAccount')} <Link to="/register" className="text-primary md-label-lg hover:underline">{t('register')}</Link></> : null}
           </p>
         )}
+        {!setup && <p className="text-center"><Link to="/welcome" className="md-label-lg text-primary hover:underline inline-flex items-center gap-1"><m3e-icon variant="rounded" name="help" style={{ ['--m3e-icon-size' as any]: '18px' }} />{t('whatIsThis')}</Link></p>}
         <span className="hidden">{String(Field)}</span>
       </form>
     </div>

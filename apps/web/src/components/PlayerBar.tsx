@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { artistHref } from '@/lib/instant';
-import { M3eIconButton, M3eSlider, M3eSliderThumb } from '@/md';
+import { M3eIconButton } from '@/md';
 import { WavyProgress } from './WavyProgress';
 import { usePlayer } from '@/stores/player';
 import { useUI } from '@/stores/ui';
@@ -10,8 +10,10 @@ import { LikeButton } from './LikeButton';
 import { fmtTime } from '@/lib/format';
 import { useT } from '@/lib/i18n';
 import { DevicesButton } from './Devices';
+import { MorphPlay } from './MorphPlay';
+import { WavySeek } from './WavySeek';
+import { Volume } from './Volume';
 
-const thumbValue = (e: Event) => Number((e.target as any)?.value ?? (e.currentTarget as any)?.value ?? 0);
 
 export function PlayerBar() {
   const track = usePlayer((s) => s.queue[s.index] ?? null);
@@ -21,8 +23,6 @@ export function PlayerBar() {
   const duration = usePlayer((s) => s.duration);
   const shuffle = usePlayer((s) => s.shuffle);
   const repeat = usePlayer((s) => s.repeat);
-  const volume = usePlayer((s) => s.volume);
-  const muted = usePlayer((s) => s.muted);
   const p = usePlayer.getState();
   const setOpen = useUI((s) => s.setNowPlayingOpen);
   const queueOpen = useUI((s) => s.queueOpen);
@@ -31,28 +31,25 @@ export function PlayerBar() {
   const [seeking, setSeeking] = useState<number | null>(null);
   if (!track) return null;
   const pos = seeking ?? position;
-  const volIcon = muted || volume === 0 ? 'volume_off' : volume < 0.5 ? 'volume_down' : 'volume_up';
 
   return (
-    <div className="fixed z-[60] md:px-3 md:pb-3" style={{ bottom: 'calc(var(--nav-h) + var(--safe-b))', left: 'var(--safe-l)', right: 'var(--safe-r)' }} data-playerbar>
-      {/* Phone: compact card */}
-      <div className="md:hidden mini-card surface-high rounded-[28px] overflow-hidden elev-2" onClick={() => setOpen(true)}>
-        <div className="flex items-center gap-3 p-2 pr-2">
-          <Cover src={track.coverUrl} className="w-12 h-12 !rounded-[14px]" />
+    <>
+      {/* Phone: the app's mini player — a floating card above the navigation island */}
+      <div className="md:hidden mini-player press" data-playerbar onClick={() => setOpen(true)}>
+        <div className="flex items-center gap-3 pl-2 pr-1.5 pt-2 pb-1.5">
+          <Cover src={track.coverUrl} className="w-12 h-12 !rounded-[16px]" />
           <div className="min-w-0 flex-1">
             <div className="md-title-sm line-1">{track.title}</div>
-            <div className="md-body-sm muted line-1">{track.artist.name}</div>
+            <div className="md-body-sm muted line-1">{[track.artist.name, ...track.featuring.map((f) => f.name)].join(', ')}</div>
           </div>
           <LikeButton type="track" id={track.id} alwaysVisible />
-          <M3eIconButton variant="filled" aria-label={playing ? t('pause') : t('play')} onClick={(e: any) => { e.stopPropagation(); p.toggle(); }}>
-            <m3e-icon variant="rounded" name={loading && playing ? 'hourglass_empty' : playing ? 'pause' : 'play_arrow'} filled />
-          </M3eIconButton>
+          <MorphPlay playing={playing} loading={loading} onClick={() => p.toggle()} size={44} label={playing ? t('pause') : t('play')} />
         </div>
         <WavyProgress className="mini" moving={playing} value={duration ? (pos / duration) * 100 : 0} />
       </div>
-
+    <div className="hidden md:block fixed z-[60] px-3 pb-3" style={{ bottom: 'var(--safe-b)', left: 'var(--safe-l)', right: 'var(--safe-r)' }} data-playerbar>
       {/* Desktop */}
-      <div className="hidden md:grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_minmax(0,1fr)] items-center gap-4 surface-high rounded-[28px] px-4 h-[var(--player-h)] elev-3">
+      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_minmax(0,1fr)] items-center gap-4 surface-high rounded-[32px] px-4 h-[84px] elev-3">
         <div className="flex items-center gap-3 min-w-0">
           <button className="relative group shrink-0" onClick={() => setOpen(true)} aria-label={t('fullscreen')}>
             <Cover src={track.coverUrl} className="w-14 h-14 !rounded-[16px]" />
@@ -68,23 +65,19 @@ export function PlayerBar() {
           <LikeButton type="track" id={track.id} alwaysVisible />
         </div>
 
-        <div className="flex flex-col items-center gap-1">
+        <div className="flex flex-col items-center gap-0.5">
           <div className="flex items-center gap-1">
             <M3eIconButton id="pb-shuffle" toggle selected={shuffle || undefined} variant="standard" size="small" onClick={p.toggleShuffle}><m3e-icon variant="rounded" name="shuffle" /><m3e-icon variant="rounded" slot="selected" name="shuffle" filled style={{ color: 'var(--md-sys-color-primary)' }} /></M3eIconButton>
             <m3e-tooltip for="pb-shuffle">{t('shuffle')}</m3e-tooltip>
-            <M3eIconButton aria-label={t('prev')} onClick={p.prev}><m3e-icon variant="rounded" name="skip_previous" filled /></M3eIconButton>
-            <M3eIconButton variant="filled" size="medium" width="wide" aria-label={playing ? t('pause') : t('play')} onClick={p.toggle}>
-              <m3e-icon variant="rounded" name={loading && playing ? 'hourglass_empty' : playing ? 'pause' : 'play_arrow'} filled />
-            </M3eIconButton>
-            <M3eIconButton aria-label={t('next')} onClick={() => p.next()}><m3e-icon variant="rounded" name="skip_next" filled /></M3eIconButton>
+            <M3eIconButton variant="tonal" aria-label={t('prev')} onClick={p.prev}><m3e-icon variant="rounded" name="skip_previous" filled /></M3eIconButton>
+            <MorphPlay playing={playing} loading={loading} onClick={() => p.toggle()} size={48} label={playing ? t('pause') : t('play')} className="mx-1" />
+            <M3eIconButton variant="tonal" aria-label={t('next')} onClick={() => p.next()}><m3e-icon variant="rounded" name="skip_next" filled /></M3eIconButton>
             <M3eIconButton id="pb-repeat" toggle selected={repeat !== 'off' || undefined} variant="standard" size="small" onClick={p.cycleRepeat}><m3e-icon variant="rounded" name="repeat" /><m3e-icon variant="rounded" slot="selected" name={repeat === 'one' ? 'repeat_one' : 'repeat'} filled style={{ color: 'var(--md-sys-color-primary)' }} /></M3eIconButton>
             <m3e-tooltip for="pb-repeat">{t('repeat')}</m3e-tooltip>
           </div>
           <div className="flex items-center gap-3 w-full max-w-xl md-label-md muted tabular-nums">
             <span className="w-10 text-right">{fmtTime(pos)}</span>
-            <M3eSlider className="seek flex-1" size="extra-small" min={0} max={Math.max(1, duration || 1)} step={0.1} onInput={(e: Event) => setSeeking(thumbValue(e))} onChange={(e: Event) => { p.seek(thumbValue(e)); setSeeking(null); }}>
-              <M3eSliderThumb value={pos} />
-            </M3eSlider>
+            <WavySeek className="flex-1" position={pos} duration={duration} playing={playing} onSeek={(v) => { p.seek(v); setSeeking(null); }} />
             <span className="w-10">{fmtTime(duration)}</span>
           </div>
         </div>
@@ -93,13 +86,11 @@ export function PlayerBar() {
           {track.hasLyrics && <M3eIconButton aria-label={t('lyrics')} onClick={() => setOpen(true)}><m3e-icon variant="rounded" name="lyrics" /></M3eIconButton>}
           <DevicesButton />
           <M3eIconButton toggle selected={queueOpen || undefined} aria-label={t('queue')} onClick={() => setQueueOpen(!queueOpen)}><m3e-icon variant="rounded" name="queue_music" /><m3e-icon variant="rounded" slot="selected" name="queue_music" filled style={{ color: 'var(--md-sys-color-primary)' }} /></M3eIconButton>
-          <M3eIconButton aria-label={t('mute')} onClick={p.toggleMute}><m3e-icon variant="rounded" name={volIcon} /></M3eIconButton>
-          <M3eSlider className="w-28" size="extra-small" min={0} max={1} step={0.01} onInput={(e: Event) => p.setVolume(thumbValue(e))}>
-            <M3eSliderThumb value={muted ? 0 : volume} />
-          </M3eSlider>
+          <Volume className="w-36" />
           <M3eIconButton aria-label={t('fullscreen')} onClick={() => setOpen(true)}><m3e-icon variant="rounded" name="fullscreen" /></M3eIconButton>
         </div>
       </div>
     </div>
+    </>
   );
 }

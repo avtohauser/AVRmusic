@@ -75,6 +75,12 @@ fun LoginScreen() {
   LaunchedEffect(linkInvite) {
     linkInvite?.let { invite = it; register = true; Links.invite.value = null }
   }
+  // someone new sees what this is first (not when they came with an invite link, or set the server up)
+  var teaser by rememberSaveable { mutableStateOf(!teaserSeen() && Links.invite.value == null) }
+  if (teaser && !setup) {
+    Teaser(onLogin = { register = false; teaser = false }, onCode = { register = true; teaser = false })
+    return
+  }
 
   fun submit() {
     if (busy) return
@@ -139,6 +145,7 @@ fun LoginScreen() {
           Text(if (register) tr("Уже есть аккаунт? Войти") else tr("Есть код приглашения? Регистрация"))
         }
       }
+      if (!setup) TextButton(onClick = { teaser = true }) { Text(tr("Что такое avr music?")) }
     }
   }
 }

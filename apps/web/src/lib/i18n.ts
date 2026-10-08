@@ -3,7 +3,7 @@ import { create } from 'zustand';
 export type Lang = 'ru' | 'en';
 
 const ru = {
-  home: 'Главная', search: 'Поиск', library: 'Медиатека', downloads: 'Загрузки', admin: 'Админка', profile: 'Профиль', settings: 'Настройки',
+  home: 'Главная', search: 'Поиск', library: 'Медиатека', downloads: 'Загрузки', admin: 'Админка', profile: 'Профиль', settings: 'Настройки', back: 'Назад', whatIsThis: 'Что такое avr music?',
   login: 'Войти', logout: 'Выйти', register: 'Регистрация', createAccount: 'Создать аккаунт', haveAccount: 'Уже есть аккаунт?', noAccount: 'Нет аккаунта?',
   email: 'E-mail', username: 'Имя пользователя', password: 'Пароль', displayName: 'Отображаемое имя', loginOrEmail: 'Логин или e-mail',
   transferMusic: 'Перенести музыку', friends: 'Друзья', inbox: 'Входящие',
@@ -34,7 +34,7 @@ const ru = {
 export type Dict = typeof ru;
 
 const en: Dict = {
-  home: 'Home', search: 'Search', library: 'Library', downloads: 'Downloads', admin: 'Admin', profile: 'Profile', settings: 'Settings',
+  home: 'Home', search: 'Search', library: 'Library', downloads: 'Downloads', admin: 'Admin', profile: 'Profile', settings: 'Settings', back: 'Back', whatIsThis: 'What is avr music?',
   login: 'Log in', logout: 'Log out', register: 'Sign up', createAccount: 'Create account', haveAccount: 'Already have an account?', noAccount: 'No account yet?',
   email: 'E-mail', username: 'Username', password: 'Password', displayName: 'Display name', loginOrEmail: 'Username or e-mail',
   transferMusic: 'Move your music', friends: 'Friends', inbox: 'Inbox',

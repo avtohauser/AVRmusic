@@ -58,14 +58,14 @@ export function TrackList({ tracks, context, showAlbum = true, showCover = true,
         return (
           <div
             key={`${track.id}-${i}`}
-            className={`track-row ${showAlbum ? '' : 'no-album'} cursor-pointer select-none`}
+            className={`track-row ${showAlbum ? '' : 'no-album'} ${showCover ? 'has-cover' : ''} cursor-pointer select-none`}
             data-current={isCur}
             data-menu={menuTrack === track.id}
             onDoubleClick={() => play(i)}
             onClick={(e) => { if (window.matchMedia('(hover: none)').matches && !(e.target as HTMLElement).closest('button,a,m3e-icon-button')) play(i); }}
             onContextMenu={(e) => { e.preventDefault(); openMenu(e.clientX, e.clientY, { kind: 'track', track, playlistId, canRemove }); }}
           >
-            <button className="w-10 h-10 flex items-center justify-center muted md-label-lg tabular-nums group rounded-full" onClick={() => play(i)} aria-label="play">
+            <button className="tr-num w-10 h-10 flex items-center justify-center muted md-label-lg tabular-nums group rounded-full" onClick={() => play(i)} aria-label="play">
               {isCur ? (
                 playing ? <span className="eq"><i /><i /><i /></span> : <m3e-icon variant="rounded" name="play_arrow" filled style={{ color: 'var(--md-sys-color-primary)' }} />
               ) : (
@@ -76,10 +76,10 @@ export function TrackList({ tracks, context, showAlbum = true, showCover = true,
               )}
             </button>
             <div className="flex items-center gap-3 min-w-0">
-              {showCover && <Cover src={track.coverUrl} alt="" className={`${compact ? 'w-10 h-10' : 'w-11 h-11 md:w-12 md:h-12'} !rounded-[12px]`} />}
+              {showCover && <Cover src={track.coverUrl} alt="" className={`${compact ? 'w-11 h-11' : 'w-[50px] h-[50px] md:w-12 md:h-12'} !rounded-[12px]`} />}
               <div className="min-w-0">
-                <div className={`track-title md-title-sm line-1 ${isCur ? 'text-primary' : ''}`}>{track.title}{track.explicit && <span className="ml-1.5 md-label-sm px-1 rounded bg-surface-container-highest muted align-middle">E</span>}</div>
-                <div className="md-body-sm muted truncate">
+                <div className={`track-title md-title-md line-1 ${isCur ? 'text-primary' : ''}`}>{track.title}{track.explicit && <span className="ml-1.5 md-label-sm px-1 rounded bg-surface-container-highest muted align-middle">E</span>}</div>
+                <div className="md-body-md muted truncate">
                   {offline.has(track.id) && <m3e-icon variant="rounded" name="offline_pin" filled className="inline align-[-3px] mr-1" style={{ color: 'var(--md-sys-color-tertiary)', ['--m3e-icon-size' as any]: '14px' }} />}
                   {track.hasSyncedLyrics && <m3e-icon variant="rounded" name="lyrics" className="inline align-[-3px] mr-1 opacity-70" style={{ ['--m3e-icon-size' as any]: '14px' }} />}
                   {track.hasCanvas && <m3e-icon variant="rounded" name="movie" className="inline align-[-3px] mr-1 opacity-70" style={{ ['--m3e-icon-size' as any]: '14px' }} />}

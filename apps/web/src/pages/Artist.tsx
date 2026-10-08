@@ -42,7 +42,7 @@ export default function Artist() {
           <span>· {fmtNumber(a.followers, lang)} {t('followers')}</span>
         </>}>
         <PlayButton size="lg" playing={isThis && playing} onClick={() => (isThis ? p.toggle() : p.playTracks(a.topTracks, 0, `artist:${a.id}`))} />
-        <M3eIconButton variant="tonal" size="medium" title={t('shuffle')} onClick={() => { if (!p.shuffle) p.toggleShuffle(); p.playTracks(a.topTracks, 0, `artist:${a.id}`); }}><m3e-icon variant="rounded" name="shuffle" /></M3eIconButton>
+        <M3eButton variant="tonal" onClick={() => { if (!p.shuffle) p.toggleShuffle(); p.playTracks(a.topTracks, 0, `artist:${a.id}`); }}><m3e-icon variant="rounded" slot="icon" name="shuffle" />{t('shuffle')}</M3eButton>
         {user && <M3eButton variant={liked ? 'filled' : 'outlined'} onClick={() => toggle('artist', a.id)}><m3e-icon variant="rounded" slot="icon" name={liked ? 'check' : 'add'} />{liked ? t('following') : t('follow')}</M3eButton>}
         {info?.catalog && a.deezerId && <AcquireButton kind="artist" id={a.deezerId} title={`${a.name} — дискография`} label text={lang === 'en' ? 'Top up the discography' : 'Докачать дискографию'} />}
         {info?.catalog && <M3eButton variant="text" href={a.deezerId ? `/catalog/artist/${a.deezerId}` : `/search?scope=catalog&q=${encodeURIComponent(a.name)}`}><m3e-icon variant="rounded" slot="icon" name="public" />{t('openInCatalog')}</M3eButton>}

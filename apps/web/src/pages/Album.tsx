@@ -52,7 +52,7 @@ export default function Album() {
           <span>· {tracksWord(album.trackCount, lang)}, {fmtDurationLong(album.durationMs, lang)}</span>
         </>}>
         <PlayButton size="lg" playing={isThis && playing} onClick={() => (isThis ? p.toggle() : p.playTracks(album.tracks, 0, `album:${album.id}`))} />
-        <M3eIconButton variant="tonal" size="medium" title={t('shuffle')} onClick={() => { if (!p.shuffle) p.toggleShuffle(); p.playTracks(album.tracks, Math.floor(Math.random() * album.tracks.length), `album:${album.id}`); }}><m3e-icon variant="rounded" name="shuffle" /></M3eIconButton>
+        <M3eButton variant="tonal" onClick={() => { if (!p.shuffle) p.toggleShuffle(); p.playTracks(album.tracks, Math.floor(Math.random() * album.tracks.length), `album:${album.id}`); }}><m3e-icon variant="rounded" slot="icon" name="shuffle" />{t('shuffle')}</M3eButton>
         <LikeButton type="album" id={album.id} alwaysVisible buttonSize="medium" />
         {user && <M3eIconButton variant="outlined" size="medium" href={albumZipUrl(album.id)} title={t('downloadAll')}><m3e-icon variant="rounded" name="download" /></M3eIconButton>}
         <OfflineToggle tracks={album.tracks} />

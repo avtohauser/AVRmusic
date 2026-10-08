@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import { M3eButton, M3eFormField, M3eIconButton } from '@/md';
 import { Modal } from './Modal';
 import { Cover } from './Cover';
+import { shapeMask } from '@/lib/shapes';
 import { useUI } from '@/stores/ui';
 import { useJam, leaveJam, voteInJam } from '@/lib/jam';
 import { stopFollow, useFollow } from '@/lib/follow';
@@ -12,8 +13,9 @@ import { sendToFriends, useFriends, useSocialUI, useTr, report, type Friend } fr
 import type { FriendRef } from '@avrmusic/shared';
 
 export function Avatar({ user, className = 'w-10 h-10' }: { user: { displayName: string; avatarUrl?: string | null } | null; className?: string }) {
-  if (user?.avatarUrl) return <Cover src={user.avatarUrl} round kind="artist" className={`${className} shrink-0`} />;
-  return <span className={`${className} shrink-0 rounded-full bg-tertiary-container text-on-tertiary-container flex items-center justify-center md-title-sm`}>{(user?.displayName ?? '?').slice(0, 1).toUpperCase()}</span>;
+  // people wear the app's 12-sided cookie
+  if (user?.avatarUrl) return <Cover src={user.avatarUrl} shape="cookie12" kind="artist" className={`${className} shrink-0`} />;
+  return <span className={`${className} shrink-0 bg-tertiary-container text-on-tertiary-container flex items-center justify-center md-title-sm`} style={shapeMask('cookie12')}>{(user?.displayName ?? '?').slice(0, 1).toUpperCase()}</span>;
 }
 
 /** "Лёша, Маша и ещё 2" */

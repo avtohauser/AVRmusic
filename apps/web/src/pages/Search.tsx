@@ -65,7 +65,7 @@ export default function Search() {
 
   return (
     <div className="page pt-2">
-      <div className="sticky top-16 z-10 pb-3 pt-1 bg-background">
+      <div className="sticky top-0 md:top-16 z-10 pb-3 pt-2 bg-background">
         <M3eSearchBar clearable className="!max-w-none" onClear={() => { setQ(''); inputRef.current?.focus(); }}>
           <m3e-icon variant="rounded" slot="leading" name="search" />
           <input ref={inputRef} slot="input" className="md-input md-body-lg" placeholder={t('searchPlaceholder')} value={q} onChange={(e) => setQ(e.target.value)} enterKeyHint="search" />

@@ -44,6 +44,7 @@ const Transfer = lazy(() => import('@/pages/Transfer'));
 const Game = lazy(() => import('@/pages/Game'));
 const Services = lazy(() => import('@/pages/Services'));
 const HelpDownloads = lazy(() => import('@/pages/HelpDownloads'));
+const Welcome = lazy(() => import('@/pages/Welcome'));
 
 const qc = new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false, staleTime: 15_000 } } });
 
@@ -189,6 +190,7 @@ export default function App() {
             {/* Sign-in screens live outside the app shell: no rail, top bar or player */}
             <Route path="/login" element={<Auth mode="login" />} />
             <Route path="/register" element={<Auth mode="register" />} />
+            <Route path="/welcome" element={<Welcome />} />
             <Route element={<Layout />}>
               <Route index element={<Home />} />
               <Route path="/search" element={<Search />} />

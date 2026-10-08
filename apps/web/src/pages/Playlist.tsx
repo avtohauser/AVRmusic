@@ -88,7 +88,7 @@ export default function Playlist() {
           <m3e-icon variant="rounded" name={pl.isPublic ? 'public' : 'lock'} className="muted" style={{ ['--m3e-icon-size' as any]: '16px' }} />
         </>}>
         {pl.tracks.length > 0 && <PlayButton size="lg" playing={isThis && playing} onClick={() => (isThis ? p.toggle() : p.playTracks(pl.tracks, 0, `playlist:${pl.id}`))} />}
-        {pl.tracks.length > 0 && <M3eIconButton variant="tonal" size="medium" title={t('shuffle')} onClick={() => { if (!p.shuffle) p.toggleShuffle(); p.playTracks(pl.tracks, Math.floor(Math.random() * pl.tracks.length), `playlist:${pl.id}`); }}><m3e-icon variant="rounded" name="shuffle" /></M3eIconButton>}
+        {pl.tracks.length > 0 && <M3eButton variant="tonal" onClick={() => { if (!p.shuffle) p.toggleShuffle(); p.playTracks(pl.tracks, Math.floor(Math.random() * pl.tracks.length), `playlist:${pl.id}`); }}><m3e-icon variant="rounded" slot="icon" name="shuffle" />{t('shuffle')}</M3eButton>}
         {user && !isOwner && <LikeButton type="playlist" id={pl.id} alwaysVisible buttonSize="medium" />}
         {isOwner && <M3eIconButton size="medium" title={t('editPlaylist')} onClick={() => setEditor({ id: pl.id, initial: { title: pl.title, description: pl.description, isPublic: pl.isPublic } })}><m3e-icon variant="rounded" name="edit" /></M3eIconButton>}
         {isOwner && pl.autoKind === 'smart' && <M3eButton variant="tonal" onClick={() => setRules(true)}><m3e-icon variant="rounded" slot="icon" name="tune" />{tr('Правила', 'Rules')}</M3eButton>}

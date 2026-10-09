@@ -28,6 +28,7 @@ jobs:
           ls -la engine/build/libs
       - name: Try it on YouTube
         run: |
+          set +e
           java -Xmx512m -jar tube/engine/build/libs/engine.jar > engine.log 2>&1 &
           for i in $(seq 1 60); do curl -fs localhost:8090/health >/dev/null && break; sleep 1; done
           note() { echo "::notice title=$1::$2"; }

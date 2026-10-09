@@ -1,0 +1,144 @@
+/* avr — the look of the AVR ecosystem, for any site: colours (light and dark), type, shapes, motion and a few
+   components. One file, no build step:
+
+     <link rel="stylesheet" href="/brand/avr.css">          (fonts are expected next to it, in fonts/)
+     <html data-theme="dark">                                (or "light"; without it the system decides)
+
+   The same values live in the apps (android/shared/.../ui/Brand.kt, Theme.kt). Everything is in a cascade
+   layer, so a site's own CSS always wins. */
+
+@font-face { font-family: 'Google Sans Flex'; font-style: normal; font-stretch: 100% 112%; font-weight: 400 900; font-display: swap; src: url(fonts/gsf-latin-ext.woff2) format('woff2'); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: 'Google Sans Flex'; font-style: normal; font-stretch: 100% 112%; font-weight: 400 900; font-display: swap; src: url(fonts/gsf-latin.woff2) format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Roboto Flex'; font-style: normal; font-stretch: 100% 112%; font-weight: 400 900; font-display: swap; src: url(fonts/rf-cyrillic-ext.woff2) format('woff2'); unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F; }
+@font-face { font-family: 'Roboto Flex'; font-style: normal; font-stretch: 100% 112%; font-weight: 400 900; font-display: swap; src: url(fonts/rf-cyrillic.woff2) format('woff2'); unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: 'Outfit'; font-weight: 300; font-display: swap; src: url(fonts/outfit-light.ttf) format('truetype'); }
+@font-face { font-family: 'Outfit'; font-weight: 500; font-display: swap; src: url(fonts/outfit-medium.ttf) format('truetype'); }
+
+@layer avr {
+
+/* ---------- colours: the brand's two schemes as Material 3 roles ---------- */
+:root {
+  /* the brand itself: deep teal ground, light-teal text, a star from pink to violet */
+  --avr-teal: #0B4248; --avr-teal-deep: #08353A; --avr-mist: #D3E3E4; --avr-mist-dim: #A9C4C6;
+  --avr-pink: #F2A5C3; --avr-violet: #5A4FC8; --avr-paper: #E9EFEF;
+  --avr-gradient: linear-gradient(135deg, var(--avr-pink), var(--avr-violet));
+
+  --font: "Google Sans Flex", "Roboto Flex", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-word: "Outfit", var(--font);
+  --ease-spring: cubic-bezier(.34, 1.56, .64, 1);   /* expressive: overshoots a little */
+  --ease-out: cubic-bezier(.2, .8, .2, 1);
+  --r-xs: 8px; --r-sm: 12px; --r-md: 18px; --r-lg: 26px; --r-xl: 34px; --r-full: 999px;
+  color-scheme: light dark;
+}
+/* light */
+:root, :root[data-theme="light"] {
+  --primary: #5A4FC8; --on-primary: #FFFFFF; --primary-container: #E4E0FF; --on-primary-container: #1E1478;
+  --secondary: #0B4248; --on-secondary: #FFFFFF; --secondary-container: #CDE2E3; --on-secondary-container: #062E33;
+  --tertiary: #A23F6E; --on-tertiary: #FFFFFF; --tertiary-container: #FFD9E6; --on-tertiary-container: #3B0D26;
+  --background: #E9EFEF; --on-background: #0B4248; --surface: #EEF3F3; --on-surface: #0B4248;
+  --surface-variant: #D6E3E4; --on-surface-variant: #3E5F63; --outline: #6F8C8F; --outline-variant: #BCCFD1;
+  --surface-lowest: #FFFFFF; --surface-low: #F3F7F7; --surface-mid: #EAF1F1; --surface-high: #E2EBEC; --surface-highest: #D9E5E6;
+  --error: #BA1A1A; --on-error: #FFFFFF; --error-container: #FFDAD6; --on-error-container: #410002;
+  --word: #0B4248; --accent: #5A4FC8;
+  --text-gradient: linear-gradient(90deg, #A23F6E, #5A4FC8 60%, #0B4248);
+}
+/* dark (the brand's own ground) */
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --primary: #F2A5C3; --on-primary: #3B0D26; --primary-container: #5A4FC8; --on-primary-container: #F1EEFF;
+  --secondary: #A9C4C6; --on-secondary: #0B3236; --secondary-container: #1E5B62; --on-secondary-container: #D3E3E4;
+  --tertiary: #C4BCFF; --on-tertiary: #251A7A; --tertiary-container: #3F3591; --on-tertiary-container: #E4DFFF;
+  --background: #0B4248; --on-background: #D3E3E4; --surface: #0B4248; --on-surface: #D3E3E4;
+  --surface-variant: #1E5B62; --on-surface-variant: #A9C4C6; --outline: #6F9497; --outline-variant: #2A6168;
+  --surface-lowest: #062E33; --surface-low: #0E4A50; --surface-mid: #115158; --surface-high: #155A62; --surface-highest: #1A646C;
+  --error: #FFB4AB; --on-error: #690005; --error-container: #93000A; --on-error-container: #FFDAD6;
+  --word: #D3E3E4; --accent: #F2A5C3;
+  --text-gradient: linear-gradient(90deg, #F2A5C3, #C4BCFF 60%, #A9C4C6);
+} }
+:root[data-theme="dark"] {
+  --primary: #F2A5C3; --on-primary: #3B0D26; --primary-container: #5A4FC8; --on-primary-container: #F1EEFF;
+  --secondary: #A9C4C6; --on-secondary: #0B3236; --secondary-container: #1E5B62; --on-secondary-container: #D3E3E4;
+  --tertiary: #C4BCFF; --on-tertiary: #251A7A; --tertiary-container: #3F3591; --on-tertiary-container: #E4DFFF;
+  --background: #0B4248; --on-background: #D3E3E4; --surface: #0B4248; --on-surface: #D3E3E4;
+  --surface-variant: #1E5B62; --on-surface-variant: #A9C4C6; --outline: #6F9497; --outline-variant: #2A6168;
+  --surface-lowest: #062E33; --surface-low: #0E4A50; --surface-mid: #115158; --surface-high: #155A62; --surface-highest: #1A646C;
+  --error: #FFB4AB; --on-error: #690005; --error-container: #93000A; --on-error-container: #FFDAD6;
+  --word: #D3E3E4; --accent: #F2A5C3;
+  --text-gradient: linear-gradient(90deg, #F2A5C3, #C4BCFF 60%, #A9C4C6);
+}
+
+body { margin: 0; background: var(--background); color: var(--on-background); font-family: var(--font); -webkit-font-smoothing: antialiased; }
+::selection { background: color-mix(in oklab, var(--primary) 40%, transparent); }
+
+/* ---------- type: headlines heavy, wide and round; body text plain ---------- */
+.avr-display { font: 800 clamp(40px, 7vw, 57px)/1.08 var(--font); letter-spacing: -0.02em; font-variation-settings: "wght" 800, "wdth" 112, "ROND" 100; }
+.avr-headline { font: 720 clamp(24px, 4vw, 32px)/1.2 var(--font); font-variation-settings: "wght" 720, "wdth" 110, "ROND" 100; }
+.avr-title { font: 680 22px/28px var(--font); font-variation-settings: "wght" 680, "wdth" 106, "ROND" 80; }
+.avr-title-sm { font: 600 16px/24px var(--font); font-variation-settings: "wght" 600, "wdth" 102, "ROND" 40; }
+.avr-body { font: 420 16px/1.55 var(--font); }
+.avr-body-sm { font: 400 14px/20px var(--font); }
+.avr-label { font: 620 14px/20px var(--font); font-variation-settings: "wght" 620, "ROND" 50; }
+.avr-kicker { font: 620 13px/18px var(--font); letter-spacing: .14em; text-transform: uppercase; color: var(--primary); }
+.avr-muted { color: var(--on-surface-variant); }
+.avr-gradient-text { background: var(--text-gradient); -webkit-background-clip: text; background-clip: text; color: transparent; }
+/* the wordmark: <span class="avr-word">avr<i>music</i></span> */
+.avr-word { font-family: var(--font-word); font-weight: 500; letter-spacing: -0.026em; line-height: 1; white-space: nowrap; color: var(--word); }
+.avr-word i { font-style: normal; font-weight: 300; margin-left: .14em; color: var(--accent); }
+
+/* ---------- components ---------- */
+.avr-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 48px; padding: 0 24px; border: 0; border-radius: var(--r-full);
+  font: 620 15px/1 var(--font); font-variation-settings: "wght" 620, "ROND" 50; cursor: pointer; text-decoration: none;
+  background: var(--primary); color: var(--on-primary); transition: border-radius .35s var(--ease-spring), transform .3s var(--ease-spring), filter .2s; }
+.avr-btn:hover { border-radius: 16px; filter: brightness(1.05); }
+.avr-btn:active { transform: scale(.95); }
+.avr-btn.tonal { background: var(--secondary-container); color: var(--on-secondary-container); }
+.avr-btn.outlined { background: transparent; color: var(--primary); box-shadow: inset 0 0 0 1px var(--outline); }
+.avr-btn.text { background: transparent; color: var(--primary); padding: 0 14px; }
+.avr-btn.big { height: 56px; padding: 0 28px; font-size: 16px; }
+
+/* cards: the box changes its corners when touched (expressive) */
+.avr-card { padding: 22px; border-radius: 30px; background: var(--surface-low); color: var(--on-surface);
+  transition: border-radius .45s var(--ease-spring), transform .45s var(--ease-spring), background .3s; }
+a.avr-card, .avr-card.interactive { text-decoration: none; cursor: pointer; }
+a.avr-card:hover, .avr-card.interactive:hover { border-radius: 44px; transform: translateY(-4px); background: var(--surface-mid); }
+.avr-chip { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; border-radius: var(--r-full); background: var(--surface-high); color: var(--on-surface); font: 620 14px/1 var(--font); }
+.avr-chip[aria-pressed="true"] { background: var(--secondary-container); color: var(--on-secondary-container); border-radius: 12px; }
+
+/* the floating navigation island (phones) — <nav class="avr-island"><a aria-current="page">…</a>…</nav> */
+.avr-island { position: fixed; left: 50%; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 50;
+  display: flex; gap: 4px; padding: 6px 8px; border-radius: var(--r-full); background: var(--surface-mid); box-shadow: 0 6px 18px rgba(0,0,0,.28); }
+.avr-island a { display: grid; place-items: center; gap: 2px; min-width: 64px; padding: 6px 10px; border-radius: var(--r-full); color: var(--on-surface-variant); text-decoration: none; font: 600 12px/14px var(--font); }
+.avr-island a[aria-current] { background: var(--secondary-container); color: var(--on-secondary-container); }
+
+/* a page section with the brand's glow behind it */
+.avr-glow { position: relative; isolation: isolate; }
+.avr-glow::before { content: ""; position: absolute; inset: -10% -10% 0; z-index: -1; pointer-events: none;
+  background: radial-gradient(45% 40% at 30% 30%, color-mix(in oklab, var(--avr-violet) 50%, transparent), transparent 70%),
+              radial-gradient(40% 40% at 75% 65%, color-mix(in oklab, var(--avr-pink) 26%, transparent), transparent 70%);
+  animation: avr-glow 14s ease-in-out infinite alternate; }
+@keyframes avr-glow { to { transform: translate(3%, -2%) scale(1.08); } }
+
+/* things that rise into place as they scroll in (avr.js sets data-in) */
+.avr-reveal { opacity: 0; transform: translateY(28px) scale(.98); transition: opacity .7s ease, transform .9s var(--ease-out); transition-delay: var(--d, 0ms); }
+.avr-reveal[data-in] { opacity: 1; transform: none; }
+
+/* the play button that morphs (avr.js draws the shape): <button class="avr-morph" data-playing="false"></button> */
+.avr-morph { position: relative; display: inline-grid; place-items: center; width: 64px; height: 64px; border: 0; background: none; cursor: pointer; color: var(--on-primary); transition: transform .32s var(--ease-spring); }
+.avr-morph svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.avr-morph .avr-morph-shape { fill: var(--primary); transition: d .55s cubic-bezier(.34, 1.45, .64, 1); }
+.avr-morph .avr-morph-icon { fill: var(--on-primary); }
+.avr-morph:active { transform: scale(.88); }
+
+/* the wavy progress line — <div class="avr-wavy" data-moving style="--v: 40%"></div> */
+.avr-wavy { --len: 32px; position: relative; height: 10px; color: var(--primary); }
+.avr-wavy::before { content: ""; position: absolute; left: calc(var(--v, 0%) + 6px); right: 0; top: 3px; height: 4px; border-radius: 99px; background: var(--secondary-container); }
+.avr-wavy::after { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: var(--v, 0%); background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='10'%3E%3Cpath d='M0 5Q8 1.2 16 5T32 5' fill='none' stroke='%23000' stroke-width='3'/%3E%3C/svg%3E") 0 0 / var(--len) 10px repeat-x;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='10'%3E%3Cpath d='M0 5Q8 1.2 16 5T32 5' fill='none' stroke='%23000' stroke-width='3'/%3E%3C/svg%3E") 0 0 / var(--len) 10px repeat-x; }
+.avr-wavy[data-moving]::after { animation: avr-wave 1.4s linear infinite; }
+@keyframes avr-wave { to { -webkit-mask-position: calc(-1 * var(--len)) 0; mask-position: calc(-1 * var(--len)) 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .avr-glow::before, .avr-wavy::after { animation: none !important; }
+  .avr-reveal { opacity: 1; transform: none; transition: none; }
+}
+}

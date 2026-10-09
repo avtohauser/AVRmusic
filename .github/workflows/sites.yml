@@ -1,0 +1,47 @@
+# The public sites on avthsr.space, the way a browser sees them: which sites exist (public certificate
+# transparency logs), and their pages, styles and scripts (what any visitor downloads) — so they can be
+# brought to the avr look. Nothing on the server is touched and nothing private is fetched. kgs, lks54 and
+# the music service are left out. The copy lands in sites/mirror/. Run by hand: Actions → sites → Run workflow.
+name: sites
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency: sites
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Find the sites and copy them as a browser sees them
+        run: |
+          set -u
+          ZONE=avthsr.space
+          SKIP='^(kgs|lks54|music)\.'
+          # every name that ever had a certificate under the zone (public CT logs), plus the zone itself
+          names="$( { echo "$ZONE"; echo "www.$ZONE";
+                      curl -fsS -m 60 "https://crt.sh/?q=%25.$ZONE&output=json" 2>/dev/null | jq -r '.[].name_value' 2>/dev/null | tr 'A-Z' 'a-z' | tr -s '\n' '\n'; } \
+                    | sed 's/^\*\.//' | grep -E "(^|\.)$ZONE$" | sort -u )"
+          rm -rf sites/mirror && mkdir -p sites/mirror
+          : > sites/mirror/INDEX.md
+          echo "| Сайт | Ответ | Заголовок |" >> sites/mirror/INDEX.md
+          echo "|---|---|---|" >> sites/mirror/INDEX.md
+          for n in $names; do
+            if echo "$n" | grep -Eq "$SKIP"; then echo "| $n | пропущен | |" >> sites/mirror/INDEX.md; continue; fi
+            code="$(curl -s -o /tmp/page.html -w '%{http_code} %{redirect_url}' -m 20 "https://$n/" || echo "000")"
+            title="$(grep -oiE '<title[^>]*>[^<]*' /tmp/page.html 2>/dev/null | head -n1 | sed -E 's/<title[^>]*>//I' | tr '|' '/' )"
+            echo "| $n | $code | ${title:-} |" >> sites/mirror/INDEX.md
+            case "$code" in 2*) ;; *) continue;; esac
+            wget -q -e robots=off --mirror --page-requisites --adjust-extension --convert-links --no-parent \
+              --level=3 --quota=60m --timeout=20 --tries=2 --wait=0.2 --max-redirect=3 \
+              --reject '*.mp4,*.webm,*.mov,*.mkv,*.zip,*.rar,*.7z,*.apk,*.ipa,*.exe,*.iso,*.mp3,*.flac,*.wav' \
+              -nH -P "sites/mirror/$n" "https://$n/" || true
+          done
+          echo "copied: $(du -sh sites/mirror | cut -f1)"
+      - name: Keep the copy
+        run: |
+          git config user.name "sites mirror" && git config user.email "sites@users.noreply.github.com"
+          git add -A sites/mirror
+          git commit -qm "sites: a copy of the public avthsr.space sites as a browser sees them" || { echo "nothing new"; exit 0; }
+          git pull -q --rebase origin "$GITHUB_REF_NAME" && git push -q origin "HEAD:$GITHUB_REF_NAME"

@@ -1,23 +1,34 @@
-<p align="center"><img src="apps/web/public/logo.svg" width="112" alt="avr music"></p>
+<p align="center"><img src="brand/logo.svg" width="112" alt="avr"></p>
 
-<h1 align="center">avr music</h1>
+<h1 align="center">AVR ecosystem</h1>
 
-<p align="center"><b>Своя музыка. Для своих.</b><br>
-Частный музыкальный сервис для небольшой компании друзей — Android, iPhone и сайт в одном стиле Material 3 Expressive.</p>
+<p align="center"><b>Своё. Для своих.</b><br>
+Музыка, видео, мессенджер и сайты для небольшой компании друзей — в одном стиле, на своём сервере.</p>
 
 <p align="center">
-  <a href="https://github.com/avtohauser/AVRmusic/releases/latest"><img alt="Android" src="https://img.shields.io/github/v/release/avtohauser/AVRmusic?label=Android&logo=android&color=F2A5C3&labelColor=0B4248"></a>
-  <a href="https://github.com/avtohauser/AVRmusic/releases"><img alt="iPhone" src="https://img.shields.io/badge/iPhone-IPA-C4BCFF?logo=apple&labelColor=0B4248"></a>
+  <a href="https://github.com/avtohauser/AVRmusic/releases/latest"><img alt="Android" src="https://img.shields.io/github/v/release/avtohauser/AVRmusic?label=avr%20music&logo=android&color=F2A5C3&labelColor=0B4248"></a>
   <a href="https://github.com/avtohauser/AVRmusic/actions/workflows/deploy.yml"><img alt="deploy" src="https://img.shields.io/github/actions/workflow/status/avtohauser/AVRmusic/deploy.yml?label=deploy&labelColor=0B4248"></a>
   <img alt="Kotlin Multiplatform" src="https://img.shields.io/badge/Kotlin-Multiplatform-5A4FC8?logo=kotlin&labelColor=0B4248">
-  <img alt="React" src="https://img.shields.io/badge/web-React%2019-A9C4C6?logo=react&labelColor=0B4248">
+  <img alt="Material 3 Expressive" src="https://img.shields.io/badge/Material%203-Expressive-C4BCFF?labelColor=0B4248">
 </p>
 
-<p align="center"><img src="docs/screens/welcome.webp" width="880" alt="Страница для гостей"></p>
+| | Что это | Где | Состояние |
+|---|---|---|---|
+| **avr music** | частный стриминг музыки: Android, iPhone, сайт | `apps/`, `android/`, `packages/` | работает |
+| **avrtube** | видео без рекламы на движке NewPipe: Android и iPhone, связан с avr music | `tube/` | в работе |
+| **avrgram** | Telegram для Android с режимом призрака и защитой | `gram/` | в работе |
+| **сайты** | сайты на avthsr.space в общем стиле (кроме kgs и lks54) | `sites/` | в работе |
+| **стиль avr** | цвета светлой и тёмной темы, шрифты, формы, движение, UI-кит | [`brand/`](brand/README.md) | готов |
+
+Всё в одном репозитории: общий стиль из `brand/` берут и сайты, и приложения; сборки и выкладка — через GitHub Actions.
 
 ---
 
-## Зачем это
+# avr music
+
+<p align="center"><img src="docs/screens/welcome.webp" width="880" alt="Страница для гостей"></p>
+
+### Зачем это
 
 Стриминги решают за слушателя: что ему показать, что убрать из каталога и в каком виде оставить песню. avr music
 устроен наоборот:
@@ -30,7 +41,7 @@
 - **Красиво и одинаково везде.** Один дизайн — Material 3 Expressive с фирменной звездой, морфящимися формами
   и волнистыми полосками — на Android, iPhone и в браузере.
 
-## Как это выглядит
+### Как это выглядит
 
 <table>
   <tr>
@@ -52,7 +63,7 @@
   <img src="docs/screens/player.webp" width="49%" alt="Плеер с текстом на компьютере">
 </p>
 
-## Что внутри
+### Что внутри
 
 **Слушать**
 - **Моя волна** — бесконечный поток под настроение (микс, любимое, незнакомое, бег, фокус, вечер, вечеринка) или по вкусу друга; **миксы дня** по любимым жанрам.
@@ -79,7 +90,7 @@
 - Приложение для Android **обновляется само**: уведомление и тихая установка после первого разрешения.
 - Виджет, Android Auto, Chromecast и AirPlay; бесшовное воспроизведение на iPhone.
 
-## Как попасть
+### Как попасть
 
 1. **Попросите приглашение** у друга, который уже внутри: код одноразовый, его создают в админке.
 2. **Зарегистрируйтесь** с кодом на сайте или в приложении.
@@ -93,7 +104,7 @@
 
 Гости без кода видят страницу-презентацию (`/welcome` на сайте, листалка при первом запуске приложения).
 
-## Устройство
+### Устройство
 
 ```
 android/shared   Kotlin Multiplatform + Compose Multiplatform: весь интерфейс и логика приложения для Android и iOS
@@ -119,7 +130,7 @@ deploy/          установщик сервера, Caddy/nginx, сторож 
 Секреты (доступ к серверам, ключи сервисов) живут только в GitHub Secrets и в админке сервиса; в репозитории
 и в логах сборок их нет.
 
-## Поднять у себя
+### Поднять у себя
 
 **Разработка:**
 
@@ -166,12 +177,27 @@ docker compose up -d --build
 Ключи Telegram-бота, Last.fm, Spotify и аккаунты YouTube задаются в админке и хранятся только на сервере.
 </details>
 
-## Откуда берётся музыка
+### Откуда берётся музыка
 
 Метаданные и обложки — из публичного API Deezer, тексты — LRCLIB. Звук сервис находит сам в открытых источниках
 (YouTube и SoundCloud через yt-dlp, Audius, Internet Archive, Jamendo), сверяя название, исполнителя, длительность
 и официальность загрузки. Можно загружать и свои файлы. Инструментов для снятия защиты со стриминговых сервисов
 и торрентов в проекте нет — используйте только то, на что у вас есть права.
+
+---
+
+# Стиль avr
+
+Один стиль на всю экосистему — Material 3 Expressive в фирменных цветах: тёмная схема (глубокая бирюза)
+и светлая (бумага), Google Sans Flex и Roboto Flex с переменными осями, формы-«печеньки», которые перетекают
+друг в друга, пружинистое движение и волнистые полоски. Сайтам хватает двух файлов — `brand/avr.css`
+и `brand/avr.js`; приложения берут те же значения из Compose-темы. Подробно — [`brand/README.md`](brand/README.md),
+живой образец — `brand/index.html`.
+
+# Сайты
+
+`sites/` — сайты на avthsr.space. Workflow **sites** снимает их публичную часть (как видит браузер) в
+`sites/mirror/`, дальше каждый сайт переводится на стиль avr и выкладывается через Actions. kgs и lks54 не трогаем.
 
 ## Лицензия
 

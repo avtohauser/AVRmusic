@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>avr · стиль</title>
+  <link rel="icon" href="logo-mark.svg">
+  <link rel="stylesheet" href="avr.css">
+  <script type="module" src="avr.js"></script>
+  <style>
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 0 16px 120px; }
+    header { display: flex; align-items: center; justify-content: space-between; padding: 14px 0; }
+    section { margin-top: 56px; }
+    .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+    .sw { height: 84px; border-radius: 20px; padding: 10px; display: flex; align-items: flex-end; font: 600 12px/1.3 var(--font); }
+    .shapes { display: flex; flex-wrap: wrap; gap: 18px; align-items: center; }
+    .shapes div { width: 84px; height: 84px; background: var(--avr-gradient); }
+    .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .player { display: flex; align-items: center; gap: 16px; }
+    .player .meta { flex: 1; min-width: 0; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <span class="row"><img src="logo.svg" alt="" width="46"><span class="avr-word" style="font-size:26px">avr<i>ecosystem</i></span></span>
+      <button class="avr-btn tonal" data-avr-theme-toggle>Светлая / тёмная</button>
+    </header>
+
+    <section class="avr-glow" style="padding: 48px 0 24px">
+      <p class="avr-kicker">AVR ecosystem</p>
+      <h1 class="avr-display" style="margin:.2em 0">Один стиль <span class="avr-gradient-text">для всего</span></h1>
+      <p class="avr-body avr-muted" style="max-width:620px">Музыка, видео, мессенджер и сайты выглядят как одно целое: глубокая бирюза, светлая бирюза текста,
+        звезда от розового к фиолетовому, Material 3 Expressive — морфящиеся формы, пружинистое движение, волнистые полоски.</p>
+      <div class="row" style="margin-top:20px">
+        <a class="avr-btn big" href="#">Основная</a><a class="avr-btn big tonal" href="#">Тональная</a>
+        <a class="avr-btn big outlined" href="#">Контурная</a><a class="avr-btn text" href="#">Текстовая</a>
+      </div>
+    </section>
+
+    <section class="avr-reveal">
+      <h2 class="avr-headline">Цвета</h2>
+      <div class="grid" style="margin-top:14px">
+        <div class="sw" style="background:var(--primary);color:var(--on-primary)">primary</div>
+        <div class="sw" style="background:var(--primary-container);color:var(--on-primary-container)">primary-container</div>
+        <div class="sw" style="background:var(--secondary-container);color:var(--on-secondary-container)">secondary-container</div>
+        <div class="sw" style="background:var(--tertiary-container);color:var(--on-tertiary-container)">tertiary-container</div>
+        <div class="sw" style="background:var(--surface-low);color:var(--on-surface)">surface-low</div>
+        <div class="sw" style="background:var(--surface-high);color:var(--on-surface)">surface-high</div>
+        <div class="sw" style="background:var(--avr-gradient);color:#fff">звезда</div>
+      </div>
+    </section>
+
+    <section class="avr-reveal">
+      <h2 class="avr-headline">Шрифт</h2>
+      <p class="avr-display" style="margin:.3em 0 0">Display 57</p>
+      <p class="avr-headline" style="margin:.2em 0">Headline — тяжёлый и круглый</p>
+      <p class="avr-title" style="margin:.2em 0">Title — заголовок раздела</p>
+      <p class="avr-body avr-muted">Body — обычный текст, Google Sans Flex и Roboto Flex для кириллицы.</p>
+    </section>
+
+    <section class="avr-reveal">
+      <h2 class="avr-headline">Формы</h2>
+      <div class="shapes" style="margin-top:14px">
+        <div data-avr-shape="cookie9" title="cookie9 — артисты, кнопка Play"></div>
+        <div data-avr-shape="cookie12" title="cookie12 — люди"></div>
+        <div data-avr-shape="clover" title="clover"></div>
+        <div data-avr-shape="sunny" title="sunny"></div>
+        <div data-avr-shape="square" title="square — Play во время игры"></div>
+      </div>
+    </section>
+
+    <section class="avr-reveal">
+      <h2 class="avr-headline">Плеер</h2>
+      <div class="avr-card player" style="margin-top:14px">
+        <button class="avr-morph" data-playing="false" aria-label="Играть" id="play"></button>
+        <div class="meta">
+          <div class="avr-title-sm">Нажмите на кнопку</div>
+          <div class="avr-body-sm avr-muted">печенье ↔ квадрат, волна идёт, пока играет</div>
+          <div class="avr-wavy" id="wave" style="--v: 35%; margin-top: 10px"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="avr-reveal">
+      <h2 class="avr-headline">Карточки и чипы</h2>
+      <div class="grid" style="margin-top:14px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr))">
+        <a class="avr-card" href="#"><div class="avr-title">avr music</div><p class="avr-body-sm avr-muted">музыка для своих</p></a>
+        <a class="avr-card" href="#"><div class="avr-title">avrtube</div><p class="avr-body-sm avr-muted">видео без рекламы</p></a>
+        <a class="avr-card" href="#"><div class="avr-title">avrgram</div><p class="avr-body-sm avr-muted">Telegram с защитой</p></a>
+      </div>
+      <div class="row" style="margin-top:14px">
+        <span class="avr-chip" aria-pressed="true">Выбрано</span><span class="avr-chip">Чип</span><span class="avr-chip">Ещё один</span>
+      </div>
+    </section>
+  </div>
+
+  <nav class="avr-island">
+    <a href="#" aria-current="page">Главная</a><a href="#">Поиск</a><a href="#">Медиатека</a><a href="#">Профиль</a>
+  </nav>
+  <script type="module">
+    const play = document.getElementById('play'), wave = document.getElementById('wave');
+    play.addEventListener('click', () => {
+      const on = play.dataset.playing !== 'true';
+      play.dataset.playing = String(on);
+      on ? wave.setAttribute('data-moving', '') : wave.removeAttribute('data-moving');
+    });
+  </script>
+</body>
+</html>

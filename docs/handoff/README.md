@@ -148,18 +148,26 @@ curl 'localhost:8090/search?q=lofi'                                           # 
 5. Откат: распаковать бэкап, `nginx -t`, `reload`.
 6. Лучше всего — выкладка сайтов через GitHub Actions (как у avr music), а не руками: тогда каждое изменение — коммит.
 
-## 8. Стиль avr
+## 8. Бренд avr
 
-- Гайд — [`brand/README.md`](../../brand/README.md), живой образец — `brand/index.html` (открыть в браузере).
-- Дизайн-система (токены обеих тем, шрифты, формы, движение, 10 компонентов с превью и правилами):
-  артефакт **avr** — https://claude.ai/artifact/2HJshVzkZg5tvj59JbUNj9 (открывается после того, как пользователь
-  поделится им). Если он недоступен — всё то же самое есть в `brand/`.
-- Коротко: тёмная тема — земля `#0B4248`, текст `#D3E3E4`, акцент `#F2A5C3`; светлая — бумага `#E9EFEF`, текст `#0B4248`,
-  акцент `#5A4FC8`; звезда — градиент `#F2A5C3 → #5A4FC8`. Google Sans Flex + Roboto Flex (кириллица) с осями
-  wght/wdth/ROND; Outfit — только слово-знак. Пружина `cubic-bezier(.34,1.56,.64,1)`, выход `cubic-bezier(.2,.8,.2,1)`.
-  Углы 8/12/18/26/34/999. Формы-печеньки cookie9/cookie12/clover/sunny/square перетекают друг в друга.
-- Сайту хватает `<link rel="stylesheet" href="/brand/avr.css">` и `<script type="module" src="/brand/avr.js">`;
-  тема — `<html data-theme="light|dark">`, без атрибута — системная, переключатель — `[data-avr-theme-toggle]`.
+Основа бренда — **звезда** и слово **avr** с припиской продукта. Прежде чем делать что-то видимое, открой брендбук.
+
+- **Брендбук** (живой, со всеми демо и картой «что куда когда»): https://claude.ai/artifact/Tr7U7AEggQj5D5BoTuPvfQ,
+  в репозитории — `brand/index.html` (`cd brand && python3 -m http.server`). Кратко — [`brand/README.md`](../../brand/README.md).
+- **Дизайн-система** для агентов (токены обеих тем, шрифты, 19 компонентов с превью, файлы бренда):
+  https://claude.ai/artifact/2HJshVzkZg5tvj59JbUNj9. Читай её `README.md` и `tokens.json`.
+- **Файлы** — `brand/assets/`: звезда (`mark/`), знаки продуктов (`signs/`), надписи и сборки (`wordmarks/`, `lockups/`),
+  иконки (`icons/`, PNG в `icons/png/`), фоны (`backgrounds/`), превью ссылок, баннер, аватары (`social/`).
+  Всё рисуется из одной геометрии: `python3 brand/tools/build.py && node brand/tools/render.mjs`. Файлы руками не правь.
+- **Имена**: avr, avr music, avr studio — раздельно; avrtube, avrgram — слитно; всегда строчными.
+- **Знаки**: звезда одна на всех; атрибут справа от звезды — music: волны, tube: экран с Play, gram: сообщение
+  (линии 6, внешняя фиолетовая, внутренняя розовая). avr и avr studio — звезда без атрибута.
+- **Цвет**: тёмная тема — земля `#0B4248`, текст `#D3E3E4`, акцент `#F2A5C3`; светлая — бумага `#E9EFEF`, текст
+  `#0B4248`, акцент `#5A4FC8`; звезда — градиент `#F2A5C3 → #5A4FC8`. Шрифты: Google Sans Flex + Roboto Flex, Outfit —
+  только надпись avr. Пружина `cubic-bezier(.34,1.56,.64,1)`, выход `cubic-bezier(.2,.8,.2,1)`. Углы 8/12/18/26/34/999.
+- **Звезда в деле** (сайт): `data-avr-starfield` (поле, `data-links` — созвездие), `.avr-bigstar`, `.avr-star`,
+  `.avr-twinkle`, `.avr-star-loader`, `.avr-star-in`, `sparkle(el)`, `starWipe({x, y}, go)`, форма `star`.
+  Сайту хватает `brand/avr.css` + `brand/avr.js`; тема — `<html data-theme="light|dark">`.
 - Голос: по-русски, на «вы», коротко, без восклицательных знаков и эмодзи.
 
 ## 9. Задачи — по порядку
@@ -251,7 +259,25 @@ HMAC прокси потоков `/proxy` с белым списком хост�
   и файлов, аудит активных сеансов, прокси. Потом пользователь добавит ещё.
 - Стиль: тема avr (светлая/тёмная), шрифты, иконка-звезда, слово-знак avr<i>gram</i>.
 
-### 9.7. Сопровождение avr music
+### 9.7. Бренд во всех продуктах
+
+Карта «что куда когда» — в брендбуке. По порядку:
+
+1. **Сайты** (вместе с 9.3 и 9.4): шапка — горизонтальная сборка `lockups/avr-*.svg`, фавикон — `icons/avr.svg` +
+   `icons/png/favicon-*.png`, превью ссылок — `social/og-*.png` в `og:image`, герой — звёздное поле или большая звезда.
+   Скопируй `brand/avr.css`, `avr.js`, `fonts/` и нужные `assets/` на сайт (лучше — сборкой в workflow, а не руками).
+2. **avr music, сайт** (`apps/web`): звёздное поле на `/welcome` и на входе, искры на лайк и ачивки, созвездие у друзей,
+   `og:image` = `og-avr-music.png`, мерцающая звезда у «друг слушает сейчас». Код эффектов — порт из `brand/avr.js`.
+3. **avr music, приложение** (`android/shared/.../ui/Brand.kt`): перенести в Compose
+   - `StarField(modifier, density, stars, links)` — Canvas с точками и звёздами `starPath`, мерцание, дрейф, пауза вне экрана;
+   - `Sparkle` — звёзды из точки нажатия (`Modifier.sparkleOnClick` или состояние + оверлей);
+   - `StarWipe` — звезда-маска, растущая из точки, для перехода между приложениями avr;
+   - `Wordmark(suffix = "music", apart = true)` — приписка параметром; `BrandMark(attribute = Music|Tube|Gram|None)`.
+   Где: звёздное поле — `Login`/`Teaser`, искры — лайк и ачивки, созвездие — друзья. Аватар бота — `social/avatar-avr-music.png`.
+4. **avrtube и avrgram** — с первого релиза: иконка из `icons/<продукт>.svg` (+ адаптивные слои), заставка с их надписью,
+   тема avr, переход звездой между music и tube.
+
+### 9.8. Сопровождение avr music
 
 Друзья присылают баги — чини, прогоняй проверки, выпускай APK (push в `android/**`), давай ссылку на релиз.
 

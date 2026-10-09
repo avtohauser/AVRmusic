@@ -1,5 +1,5 @@
-/* avr — the look of the AVR ecosystem, for any site: colours (light and dark), type, shapes, motion and a few
-   components. One file, no build step:
+/* avr — the look of the AVR ecosystem, for any site: colours (light and dark), type, shapes, motion, the star
+   (inline, twinkling, loading, huge behind a section, as a field of stars) and a few components. One file, no build step:
 
      <link rel="stylesheet" href="/brand/avr.css">          (fonts are expected next to it, in fonts/)
      <html data-theme="dark">                                (or "light"; without it the system decides)
@@ -80,9 +80,11 @@ body { margin: 0; background: var(--background); color: var(--on-background); fo
 .avr-kicker { font: 620 13px/18px var(--font); letter-spacing: .14em; text-transform: uppercase; color: var(--primary); }
 .avr-muted { color: var(--on-surface-variant); }
 .avr-gradient-text { background: var(--text-gradient); -webkit-background-clip: text; background-clip: text; color: transparent; }
-/* the wordmark: <span class="avr-word">avr<i>music</i></span> */
+/* the wordmark: <span class="avr-word">avr<i>music</i></span>, <span class="avr-word one">avr<i>tube</i></span> */
 .avr-word { font-family: var(--font-word); font-weight: 500; letter-spacing: -0.026em; line-height: 1; white-space: nowrap; color: var(--word); }
 .avr-word i { font-style: normal; font-weight: 300; margin-left: .14em; color: var(--accent); }
+/* a one-word name (avrtube, avrgram) has no gap: only the weight and the colour change */
+.avr-word.one i { margin-left: .035em; }
 
 /* ---------- components ---------- */
 .avr-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 48px; padding: 0 24px; border: 0; border-radius: var(--r-full);
@@ -139,8 +141,62 @@ a.avr-card:hover, .avr-card.interactive:hover { border-radius: 44px; transform: 
 .avr-wavy[data-moving]::after { animation: avr-wave 1.4s linear infinite; }
 @keyframes avr-wave { to { -webkit-mask-position: calc(-1 * var(--len)) 0; mask-position: calc(-1 * var(--len)) 0; } }
 
+/* ---------- the star: the sign of everything avr ---------- */
+
+/* the star inline, any size (font-size or width): <i class="avr-star"></i>; .mono takes the text colour */
+:root { --avr-star: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20100%20100'%3E%3Cpath%20d='M50%202C53%2030%2070%2047%2098%2050C70%2053%2053%2070%2050%2098C47%2070%2030%2053%202%2050C30%2047%2047%2030%2050%202Z'/%3E%3C/svg%3E"); }
+.avr-star { display: inline-block; width: 1em; height: 1em; flex: none; vertical-align: -0.12em; background: var(--avr-gradient);
+  -webkit-mask: var(--avr-star) center / contain no-repeat; mask: var(--avr-star) center / contain no-repeat; }
+.avr-star.mono { background: currentColor; }
+
+/* it twinkles: beside a heading, on something new, as a live mark — <i class="avr-star avr-twinkle" style="--d:.4s"></i> */
+.avr-twinkle { animation: avr-twinkle 2.6s var(--d, 0s) ease-in-out infinite; }
+@keyframes avr-twinkle { 0%, 100% { transform: scale(.72) rotate(0deg); opacity: .55; } 45% { transform: scale(1) rotate(12deg); opacity: 1; } }
+
+/* the brand's loader: the star breathes and sways — <i class="avr-star avr-star-loader"></i> */
+.avr-star-loader { width: 48px; height: 48px; animation: avr-breathe 1.5s ease-in-out infinite; }
+@keyframes avr-breathe { 0%, 100% { transform: rotate(-12deg) scale(.9); } 50% { transform: rotate(12deg) scale(1); } }
+
+/* the star comes in: turns from -120° and grows (the apps' intro, a page's first moment) */
+.avr-star-in { animation: avr-star-in .9s var(--ease-spring) both; animation-delay: var(--d, 0s); }
+@keyframes avr-star-in { from { transform: rotate(-120deg) scale(.2); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* one huge star cut by a corner of a section, turning very slowly — <section class="avr-bigstar" data-corner="tr"> */
+.avr-bigstar { position: relative; isolation: isolate; overflow: hidden; }
+.avr-bigstar::after { content: ""; position: absolute; z-index: -1; pointer-events: none; width: var(--size, 140%); aspect-ratio: 1;
+  right: calc(var(--size, 140%) * -0.42); top: calc(var(--size, 140%) * -0.42); opacity: var(--avr-bigstar-opacity, .16);
+  background: var(--avr-gradient); -webkit-mask: var(--avr-star) center / contain no-repeat; mask: var(--avr-star) center / contain no-repeat;
+  animation: avr-turn 140s linear infinite; }
+.avr-bigstar[data-corner="tl"]::after { right: auto; left: calc(var(--size, 140%) * -0.42); }
+.avr-bigstar[data-corner="br"]::after { top: auto; bottom: calc(var(--size, 140%) * -0.42); }
+.avr-bigstar[data-corner="bl"]::after { top: auto; right: auto; bottom: calc(var(--size, 140%) * -0.42); left: calc(var(--size, 140%) * -0.42); }
+.avr-bigstar[data-corner="c"]::after { top: 50%; right: 50%; transform-origin: center; translate: 50% -50%; }
+@keyframes avr-turn { to { rotate: 360deg; } }
+
+/* the star field (avr.js draws it on a canvas): <section data-avr-starfield> — it lies under the content */
+.avr-starfield-host { position: relative; isolation: isolate; }
+.avr-starfield { position: absolute; inset: 0; z-index: -1; width: 100%; height: 100%; pointer-events: none; }
+
+/* stars as list markers and as a divider */
+ul.avr-stars { list-style: none; padding-left: 1.6em; }
+ul.avr-stars li { position: relative; }
+ul.avr-stars li::before { content: ""; position: absolute; left: -1.5em; top: .32em; width: .8em; height: .8em; background: var(--avr-gradient);
+  -webkit-mask: var(--avr-star) center / contain no-repeat; mask: var(--avr-star) center / contain no-repeat; }
+.avr-divider { display: flex; align-items: center; gap: 14px; color: var(--outline-variant); }
+.avr-divider::before, .avr-divider::after { content: ""; flex: 1; height: 1px; background: currentColor; }
+.avr-divider > .avr-star { width: 14px; height: 14px; }
+
+/* sparks (avr.js sparkle()): little stars thrown out of a tap — a like, an invite accepted, an achievement */
+.avr-spark { position: fixed; z-index: 9999; width: 14px; height: 14px; margin: -7px 0 0 -7px; pointer-events: none; background: var(--avr-gradient);
+  -webkit-mask: var(--avr-star) center / contain no-repeat; mask: var(--avr-star) center / contain no-repeat; }
+
+/* the star wipe (avr.js starWipe()): a star grows from a point and covers the screen — between apps, into a big moment */
+.avr-wipe { position: fixed; inset: 0; z-index: 9998; pointer-events: none; background: var(--wipe, var(--avr-gradient));
+  -webkit-mask: var(--avr-star) no-repeat; mask: var(--avr-star) no-repeat; }
+
 @media (prefers-reduced-motion: reduce) {
-  .avr-glow::before, .avr-wavy::after { animation: none !important; }
+  .avr-glow::before, .avr-wavy::after, .avr-twinkle, .avr-star-loader, .avr-bigstar::after { animation: none !important; }
+  .avr-star-in { animation: none; }
   .avr-reveal { opacity: 1; transform: none; transition: none; }
 }
 }

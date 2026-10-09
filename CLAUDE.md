@@ -1,7 +1,9 @@
 # AVR ecosystem — правила для агента
 
 Подробный бриф, карта репозитория, сервер и список задач — [`docs/handoff/README.md`](docs/handoff/README.md).
-Прочитай его целиком перед первой задачей. Стиль — [`brand/README.md`](brand/README.md) и `brand/avr.css`.
+Прочитай его целиком перед первой задачей. Бренд — звезда и «avr» с припиской продукта: брендбук
+https://claude.ai/artifact/Tr7U7AEggQj5D5BoTuPvfQ (в репозитории `brand/index.html`, кратко — [`brand/README.md`](brand/README.md)),
+файлы — `brand/assets/` (генерируются `brand/tools/`, руками не правятся).
 
 ## Пользователь
 
@@ -34,6 +36,7 @@
 
 - Работай в ветке `claude/music-service-streaming-nfpgvx` (она же основная, push в неё = деплой). Перед работой — `git pull`.
 - Один стиль на всё — avr (светлая и тёмная тема). Сайты берут `brand/avr.css` + `brand/avr.js`, приложения — `Brand.kt`/`Theme.kt`.
+  Имена строчными: avr music, avr studio — раздельно; avrtube, avrgram — слитно.
 - Пиши как окружающий код: 2 пробела, комментарии по-английски и простыми словами (зачем, а не что), тексты
   интерфейса — по-русски и по-английски (i18n), документация — по-русски. Коммиты — по-английски, `область: что сделано`.
 - Перед push: API — `pnpm --filter @avrmusic/api test` и `typecheck`; сайт — `cd apps/web && npx tsc --noEmit -p . && npx vite build`;

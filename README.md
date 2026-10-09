@@ -1,4 +1,9 @@
-<p align="center"><img src="brand/logo.svg" width="112" alt="avr"></p>
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="brand/assets/lockups/avr-stacked-dark.svg">
+    <img src="brand/assets/lockups/avr-stacked-light.svg" width="150" alt="avr">
+  </picture>
+</p>
 
 <h1 align="center">AVR ecosystem</h1>
 
@@ -18,7 +23,7 @@
 | **avrtube** | видео без рекламы на движке NewPipe: Android и iPhone, связан с avr music | `tube/` | в работе |
 | **avrgram** | Telegram для Android с режимом призрака и защитой | `gram/` | в работе |
 | **сайты** | сайты на avthsr.space в общем стиле (кроме kgs, lks54 и old) | `sites/` | в работе |
-| **стиль avr** | цвета светлой и тёмной темы, шрифты, формы, движение, UI-кит | [`brand/`](brand/README.md) | готов |
+| **бренд avr** | звезда, знаки продуктов, надписи, иконки, цвета обеих тем, шрифты, движение, UI-кит | [`brand/`](brand/README.md) | готов |
 
 Всё в одном репозитории: общий стиль из `brand/` берут и сайты, и приложения; сборки и выкладка — через GitHub Actions.
 
@@ -186,13 +191,24 @@ docker compose up -d --build
 
 ---
 
-# Стиль avr
+# Бренд avr
 
-Один стиль на всю экосистему — Material 3 Expressive в фирменных цветах: тёмная схема (глубокая бирюза)
-и светлая (бумага), Google Sans Flex и Roboto Flex с переменными осями, формы-«печеньки», которые перетекают
-друг в друга, пружинистое движение и волнистые полоски. Сайтам хватает двух файлов — `brand/avr.css`
-и `brand/avr.js`; приложения берут те же значения из Compose-темы. Подробно — [`brand/README.md`](brand/README.md),
-живой образец — `brand/index.html`.
+Основа — **звезда** и слово **avr** с припиской продукта: avr music, avrtube, avrgram, avr studio. Звезда одна на всех;
+у продуктов рядом с ней свой атрибут — волны у музыки, экран у видео, сообщение у мессенджера. Дальше — Material 3
+Expressive в фирменных цветах: тёмная схема (глубокая бирюза) и светлая (бумага), Google Sans Flex и Roboto Flex с
+переменными осями, формы-«печеньки», пружинистое движение. Звезда работает и как фон (звёздное поле, большая звезда),
+и как анимация (заставка, лоадер, мерцание, искры, переход между продуктами).
+
+<p align="center">
+  <img src="brand/assets/icons/avr.svg" width="64" alt="avr">
+  <img src="brand/assets/icons/avr-music.svg" width="64" alt="avr music">
+  <img src="brand/assets/icons/avrtube.svg" width="64" alt="avrtube">
+  <img src="brand/assets/icons/avrgram.svg" width="64" alt="avrgram">
+</p>
+
+Брендбук — [`brand/README.md`](brand/README.md) и живой [`brand/index.html`](brand/index.html); файлы — `brand/assets/`
+(генерируются `brand/tools/`). Сайтам хватает `brand/avr.css` и `brand/avr.js`, приложения берут те же значения из
+Compose-темы.
 
 # Сайты
 

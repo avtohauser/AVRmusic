@@ -54,6 +54,7 @@
   .plate img { max-width: 100%; height: auto; }
   .cap { margin-top: 8px; font: 500 13px/18px var(--font); color: var(--on-surface-variant); }
   .cap b { color: var(--on-surface); font-weight: 650; }
+  .icon-wall { padding: 22px; border-radius: 26px; background: var(--surface-highest); }
   .note { font: 400 14px/20px var(--font); color: var(--on-surface-variant); }
   .tbl { overflow-x: auto; border-radius: 22px; background: var(--surface-low); }
   table { border-collapse: collapse; width: 100%; min-width: 640px; font: 400 14px/20px var(--font); }
@@ -136,6 +137,29 @@
     .hero { padding-top: 48px; }
     section.ch { padding-top: 56px; }
     .home { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  }
+  /* print / save as PDF: a cover page, every chapter on a new page, everything at rest, nothing cut in half */
+  @page { size: 1240px 1754px; margin: 0; }
+  @media print {
+    * { animation: none !important; transition: none !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    html, body { background: var(--background); }
+    .bar, #replay, .toggle { display: none !important; }
+    .page { max-width: none; padding: 0 72px 72px; }
+    .hero { margin: 0 -72px; min-height: 1754px; box-sizing: border-box; padding: 0 72px 140px; border-radius: 0;
+      display: flex; flex-direction: column; justify-content: flex-end; break-after: page; }
+    .hero .mark { width: 180px; }
+    .hero h1 { font-size: 220px; }
+    .hero .row a:first-child { display: none; }
+    section.ch { break-before: page; padding-top: 80px; }
+    .card, .plate, .demo, .swatch, .tbl, tr, figure, .sign-card, .home, .chat, .splash, li { break-inside: avoid; }
+    .ch > header, h3 { break-after: avoid; }
+    .splash .s-word { opacity: 1; transform: none; }
+    .splash .rings i { opacity: var(--a); }
+    .avr-star-in { opacity: 1; transform: none; }
+    footer { break-before: avoid; }
+    /* masks print badly: the gradient star as a plain picture instead */
+    ul.avr-stars li::before, .avr-star:not(.mono), .avr-divider > .avr-star { -webkit-mask: none; mask: none;
+      background: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20100%20100'%3E%3Cdefs%3E%3ClinearGradient%20id='g'%20x1='0'%20y1='1'%20x2='1'%20y2='0'%3E%3Cstop%20offset='0'%20stop-color='%23F2A5C3'/%3E%3Cstop%20offset='1'%20stop-color='%235A4FC8'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath%20fill='url%28%23g%29'%20d='M50%202C53%2030%2070%2047%2098%2050C70%2053%2053%2070%2050%2098C47%2070%2030%2053%202%2050C30%2047%2047%2030%2050%202Z'/%3E%3C/svg%3E") center / contain no-repeat; }
   }
   @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .live * { animation: none !important; } .splash.go .s-mark, .splash.go .s-word, .splash.go .rings i { animation-duration: .01s; } }
 </style>
@@ -358,7 +382,7 @@
       <p class="avr-body avr-muted">Плитка <code>#0B4248</code> со скруглением 22.5 %, знак продукта по центру — 68 % ширины; у avr (одна звезда) —
         56 %. Плитка у всех одна, продукт узнаётся по дополнению. Для Android есть адаптивный передний слой и монохромный слой (тематические иконки).</p>
     </header>
-    <div class="row" style="gap:22px">
+    <div class="row icon-wall" style="gap:22px">
       <figure style="margin:0;text-align:center"><img src="assets/icons/avr.svg" alt="" width="104"><figcaption class="cap">avr</figcaption></figure>
       <figure style="margin:0;text-align:center"><img src="assets/icons/avr-music.svg" alt="" width="104"><figcaption class="cap">avr music</figcaption></figure>
       <figure style="margin:0;text-align:center"><img src="assets/icons/avrtube.svg" alt="" width="104"><figcaption class="cap">avrtube</figcaption></figure>

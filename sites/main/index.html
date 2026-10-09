@@ -15,14 +15,7 @@
   <link rel="apple-touch-icon" href="/brand/assets/icons/png/favicon-180.png">
   <link rel="stylesheet" href="/brand/avr.css">
   <link rel="stylesheet" href="/site.css">
-  <script>
-    // set the theme before first paint so a light-theme visitor never sees a dark flash
-    try {
-      var t = localStorage.getItem('avr.theme');
-      if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
-      else document.documentElement.dataset.theme = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-    } catch (e) {}
-  </script>
+  <script src="/theme-boot.js"></script>
 </head>
 <body>
   <header class="top">
@@ -35,6 +28,7 @@
       <a href="#laboratory" data-i18n="nav.projects">Проекты</a>
     </nav>
     <div class="top-tools">
+      <button class="avr-chip" id="calm" type="button" aria-pressed="false" data-i18n="calm">Спокойно</button>
       <button class="avr-chip" id="lang" type="button" aria-label="Language">EN</button>
       <button class="avr-chip" id="theme" type="button" data-avr-theme-toggle aria-label="Тема">
         <span class="only-dark">Светлая</span><span class="only-light">Тёмная</span>
@@ -42,6 +36,7 @@
     </div>
   </header>
 
+  <div class="sr-only" id="live" aria-live="polite" aria-atomic="true"></div>
   <main class="deck" id="deck" tabindex="-1" aria-label="Слайды"></main>
 
   <nav class="rail" aria-label="Слайды">

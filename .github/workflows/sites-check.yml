@@ -1,0 +1,19 @@
+name: sites-check
+
+# Builds the visitka (sites/main) and checks it. It does not deploy: the site goes out with sites/main/deploy.ps1.
+on:
+  push:
+    paths: ['sites/main/**', 'brand/avr.css', 'brand/avr.js', '.github/workflows/sites-check.yml']
+  pull_request:
+    paths: ['sites/main/**', 'brand/**']
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node sites/main/build.mjs
+      - run: node sites/main/check.mjs

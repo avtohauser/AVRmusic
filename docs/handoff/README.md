@@ -42,18 +42,28 @@ SSH-доступом.
 | **сайты** | сайты на avthsr.space в стиле avr | `sites/` | разобраны снаружи, исходников нет |
 | **стиль avr** | цвета (светлая/тёмная), шрифты, формы, движение, компоненты | `brand/` + артефакт дизайн-системы | готов |
 
+### Что сделано к 9 октября 2026
+
+- **Визитка** на `avthsr.space` (`sites/main/`, слайдер в стиле avr) — выложена; **портфолио** «Stefan» переехало на
+  `explore.avthsr.space`, перекрашено в стиль avr (светлая и тёмная тема), «сейчас слушаю» берёт из avr music админа.
+- Сервер: бэкапы раз в сутки, мониторинг раз в 5 минут (`/var/log/avr-monitor.log`; уведомления в Telegram включатся, если
+  положить `TG_TOKEN` и `TG_CHAT` в `/etc/avr-alert.env`), fail2ban, вход только по ключам, nginx со сжатием и заголовками
+  безопасности. Деплой avr music идёт по ключу (секрет `SERVER_SSH_KEY`), пароль root больше не нужен.
+- Исходники портфолио в этом репозитории **нет** (там бэкенд, данные и секреты); они лежат на ПК владельца и на сервере.
+- Дальше: avrtube (9.5) и avrgram (9.6).
+
 ### Сайты на avthsr.space
 
 | Домен | Что | Решение |
 |---|---|---|
 | `music.avthsr.space` | avr music | выкатывается из этого репозитория |
-| `avthsr.space`, `www` | «Stefan» — личный сайт: бенто-плитки, лента, Spotify, терминал с пасхалками | **переделать в стиль avr, сохранив все пасхалки** |
-| `explore.avthsr.space` | «AVR - Studio» — витрина проектов, одна HTML-страница | перевести в стиль avr |
+| `avthsr.space`, `www` | визитка avr (слайдер: сервисы и проекты) | сделано, `sites/main/` |
+| `explore.avthsr.space` | портфолио «Stefan»: бенто-плитки, лента, терминал с пасхалками | сделано, в стиле avr |
 | `old.avthsr.space` | прошлая версия сайта | **не трогать** (намеренный web 1.0) |
 | `kgs.avthsr.space`, `lks54.avthsr.space` | чужие проекты | **не трогать вообще** |
 
 Полный список маршрутов, команд терминала и состояния, которое помнит сайт, — [`sites/README.md`](../../sites/README.md).
-Снимок того, что видит браузер, делает workflow **sites** в `sites/mirror/` (только публичные страницы).
+Что в репозитории, а что нет, — в [`sites/README.md`](../../sites/README.md).
 
 ## 4. Карта репозитория
 
@@ -70,7 +80,7 @@ android/app      оболочка Android: Media3 PlaybackService, виджет,
 android/iosApp   оболочка iOS (SwiftUI, XcodeGen), плеер AVPlayer
 tube/            avrtube: model (KMP-модели), core (NewPipeExtractor за простым API), engine (Ktor-сервер для iPhone)
 brand/           avr.css, avr.js, шрифты, логотипы, index.html (живой образец), README.md (гайд)
-sites/           README.md (опись сайтов и пасхалок), mirror/ (снимок публичных страниц)
+sites/           README.md (опись сайтов и пасхалок), main/ (визитка: build.mjs, check.mjs, deploy.ps1)
 deploy/          install.sh (Docker + nginx/Caddy + certbot), storage/ (сервер-хранилище: WireGuard, прокси, сторож)
 docs/            screens/ (скриншоты для README), handoff/ (этот бриф)
 .github/         workflows/ и scripts/build-errors.sh
@@ -110,7 +120,7 @@ curl 'localhost:8090/search?q=lofi'                                           # 
 | `ios.yml` | push в iOS-часть — только проверка компиляции; IPA — **только вручную** | IPA на `macos-15-intel`, heap 10g, таймаут 120 мин, релиз `ios-v<версия>` |
 | `tube.yml` | push в `tube/**` | собирает движок и пробует его на YouTube (итоги — в `::notice`) |
 | `storage.yml` | вручную: setup / migrate / cleanup / watchdog | обслуживание сервера-хранилища |
-| `sites.yml` | вручную | снимок публичных страниц avthsr.space в `sites/mirror/` (kgs, lks54, music пропускает) |
+| `sites-check.yml` | push в `sites/main/**` | собирает визитку и проверяет её (ссылки на файлы, разбор скриптов); выкладка — `sites/main/deploy.ps1` |
 
 - Версия приложения = `version` из `package.json` + номер сборки (`0.1.0.<run>`). Приложение Android обновляется само.
 - Ошибки компиляции Kotlin `.github/scripts/build-errors.sh` превращает в аннотации — их видно в сводке запуска

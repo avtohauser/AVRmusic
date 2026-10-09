@@ -213,8 +213,8 @@ Compose-темы.
 
 # Сайты
 
-`sites/` — сайты на avthsr.space. Workflow **sites** снимает их публичную часть (как видит браузер) в
-`sites/mirror/`, дальше каждый сайт переводится на стиль avr и выкладывается через Actions. kgs и lks54 не трогаем, old остаётся
+`sites/` — сайты на avthsr.space: визитка avr в `sites/main/` (слайдер в стиле avr), портфолио на explore (его исходники
+здесь не хранятся), опись и пасхалки — в [`sites/README.md`](sites/README.md). kgs и lks54 не трогаем, old остаётся
 в своём стиле web 1.0.
 
 ## Лицензия

@@ -1,0 +1,49 @@
+# avrtube: builds the NewPipe engine and tries it on YouTube from the runner (search, suggestions, a video
+# with its streams, popular videos, a channel) — the results show as notes on the run.
+name: tube
+on:
+  push:
+    branches: [claude/music-service-streaming-nfpgvx, main]
+    paths: ['tube/**', '.github/workflows/tube.yml']
+  workflow_dispatch:
+jobs:
+  engine:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: '8.13' }
+      - name: The newest NewPipe engine on JitPack
+        run: |
+          v="$(curl -fsS -m 30 https://jitpack.io/api/builds/com.github.TeamNewPipe/NewPipeExtractor/latestOk 2>/dev/null | grep -oE '"version" *: *"[^"]+"' | head -n1 | sed -E 's/.*"([^"]+)"$/\1/')"
+          echo "::notice title=NewPipeExtractor::newest built on JitPack: ${v:-unknown}; this build uses $(grep newpipe.version tube/gradle.properties | cut -d= -f2)"
+      - name: Build
+        run: |
+          set -o pipefail
+          cd tube
+          gradle :engine:shadowJar --no-daemon --console=plain -q 2>&1 | tee ../build.log || { bash ../.github/scripts/build-errors.sh ../build.log; exit 1; }
+          ls -la engine/build/libs
+      - name: Try it on YouTube
+        run: |
+          java -Xmx512m -jar tube/engine/build/libs/engine.jar > engine.log 2>&1 &
+          for i in $(seq 1 60); do curl -fs localhost:8090/health >/dev/null && break; sleep 1; done
+          note() { echo "::notice title=$1::$2"; }
+          s="$(curl -s 'localhost:8090/search?q=lofi%20hip%20hop')"
+          note search "items=$(echo "$s" | jq '.items|length' 2>/dev/null) next=$(echo "$s" | jq -r 'if .next then "yes" else "no" end' 2>/dev/null) err=$(echo "$s" | jq -r '.error // ""' 2>/dev/null | head -c 200)"
+          note suggest "$(curl -s 'localhost:8090/suggest?q=lofi' | jq -c '.[:5]' 2>/dev/null | head -c 300)"
+          id="$(echo "$s" | jq -r '[.items[] | select(.kind=="video" and (.live|not))][0].id' 2>/dev/null)"
+          v="$(curl -s "localhost:8090/video/$id")"
+          note video "id=$id title=$(echo "$v" | jq -r '.title // ""' | head -c 80) streams=$(echo "$v" | jq '.streams|length' 2>/dev/null) hls=$(echo "$v" | jq -r 'if .hls then "yes" else "no" end' 2>/dev/null) related=$(echo "$v" | jq '.related|length' 2>/dev/null) err=$(echo "$v" | jq -r '.error // ""' 2>/dev/null | head -c 200)"
+          p="$(echo "$v" | jq -r '[.streams[] | select(.kind=="audio")][0].url // empty' 2>/dev/null)"
+          if [ -n "$p" ]; then note proxy "audio through the proxy: HTTP $(curl -s -o /dev/null -w '%{http_code} %{size_download}B' -r 0-65535 "localhost:8090${p#/api/tube}")"; fi
+          t="$(curl -s localhost:8090/trending)"
+          note trending "items=$(echo "$t" | jq '.items|length' 2>/dev/null) err=$(echo "$t" | jq -r '.error // ""' 2>/dev/null | head -c 200)"
+          ch="$(echo "$v" | jq -r '.authorUrl // empty' | sed -E 's#.*/##')"
+          [ -n "$ch" ] && note channel "$(curl -s "localhost:8090/channel/$ch" | jq -r '"\(.title) videos=\(.videos.items|length)"' 2>/dev/null | head -c 200)"
+          c="$(curl -s "localhost:8090/comments/$id")"
+          note comments "items=$(echo "$c" | jq '.items|length' 2>/dev/null) err=$(echo "$c" | jq -r '.error // ""' 2>/dev/null | head -c 200)"
+          grep -E "WARN|ERROR" engine.log | head -n 5 | while read -r l; do echo "::warning title=engine log::$(echo "$l" | head -c 300)"; done
+          true

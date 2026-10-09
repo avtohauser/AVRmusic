@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ru" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>avr — своё. для своих.</title>
+  <meta name="description" content="avr — свои сервисы на своём сервере: музыка, видео, мессенджер, проекты.">
+  <meta name="theme-color" content="#0B4248">
+  <meta property="og:title" content="avr">
+  <meta property="og:description" content="Своё. Для своих. Музыка, видео, мессенджер и проекты на avthsr.space.">
+  <meta property="og:image" content="https://avthsr.space/brand/assets/social/og-avr.png">
+  <meta property="og:type" content="website">
+  <link rel="icon" type="image/svg+xml" href="/brand/assets/icons/avr.svg">
+  <link rel="icon" type="image/png" sizes="32x32" href="/brand/assets/icons/png/favicon-32.png">
+  <link rel="apple-touch-icon" href="/brand/assets/icons/png/favicon-180.png">
+  <link rel="stylesheet" href="/brand/avr.css">
+  <link rel="stylesheet" href="/site.css">
+  <script>
+    // set the theme before first paint so a light-theme visitor never sees a dark flash
+    try {
+      var t = localStorage.getItem('avr-theme');
+      if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+      else document.documentElement.dataset.theme = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    } catch (e) {}
+  </script>
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="#hello" aria-label="avr">
+      <img class="only-dark" src="/brand/assets/lockups/avr-dark.svg" alt="avr" height="30">
+      <img class="only-light" src="/brand/assets/lockups/avr-light.svg" alt="avr" height="30">
+    </a>
+    <nav class="top-nav" aria-label="Разделы">
+      <a href="#music" data-i18n="nav.services">Сервисы</a>
+      <a href="#laboratory" data-i18n="nav.projects">Проекты</a>
+    </nav>
+    <div class="top-tools">
+      <button class="avr-chip" id="lang" type="button" aria-label="Language">EN</button>
+      <button class="avr-chip" id="theme" type="button" data-avr-theme-toggle aria-label="Тема">
+        <span class="only-dark">Светлая</span><span class="only-light">Тёмная</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="deck" id="deck" tabindex="-1" aria-label="Слайды"></main>
+
+  <nav class="rail" aria-label="Слайды">
+    <button class="rail-btn" id="prev" type="button" aria-label="Назад">‹</button>
+    <div class="rail-mid">
+      <div class="avr-wavy" id="wavy" data-moving style="--v:0%"></div>
+      <div class="rail-dots" id="dots"></div>
+    </div>
+    <button class="rail-btn" id="next" type="button" aria-label="Дальше">›</button>
+  </nav>
+
+  <script type="module" src="/brand/avr.js"></script>
+  <script type="module" src="/site.js"></script>
+</body>
+</html>

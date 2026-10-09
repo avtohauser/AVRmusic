@@ -1,0 +1,674 @@
+<html>
+
+<head>
+    <title>Stefan / Avtohauser - Home</title>
+</head>
+
+<body bgcolor="#000000" text="#C0C0C0" link="#00FFFF" vlink="#FF00FF" alink="#FF0000">
+
+    <center>
+
+        <table border="0" width="800" cellpadding="5" cellspacing="0">
+            <tr>
+                <td align="left">
+                    <font face="Courier New, monospace" size="4" color="#FFFFFF"><b>./ stefan</b></font>
+                </td>
+                <td align="right">
+                    <font face="Verdana, Arial" size="2">
+                        [ <b>Home</b>
+                        | <a href="about.html">About</a>
+                        | <a href="projects.html">Projects</a>
+                        | <a href="skills.html">Skills</a>
+                        | <a href="index.html">Feed</a>
+                        | <a href="index.html">Contact</a> ]
+                    </font>
+                </td>
+            </tr>
+        </table>
+
+        <hr width="800" color="#880088">
+
+        <table border="0" width="800" cellpadding="10" cellspacing="0">
+            <tr>
+                <!-- Main Header Area -->
+                <td colspan="3" align="center">
+                    <table border="1" bordercolor="#880088" cellpadding="5" cellspacing="0" bgcolor="#111111"
+                        width="100%">
+                        <tr>
+                            <td align="center">
+                                <blink>
+                                    <font face="Courier New" color="#00FF00"><b>&#9679; System Online</b></font>
+                                </blink>
+                                <br><br>
+                                <font face="Verdana, Arial" size="6" color="#FFFFFF"><b>Stefan / Avtohauser</b></font>
+                                <br>
+                                <font face="Arial" size="3" color="#AAAAAA"><i>CyberSec Student & Full Stack
+                                        Developer<br>crafting secure, scalable systems.</i></font>
+                                <br><br>
+                                <font face="Courier New, monospace" color="#FFAA00" size="4">"I'm just a cat. Meow."
+                                </font>
+                                <br><br>
+                                <table border="2" bordercolor="#00FFFF" cellpadding="5" bgcolor="#000044">
+                                    <tr>
+                                        <td><a href="projects.html">
+                                                <font color="#FFFFFF" face="Verdana" size="3"><b>[ View Projects ]</b>
+                                                </font>
+                                            </a></td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+
+            <tr>
+                <td colspan="3">&nbsp;</td>
+            </tr>
+
+            <tr valign="top">
+                <!-- Left Column: Stack, Hardware, Live Age -->
+                <td width="25%">
+                    <!-- Core Stack -->
+                    <table border="1" width="100%" cellpadding="5" bgcolor="#111111">
+                        <tr>
+                            <td bgcolor="#333333">
+                                <font color="#FFFFFF" face="Verdana" size="2"><b>CORE STACK</b></font>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <font face="Verdana" size="2">
+                                    <a href="index.html#">Go</a> | <a href="index.html#">PHP</a> | <a href="index.html#">Python</a><br>
+                                    <a href="index.html#">C#</a> | <a href="index.html#">Linux</a><br>
+                                    <a href="index.html#">Kotlin</a> | <a href="index.html#">SwiftUI</a><br>
+
+                                </font>
+                            </td>
+                        </tr>
+                    </table>
+                    <br>
+
+                    <!-- Hardware -->
+                    <table border="1" width="100%" cellpadding="5" bgcolor="#111111">
+                        <tr>
+                            <td bgcolor="#333333">
+                                <font color="#FFFFFF" face="Verdana" size="2"><b>HARDWARE</b></font>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <font face="Verdana" size="2">
+                                    <b>Pixel 10 Pro XL</b><br>
+                                    <font size="1" color="#888888">Mobile - Powered by Android 17 beta 2</font><br><br>
+
+                                    <b>Ryzen 7 3800X</b><br>
+                                    <font size="1" color="#888888">Main PC - Powered by Windows 11</font><br><br>
+
+                                    <b>Thinkpad T480</b><br>
+                                    <font size="1" color="#888888">Intel i5 / 32gb ram<br><i>Powered by I use arch
+                                            btw</i></font>
+                                </font>
+                            </td>
+                        </tr>
+                    </table>
+                    <br>
+
+                    <!-- Live Age -->
+                    <table border="1" width="100%" cellpadding="5" bgcolor="#111111">
+                        <tr>
+                            <td bgcolor="#333333">
+                                <font color="#FFFFFF" face="Verdana" size="2"><b>LIVE AGE</b></font>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <font face="Courier New" size="2">
+                                    <b>Hex:</b>
+                                    <font color="#00FF00"><span id="live-age-hex">0x12.78A0275D</span></font><br>
+                                    <b>Years:</b>
+                                    <font color="#00FF00"><span id="live-age-dec">18.4399437526</span></font>
+                                </font>
+                                <script>
+                                    // Start date approximately 18.44 years ago from early 2026 -> roughly late 2007.
+                                    var birthDate = new Date("September 21, 2007 00:00:00").getTime();
+                                    var msPerYear = 1000 * 60 * 60 * 24 * 365.25;
+
+                                    function updateLiveAge() {
+                                        var now = new Date().getTime();
+                                        var ageInYears = (now - birthDate) / msPerYear;
+
+                                        // Update decimal age
+                                        var decElem = document.getElementById('live-age-dec');
+                                        if (decElem) decElem.innerHTML = ageInYears.toFixed(10);
+
+                                        // Update hex age (simulating float to hex)
+                                        var hexInt = Math.floor(ageInYears).toString(16).toUpperCase();
+                                        var hexFrac = Math.floor((ageInYears % 1) * 0xFFFFFFFF).toString(16).toUpperCase();
+                                        while (hexFrac.length < 8) { hexFrac = "0" + hexFrac; }
+
+                                        var hexElem = document.getElementById('live-age-hex');
+                                        if (hexElem) hexElem.innerHTML = "0x" + hexInt + "." + hexFrac;
+
+                                        setTimeout(updateLiveAge, 50); // Fast update for ticker effect
+                                    }
+                                    updateLiveAge();
+                                </script>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+
+                <!-- Center Column: Terminal, Projects, Notes -->
+                <td width="50%">
+                    <!-- Terminal -->
+                    <table border="1" width="100%" cellpadding="10" bgcolor="#003300" bordercolor="#00FF00">
+                        <tr>
+                            <td valign="top" height="200" id="terminal-container">
+                                <font face="Courier New" size="2" color="#00FF00">
+                                    <div id="terminal-output"
+                                        style="height: 150px; overflow-y: scroll; padding-bottom: 5px;"></div>
+                                    <div id="terminal-input-line" style="display: flex;">
+                                        <span>$ </span>
+                                        <input type="text" id="terminal-input"
+                                            style="background: transparent; border: none; color: #00FF00; font-family: 'Courier New', Courier, monospace; outline: none; width: 90%; font-size: 13px;"
+                                            autocomplete="off" autofocus>
+                                    </div>
+                                    <div id="terminal-locked-line" style="display: none; color: #FF5555;"></div>
+                                </font>
+                            </td>
+                        </tr>
+                    </table>
+                    <script>
+                        (function () {
+                            const output = document.getElementById('terminal-output');
+                            const input = document.getElementById('terminal-input');
+                            const inputLine = document.getElementById('terminal-input-line');
+                            const lockedLine = document.getElementById('terminal-locked-line');
+                            const container = document.getElementById('terminal-container');
+
+                            let history = ['Welcome to Avtohauser v1.0', 'Type "help" for commands'];
+                            let badStreak = 0;
+                            let isLocked = false;
+                            let glitchMode = false;
+                            let dumpIntervalId = null;
+                            let originalTexts = [];
+
+                            // Load state
+                            try {
+                                const savedStreak = window.localStorage.getItem('terminalBadStreak');
+                                if (savedStreak) badStreak = parseInt(savedStreak) || 0;
+                                if (window.localStorage.getItem('terminalGlitch') === '1') {
+                                    glitchMode = true;
+                                    startFakeGlitch();
+                                }
+                            } catch (e) { }
+
+                            function renderOutput() {
+                                output.innerHTML = history.map(line => `<div>${line.replace(/ /g, '&nbsp;')}</div>`).join('');
+                                output.scrollTop = output.scrollHeight;
+                            }
+
+                            function startFakeGlitch() {
+                                try { window.localStorage.setItem('terminalGlitch', '1'); } catch (e) { }
+
+                                // Replace text nodes
+                                const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+                                    acceptNode: function (node) {
+                                        if (!node.nodeValue || !node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+                                        const parent = node.parentElement;
+                                        if (!parent) return NodeFilter.FILTER_REJECT;
+                                        const tag = parent.tagName.toLowerCase();
+                                        if (['script', 'style', 'input', 'textarea'].includes(tag)) return NodeFilter.FILTER_REJECT;
+                                        // Specific to this container
+                                        if (container.contains(node)) return NodeFilter.FILTER_REJECT;
+                                        return NodeFilter.FILTER_ACCEPT;
+                                    }
+                                });
+
+                                originalTexts = [];
+                                let node;
+                                while (node = walker.nextNode()) {
+                                    originalTexts.push({ node: node, original: node.nodeValue });
+                                    node.nodeValue = '0x00';
+                                }
+
+                                if (!dumpIntervalId) {
+                                    dumpIntervalId = setInterval(() => {
+                                        const hex = Array.from({ length: 16 }).map(() => Math.floor(Math.random() * 256).toString(16).padStart(2, '0')).join(' ');
+                                        const p = document.createElement('div');
+                                        p.style.color = '#55FF55';
+                                        p.innerHTML = hex;
+                                        output.appendChild(p);
+                                        output.scrollTop = output.scrollHeight;
+                                    }, 1200);
+
+                                    // Make terminal text green matrix style
+                                    container.style.backgroundColor = '#001100';
+                                }
+                            }
+
+                            function stopFakeGlitch() {
+                                if (dumpIntervalId) {
+                                    clearInterval(dumpIntervalId);
+                                    dumpIntervalId = null;
+                                }
+                                originalTexts.forEach(it => {
+                                    try { it.node.nodeValue = it.original; } catch (e) { }
+                                });
+                                originalTexts = [];
+                                try { window.localStorage.removeItem('terminalGlitch'); } catch (e) { }
+                                container.style.backgroundColor = '#003300';
+                            }
+
+                            input.addEventListener('keydown', function (e) {
+                                if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    const raw = input.value.trim();
+                                    if (!raw) return;
+                                    const tokens = raw.split(/\s+/);
+                                    const base = tokens[0].toLowerCase();
+                                    const args = tokens.slice(1).join(' ');
+
+                                    if (isLocked && base !== 'reset-terminal' && base !== 'unlock' && base !== 'reset-count' && base !== 'kill-glitch') {
+                                        input.value = '';
+                                        return;
+                                    }
+
+                                    history.push(`$ ${raw}`);
+                                    let recognized = true;
+
+                                    switch (base) {
+                                        case 'help':
+                                            history.push('Available commands: about, skills, contact, whoami, date, pwd, uname, echo [text], fortune, matrix, clear');
+                                            break;
+                                        case 'about':
+                                            history.push('Stefan / Avtohauser. CyberSec student & Full Stack Dev.');
+                                            break;
+                                        case 'skills':
+                                            history.push('Go, PHP, Python, C#, Linux, Kotlin, SwiftUI');
+                                            break;
+                                        case 'contact':
+                                            history.push('Email: contact@avtohauser.com');
+                                            break;
+                                        case 'whoami':
+                                            history.push('root');
+                                            break;
+                                        case 'date':
+                                            history.push(new Date().toString());
+                                            break;
+                                        case 'pwd':
+                                            history.push('/home/avtohauser/portfolio');
+                                            break;
+                                        case 'uname':
+                                            history.push('Linux avtohauser-server 5.19.0 #1 x86_64 GNU/Linux');
+                                            break;
+                                        case 'echo':
+                                            history.push(args);
+                                            break;
+                                        case 'clear':
+                                            history = [];
+                                            break;
+                                        case 'fortune':
+                                            const fortunes = [
+                                                "The only way to do great work is to love what you do. - Steve Jobs",
+                                                "Debugging is twice as hard as writing the code in the first place. - Brian W. Kernighan"
+                                            ];
+                                            history.push(fortunes[Math.floor(Math.random() * fortunes.length)]);
+                                            break;
+                                        case 'matrix':
+                                            history.push('The Matrix has you...');
+                                            history.push('Follow the white rabbit 🐰');
+                                            break;
+                                        case 'ls':
+                                            if (args === 'friends') {
+                                                history.push('Friends:');
+                                                history.push('(none)');
+                                                break;
+                                            }
+                                            history.push('drwxr-xr-x  2 root root 4096 Feb 26 03:14 .config');
+                                            history.push('drwxr-xr-x  3 root root 4096 Feb 26 03:14 .ssh');
+                                            history.push('-rw-r--r--  1 root root  220 Feb 26 03:14 .bashrc');
+                                            history.push('-rw-r--r--  1 root root   17 Feb 26 03:14 .profile');
+                                            history.push('drwxr-xr-x  5 root root 4096 Feb 26 03:14 projects');
+                                            history.push('drwxr-xr-x  2 root root 4096 Feb 26 03:14 secrets');
+                                            history.push('-rwx------  1 root root  666 Feb 26 03:14 dont_open.sh');
+                                            history.push('-rw-r--r--  1 root root 1337 Feb 26 03:14 notes.txt');
+                                            break;
+                                        case 'friends':
+                                            history.push('Friends:');
+                                            history.push('(none)');
+                                            break;
+                                        case 'cd':
+                                            if (!args) {
+                                                history.push('cd: missing target');
+                                            } else {
+                                                history.push(`cd: ${args}: No such friend or directory`);
+                                            }
+                                            break;
+                                        case 'coffi':
+                                            history.push('');
+                                            history.push('      ╔══════════════════════════════╗');
+                                            history.push('      ║                              ║');
+                                            history.push('      ║      43.414713, 39.950758    ║');
+                                            history.push('      ║                              ║');
+                                            history.push('      ║   ──┬─────┬─────┬─────┬──    ║');
+                                            history.push('      ║    │     │     │     │      ║');
+                                            history.push('      ║   ☕  ☁   ☁   ☁   ☁   ☁     ║');
+                                            history.push('      ║    │     │     │     │      ║');
+                                            history.push('      ║   ──┴─────┴─────┴─────┴──    ║');
+                                            history.push('      ║                              ║');
+                                            history.push('      ║   Find me beneath the clouds  ║');
+                                            history.push('      ║                              ║');
+                                            history.push('      ╚══════════════════════════════╝');
+                                            history.push('');
+                                            break;
+                                        case 'meow':
+                                            history.push('🐱 *purrrrrr*');
+                                            break;
+                                        case 'test':
+                                            history.push('');
+                                            history.push('╔════════════════════════════════════════╗');
+                                            history.push('║     VOIGHT-KAMPFF TEST INITIATED       ║');
+                                            history.push('║     Subject: [REDACTED]                ║');
+                                            history.push('╚════════════════════════════════════════╝');
+                                            history.push('');
+                                            history.push('> It\'s your birthday. Someone gives you a calfskin wallet...');
+                                            history.push('> You\'ve got a little boy. He shows you his butterfly collection...');
+                                            break;
+                                        case 'ri':
+                                        case 'void':
+                                        case 'blackspace':
+                                            history.push('█▓▒░ REALITY BREACH DETECTED ░▒▓█');
+                                            history.push('S O M E T H I N G . . .');
+                                            setTimeout(() => window.location.href = 'about.html', 1500);
+                                            break;
+                                        case 'reset-terminal':
+                                        case 'unlock':
+                                        case 'kill-glitch':
+                                            try { window.localStorage.removeItem('terminalBadStreak'); } catch (e) { }
+                                            badStreak = 0;
+                                            isLocked = false;
+                                            inputLine.style.display = 'flex';
+                                            lockedLine.style.display = 'none';
+                                            glitchMode = false;
+                                            stopFakeGlitch();
+                                            renderOutput();
+                                            history.push('Terminal unlocked. GLITCH stopped and cleared.');
+                                            break;
+                                        default:
+                                            recognized = false;
+                                            badStreak++;
+                                            try { window.localStorage.setItem('terminalBadStreak', String(badStreak)); } catch (e) { }
+
+                                            if (badStreak === 1) {
+                                                history.push(`bash: ${base}: command not found`);
+                                            } else if (badStreak === 2) {
+                                                history.push('pls stop typing this shit');
+                                            } else if (badStreak === 3) {
+                                                history.push('ты тупой что ли?');
+                                            } else if (badStreak === 4) {
+                                                history.push('System warning: repeated invalid input.');
+                                            }
+
+                                            if (badStreak >= 5 && badStreak % 5 === 0 && !glitchMode) {
+                                                glitchMode = true;
+                                                startFakeGlitch();
+                                                history.push('memory dump panel enabled. GG stupid nerd');
+                                            }
+
+                                            if (badStreak >= 10 && !isLocked) {
+                                                history.push('I know where you are. Looking up location...');
+                                                const lockMsg = 'Вы обидели терминал';
+                                                history.push(lockMsg);
+                                                isLocked = true;
+                                                inputLine.style.display = 'none';
+                                                lockedLine.style.display = 'block';
+                                                lockedLine.innerHTML = lockMsg + '<br><font size="1" color="#880000">Хз, лол, попробуй перезагрузить страницу.</font>';
+                                                history.push('IP: 192.168.1.100 Country: RUS. Stop.');
+                                            }
+                                            break;
+                                    }
+
+                                    if (recognized) {
+                                        badStreak = 0;
+                                        try { window.localStorage.removeItem('terminalBadStreak'); } catch (e) { }
+                                    }
+
+                                    input.value = '';
+                                    renderOutput();
+                                }
+                            });
+
+                            // Add click to focus
+                            container.addEventListener('click', () => {
+                                if (!isLocked) input.focus();
+                            });
+
+                            renderOutput();
+                        })();
+                    </script>
+                    <br>
+
+                    <!-- Selected Projects -->
+                    <table border="1" width="100%" cellpadding="5" bgcolor="#111111">
+                        <tr>
+                            <td bgcolor="#333333" align="center">
+                                <font color="#FFFFFF" face="Verdana" size="4"><b>Selected Projects</b></font>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <table border="0" width="100%" cellpadding="3">
+                                    <tr>
+                                        <td>
+                                            <font face="Verdana" size="2"><b>Spot4U</b></font>
+                                        </td>
+                                        <td align="right">
+                                            <font face="Verdana" size="1" color="#00FFFF">[ Android / Kotlin ]</font>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="2">
+                                            <font face="Arial" size="2">Android application-spotlight with full
+                                                functionality. Features Material You design, dynamic theming, and
+                                                seamless Spotify integration.</font>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="2">
+                                            <hr size="1" color="#555555">
+                                        </td>
+                                    </tr>
+
+                                    <tr>
+                                        <td>
+                                            <font face="Verdana" size="2"><b>AVR-HELP</b></font>
+                                        </td>
+                                        <td align="right">
+                                            <font face="Verdana" size="1" color="#00FFFF">[ Web / Security ]</font>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="2">
+                                            <font face="Arial" size="2">Multifunctional Android web app: password
+                                                generator, secure vault, notes, and integration with common local OSINT
+                                                tools.</font>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="2">
+                                            <hr size="1" color="#555555">
+                                        </td>
+                                    </tr>
+
+                                    <tr>
+                                        <td>
+                                            <font face="Verdana" size="2"><b>Data Wrangler</b></font>
+                                        </td>
+                                        <td align="right">
+                                            <font face="Verdana" size="1" color="#00FFFF">[ Python ]</font>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="2">
+                                            <font face="Arial" size="2">Tooling to transform raw dumps and downloaded
+                                                databases into normalized, distributed, and ordered datasets ready for
+                                                analysis.</font>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="2">
+                                            <hr size="1" color="#555555">
+                                        </td>
+                                    </tr>
+
+                                    <tr>
+                                        <td>
+                                            <font face="Verdana" size="2"><b>Fractal Forge</b></font>
+                                        </td>
+                                        <td align="right">
+                                            <font face="Verdana" size="1" color="#00FFFF">[ C# / CUDA ]</font>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="2">
+                                            <font face="Arial" size="2">Windows fractal generator with real-time
+                                                rendering.</font>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                    </table>
+                    <br>
+
+                    <!-- Interesting Text -->
+                    <table border="1" width="100%" cellpadding="10" bgcolor="#220022" bordercolor="#880088">
+                        <tr>
+                            <td>
+                                <font face="Verdana" size="2" color="#FFFFFF"><b>interesting text.txt</b></font><br><br>
+                                <font face="Courier New" size="2" color="#AAAAAA">
+                                    "Everything important is hidden behind the $ sign. The UI is just a facade. Real
+                                    stories are kept in the White Space. Find the lightbulb. Find the door."<br><br>
+                                    And, maybe u can find my void...
+                                </font>
+                            </td>
+                        </tr>
+                    </table>
+
+                </td>
+
+                <!-- Right Column: Now Playing, Education, Feeds -->
+                <td width="25%">
+                    <!-- Playlist History -->
+                    <table border="1" width="100%" cellpadding="5" bgcolor="#111111" bordercolor="#00FF00">
+                        <tr>
+                            <td bgcolor="#003300" align="center">
+                                <font color="#00FF00" face="Courier New" size="2"><b>&#9835; RECENTLY LISTENED
+                                        &#9835;</b></font>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <marquee direction="up" scrollamount="2" height="180">
+                                    <font face="Verdana" size="1" color="#FFFFFF">
+                                        <b>ROMA</b><br>
+                                        <font color="#AAAAAA">VULPES VULT!</font><br><br>
+
+                                        <b>Девочка со спичками</b><br>
+                                        <font color="#AAAAAA">VULPES VULT!</font><br><br>
+
+                                        <b>Книга Илая</b><br>
+                                        <font color="#AAAAAA">Sxg Records</font><br><br>
+
+                                        <b>アイドル (Idol)</b><br>
+                                        <font color="#AAAAAA">YOASOBI</font><br><br>
+
+                                        <b>Take Me to the Beach</b><br>
+                                        <font color="#AAAAAA">Imagine Dragons, Ado</font><br><br>
+
+                                        <b>Usseewa</b><br>
+                                        <font color="#AAAAAA">Ado</font><br><br>
+
+                                        <b>Кисточка II</b><br>
+                                        <font color="#AAAAAA">Norma Tale</font><br><br>
+
+                                        <b>Bad Apple!!</b><br>
+                                        <font color="#AAAAAA">Alstroemeria Records</font><br><br>
+                                    </font>
+                                </marquee>
+                            </td>
+                        </tr>
+                    </table>
+                    <br>
+
+                    <!-- Education -->
+                    <table border="1" width="100%" cellpadding="5" bgcolor="#111111">
+                        <tr>
+                            <td align="center">
+                                <font color="#FFFFFF" face="Verdana" size="1"><b>EDUCATION</b></font><br><br>
+                                <font color="#FFFFFF" face="Verdana" size="3"><b>KS54 Moscow</b></font><br>
+                                <font color="#AAAAAA" face="Verdana" size="1">Information Security</font>
+                                <br><br>
+                                <font face="Courier New" size="4" color="#888888">[ O ]</font>
+                            </td>
+                        </tr>
+                    </table>
+                    <br>
+
+                    <!-- Feeds -->
+                    <table border="1" width="100%" cellpadding="5" bgcolor="#111111">
+                        <tr>
+                            <td bgcolor="#333333">
+                                <font color="#FFFFFF" face="Verdana" size="2"><b>Feeds</b></font>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <marquee direction="up" scrollamount="2" height="100">
+                                    <font face="Verdana" size="1">
+                                        <b>вiвiа</b><br>
+                                        <i>2026-02-28T11:05:05.202Z</i><br>
+                                        ввiввiвiв<br><br>
+
+                                        <b>Проверка</b><br>
+                                        <i>2026-02-25T22:09:22.226Z</i><br>
+                                        # 1 -2 -2 -3 - 4<br><br>
+                                    </font>
+                                </marquee>
+                            </td>
+                        </tr>
+                    </table>
+
+                </td>
+            </tr>
+        </table>
+
+        <br>
+        <hr width="800" color="#880088">
+        <table border="0" width="800">
+            <tr>
+                <td align="center">
+                    <font face="Verdana" size="1" color="#666666">
+                        Best viewed in Netscape Navigator 4.0 at 800x600 resolution.<br>
+                        Copyright &copy; 1999-2026 Stefan Avtohauser.
+                    </font>
+                    <br><br>
+                    <!-- Fake hit counter -->
+                    <table border="1" bordercolor="#555555" cellpadding="2" cellspacing="0" bgcolor="#000000">
+                        <tr>
+                            <td>
+                                <font face="Courier New" color="#FF0000" size="2"><b>[ 0 0 1 3 3 7 ]</b></font>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+
+    </center>
+
+</body>
+
+</html>

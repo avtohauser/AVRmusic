@@ -37,6 +37,32 @@ export default async function socialRoutes(app: FastifyInstance) {
     return list.sort((a, b) => Number(!!b.now) - Number(!!a.now));
   });
 
+  /**
+   * What the admin plays right now, for the portfolio site: no sign-in, and only the title, the artist, the album and
+   * the cover (covers are public files anyway). Nobody else's listening is ever shown here.
+   */
+  app.get('/api/public/now', async (_req, reply) => {
+    reply.header('Cache-Control', 'public, max-age=5');
+    const admin = db.prepare("SELECT id FROM users WHERE role = 'admin' AND disabled = 0 ORDER BY created_at LIMIT 1").get() as { id: string } | undefined;
+    const n = admin ? nowPlaying(db, admin.id) : null;
+    // the last ten different tracks, newest first
+    const recent = admin
+      ? (db.prepare(`SELECT p.track_id id, MAX(p.played_at) at FROM plays p WHERE p.user_id = ? GROUP BY p.track_id ORDER BY at DESC LIMIT 10`).all(admin.id) as any[])
+          .map((r) => ({ t: getTrack(db, r.id), at: r.at }))
+          .filter((r) => r.t)
+          .map((r) => ({ title: r.t!.title, artist: r.t!.artist.name, coverUrl: r.t!.coverUrl, playedAt: r.at }))
+      : [];
+    if (!n) return { playing: false, recent };
+    const t = n.track;
+    return {
+      recent,
+      playing: n.playing,
+      positionMs: n.positionMs,
+      durationMs: t.durationMs,
+      track: { title: t.title, artist: t.artist.name, album: t.album?.title ?? null, coverUrl: t.coverUrl },
+    };
+  });
+
   /** A friend's page. */
   app.get('/api/users/:id', auth, async (req) => {
     const id = (req.params as any).id as string;

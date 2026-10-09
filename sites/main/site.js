@@ -78,6 +78,18 @@ const SECTIONS = [
     ] },
 ];
 
+// the product signs drawn inline, so their parts can move while the slide is current (same geometry as brand/assets/signs)
+const STAR = '<path fill="url(#g)" d="M50 2 C53 30 70 47 98 50 C70 53 53 70 50 98 C47 70 30 53 2 50 C30 47 47 30 50 2Z"/>';
+const DEFS = '<defs><linearGradient id="g" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#F2A5C3"/><stop offset="1" stop-color="#5A4FC8"/></linearGradient></defs>';
+const stroke = 'fill="none" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"';
+const SIGNS = {
+  'signs/avr-music': `<path class="w1" d="M108 30 A28 28 0 0 1 108 70" stroke="#F2A5C3" ${stroke}/><path class="w2" d="M122 18 A44 44 0 0 1 122 82" stroke="#5A4FC8" ${stroke}/>`,
+  'signs/avrtube': `<rect x="104" y="24" width="31" height="52" rx="11" stroke="#5A4FC8" ${stroke}/><path class="play" d="M114.5 41 L126 50 L114.5 59 Z" fill="#F2A5C3" stroke="#F2A5C3" stroke-width="5" stroke-linejoin="round"/>`,
+  'signs/avrgram': `<path d="M115 23 H124 Q135 23 135 34 V55 Q135 66 124 66 H117 L106 77 V55 Q104 51 104 46 V34 Q104 23 115 23 Z" stroke="#5A4FC8" ${stroke}/><path class="l1" pathLength="1" d="M113 38.5 H126" stroke="#F2A5C3" ${stroke}/><path class="l2" pathLength="1" d="M113 50.5 H120" stroke="#F2A5C3" ${stroke}/>`,
+};
+const signImg = (key, cls) => SIGNS[key]
+  ? `<svg class="${cls}" viewBox="0 0 140 100" aria-hidden="true">${DEFS}${STAR}${SIGNS[key]}</svg>`
+  : `<img class="${cls}" src="/brand/assets/${key}.svg" alt="">`;
 let lang = (navigator.language || 'ru').toLowerCase().startsWith('ru') ? 'ru' : 'en';
 try { lang = localStorage.getItem('avr-lang') || lang; } catch {}
 
@@ -107,8 +119,8 @@ function productSlide(s, n, k) {
     ? `<a class="avr-btn big" href="${s.url}">${UI[lang].open}</a>`
     : `<button class="avr-btn tonal big" type="button" data-avr-sparkle disabled>${UI[lang].soon}</button>`;
   return `<section class="slide avr-bigstar product" id="${s.id}" data-slide="${s.id}" data-corner="${corners[k % 4]}" style="--size:120%">
-    <img class="product-sign" style="--i:0" src="/brand/assets/${s.sign}.svg" alt="">
-    <span class="status${s.live ? '' : ' soon'}" style="--i:1">${esc(status)}</span>
+    ${signImg(s.sign, `product-sign live-${s.id}`).replace('<svg ', '<svg style="--i:0" ').replace('<img ', '<img style="--i:0" ')}
+    <div class="status-row" style="--i:1"><span class="status${s.live ? '' : ' soon'}">${esc(status)}</span>${s.url ? `<span class="pulse" data-check="${s.id}"><i class="avr-star"></i><b></b></span>` : ''}</div>
     <h2 class="avr-display" style="--i:2">${esc(s.name)}</h2>
     <p class="avr-body lead avr-muted" style="--i:3">${esc(t(s.desc))}</p>
     <div style="--i:4">${tags(s.tags)}</div>
@@ -122,7 +134,7 @@ function projectCard(p) {
 }
 
 function sectionSlide(s, k) {
-  return `<section class="slide avr-bigstar" id="${s.id}" data-slide="${s.id}" data-corner="${corners[(k + 2) % 4]}" style="--size:110%">
+  return `<section class="slide avr-bigstar" id="${s.id}" data-slide="${s.id}" data-corner="${corners[(k + 2) % 4]}" data-acc="${k % 3}" style="--size:110%">
     <span class="no" style="--i:0">${String(k + 1).padStart(2, '0')} / ${String(SECTIONS.length).padStart(2, '0')}</span>
     <h2 class="avr-display" style="--i:1">${esc(t(s.title))}</h2>
     <p class="avr-body lead avr-muted" style="--i:2">${esc(t(s.desc))}</p>
@@ -134,6 +146,8 @@ function sectionSlide(s, k) {
 SERVICES.forEach((s, i) => { s.id = ['music', 'avrtube', 'avrgram', 'portfolio'][i]; });
 
 let slides = [];
+let stopField = null;
+let lite = document.documentElement.classList.contains('lite');
 let current = 0;
 
 function render() {
@@ -142,8 +156,11 @@ function render() {
   document.getElementById('lang').textContent = lang === 'ru' ? 'EN' : 'RU';
   deck.innerHTML = heroSlide() + SERVICES.map((s, k) => productSlide(s, k, k)).join('') + SECTIONS.map(sectionSlide).join('');
   slides = [...deck.querySelectorAll('.slide')];
-  starfield(slides[0], { density: 1.2, links: true });
-  document.getElementById('dots').innerHTML = slides.map((s, i) => `<button type="button" aria-label="${i + 1}" data-go="${i}"></button>`).join('');
+  stopField?.();
+  stopField = lite ? null : starfield(slides[0], { density: 0.9, links: true });
+  // a constellation: one star per slide, joined by lines that light up as you go
+  document.getElementById('dots').innerHTML = slides.map((s, i) => `${i ? '<i></i>' : ''}<button type="button" aria-label="${i + 1}" data-go="${i}"></button>`).join('');
+  checkServices();
   deck.querySelectorAll('[data-avr-sparkle]').forEach((b) => b.addEventListener('click', () => sparkle(b)));
   go(Math.max(0, slides.findIndex((s) => s.id === location.hash.slice(1))), true);
 }
@@ -161,15 +178,30 @@ function mark(i) {
   current = i;
   slides.forEach((s, k) => s.toggleAttribute('data-on', k === i));
   document.querySelectorAll('#dots button').forEach((b, k) => (k === i ? b.setAttribute('aria-current', 'true') : b.removeAttribute('aria-current')));
-  document.getElementById('wavy').style.setProperty('--v', `${(i / (slides.length - 1)) * 100}%`);
+  document.querySelectorAll('#dots i').forEach((l, k) => l.toggleAttribute('data-passed', k < i));
   document.getElementById('prev').disabled = i === 0;
   document.getElementById('next').disabled = i === slides.length - 1;
   history.replaceState(null, '', `#${slides[i].id}`);
 }
 
+// a service shows the star twinkling when it answers; the server writes /status.json every minute
+async function checkServices() {
+  let status = {};
+  try { status = await (await fetch('/status.json', { cache: 'no-store' })).json(); } catch { return; }
+  document.querySelectorAll('[data-check]').forEach((el) => {
+    const up = status[el.dataset.check];
+    if (up === undefined) return;
+    el.dataset.state = up ? 'up' : 'down';
+    el.lastElementChild.textContent = up ? L('на связи', 'online') : L('не отвечает', 'not answering');
+  });
+}
 // the deck scrolls natively (swipe, trackpad); this keeps the dots and the arrivals in step with it
 let ticking = false;
+let still;
 deck.addEventListener('scroll', () => {
+  deck.classList.add('moving');
+  clearTimeout(still);
+  still = setTimeout(() => deck.classList.remove('moving'), 140);
   if (ticking) return;
   ticking = true;
   requestAnimationFrame(() => {
@@ -230,3 +262,24 @@ document.getElementById('lang').addEventListener('click', () => {
 history.scrollRestoration = 'manual';
 render();
 addEventListener('load', () => go(Math.max(0, slides.findIndex((s) => s.id === location.hash.slice(1))), true));
+
+// a slow device gets a calm version: no turning stars, no star field, no looping sign animations.
+// We time 40 frames after load; the median over 24 ms (under ~40 fps) or "save data" switches it on.
+function measureSpeed() {
+  if (lite) return;
+  const saver = navigator.connection?.saveData;
+  const frames = [];
+  let last = performance.now();
+  const tick = (now) => {
+    frames.push(now - last); last = now;
+    if (frames.length < 50) return requestAnimationFrame(tick);
+    const sorted = frames.slice(10).sort((a, b) => a - b);
+    if (saver || sorted[Math.floor(sorted.length / 2)] > 24) {
+      lite = true;
+      document.documentElement.classList.add('lite');
+      stopField?.(); stopField = null;
+    }
+  };
+  requestAnimationFrame(() => setTimeout(() => requestAnimationFrame(tick), 600));
+}
+measureSpeed();

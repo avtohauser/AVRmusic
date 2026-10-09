@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Draws every brand file of avr from one geometry: the star in its colours (the base of every product), avr
-music's logo (the star with two sound waves), the wordmarks "avr" + suffix as real outlines (Outfit, no font needed to show them),
+"""Draws every brand file of avr from one geometry: the star in its colours (the base of everything), each
+product's sign (the star and the product's own addition beside it), the wordmarks "avr" + suffix as real outlines (Outfit, no font needed to show them),
 the lockups, the app icons and the star backgrounds. Run from the repository root:
 
     python3 brand/tools/build.py          (needs fontTools: pip install fonttools)
@@ -62,27 +62,48 @@ def grad(gid, a=PINK, b=VIOLET):
           f'<stop offset="0" stop-color="{a}"/><stop offset="1" stop-color="{b}"/></linearGradient>')
 
 
-# ---------- the star is the base of everything; avr music's own logo adds two sound waves ----------
-# the waves sit in the logo's 140 × 100 box (the star takes 0–100): the inner one pink, the outer violet.
-# No other product gets anything beside the star: their sign is the star, their name says the rest.
+# ---------- the star is the base; every product adds its own sign beside it ----------
+# All in the sign's 140 × 100 box (the star takes 0–100), drawn the way music's waves are: lines 6 thick with round
+# ends, the outer shape violet, the inner one pink. avr itself — the ecosystem — wears the star alone.
 
-def waves(mono=None):
-  p = (lambda c: mono or c)
-  line = 'fill="none" stroke-width="6" stroke-linecap="round"'
+def _music(line, solid, p):     # two sound waves
   return (f'<path d="M108 30 A28 28 0 0 1 108 70" stroke="{p(PINK)}" {line}/>'
           f'<path d="M122 18 A44 44 0 0 1 122 82" stroke="{p(VIOLET)}" {line}/>')
 
 
+def _tube(line, solid, p):      # a screen with a play sign in it
+  return (f'<rect x="104" y="24" width="31" height="52" rx="11" stroke="{p(VIOLET)}" {line}/>'
+          f'<path d="M114.5 41 L126 50 L114.5 59 Z" fill="{p(PINK)}" stroke="{p(PINK)}" stroke-width="5" stroke-linejoin="round"/>')
+
+
+def _gram(line, solid, p):      # a message: the bubble and two lines of text in it
+  return (f'<path d="M115 23 H124 Q135 23 135 34 V55 Q135 66 124 66 H117 L106 77 V55 Q104 51 104 46 V34 Q104 23 115 23 Z" stroke="{p(VIOLET)}" {line}/>'
+          f'<path d="M113 38.5 H126 M113 50.5 H120" stroke="{p(PINK)}" {line}/>')
+
+
+def _studio(line, solid, p):    # the showcase of projects: four cards on a wall, one of them lit (solid tiles: outlines this small close up)
+  return (f'<rect x="103" y="25" width="15" height="22" rx="5" fill="{p(VIOLET)}"/>'
+          f'<rect x="123" y="25" width="15" height="22" rx="5" fill="{p(VIOLET)}"/>'
+          f'<rect x="103" y="53" width="15" height="22" rx="5" fill="{p(VIOLET)}"/>'
+          f'<rect x="123" y="53" width="15" height="22" rx="5" fill="{p(PINK)}"/>')
+
+
+ADDITIONS = {'avr-music': _music, 'avrtube': _tube, 'avrgram': _gram, 'avr-studio': _studio}
+
+
 def attribute(product, mono=None):
-  return waves(mono) if product == 'avr-music' else ''
+  p = (lambda c: mono or c)
+  solid = 'stroke-width="6" stroke-linecap="round" stroke-linejoin="round"'
+  draw = ADDITIONS.get(product)
+  return draw('fill="none" ' + solid, solid, p) if draw else ''
 
 
 def has_attribute(product):
-  return product == 'avr-music'
+  return product in ADDITIONS
 
 
 def sign_svg(product, mono=None, gid='g'):
-  """The product's sign: the star; avr music's is its logo, the star with two waves."""
+  """The product's sign: the star and the product's own addition beside it; avr itself wears the star alone."""
   if not has_attribute(product):
     return star_svg(mono=mono, gid=gid)
   fill = mono or f'url(#{gid})'
@@ -292,9 +313,9 @@ def main():
   # signs, wordmarks, lockups, icons per product
   for p in PRODUCTS:
     if has_attribute(p):
-      write(f'music/{p}.svg', sign_svg(p))
-      write(f'music/{p}-white.svg', sign_svg(p, mono=WHITE))
-      write(f'music/{p}-teal.svg', sign_svg(p, mono=TEAL))
+      write(f'signs/{p}.svg', sign_svg(p))
+      write(f'signs/{p}-white.svg', sign_svg(p, mono=WHITE))
+      write(f'signs/{p}-teal.svg', sign_svg(p, mono=TEAL))
     for gname, g in GROUNDS.items():
       write(f'wordmarks/{p}-{gname}.svg', wordmark_svg(p, g))
       write(f'lockups/{p}-{gname}.svg', lockup_svg(p, g, 'g'))

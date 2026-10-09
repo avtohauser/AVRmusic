@@ -90,6 +90,7 @@ body { margin: 0; background: var(--background); color: var(--on-background); fo
   background: var(--primary); color: var(--on-primary); transition: border-radius .35s var(--ease-spring), transform .3s var(--ease-spring), filter .2s; }
 .avr-btn:hover { border-radius: 16px; filter: brightness(1.05); }
 .avr-btn:active { transform: scale(.95); }
+.avr-btn:focus-visible, .avr-chip:focus-visible { outline: 2px solid var(--outline); outline-offset: 3px; }
 .avr-btn.tonal { background: var(--secondary-container); color: var(--on-secondary-container); }
 .avr-btn.outlined { background: transparent; color: var(--primary); box-shadow: inset 0 0 0 1px var(--outline); }
 .avr-btn.text { background: transparent; color: var(--primary); padding: 0 14px; }
@@ -100,7 +101,8 @@ body { margin: 0; background: var(--background); color: var(--on-background); fo
   transition: border-radius .45s var(--ease-spring), transform .45s var(--ease-spring), background .3s; }
 a.avr-card, .avr-card.interactive { text-decoration: none; cursor: pointer; }
 a.avr-card:hover, .avr-card.interactive:hover { border-radius: 44px; transform: translateY(-4px); background: var(--surface-mid); }
-.avr-chip { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; border-radius: var(--r-full); background: var(--surface-high); color: var(--on-surface); font: 620 14px/1 var(--font); }
+.avr-chip { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; border: 0; border-radius: var(--r-full); background: var(--surface-high); color: var(--on-surface); font: 620 14px/1 var(--font); cursor: pointer;
+  transition: border-radius .35s var(--ease-spring), background .2s; }
 .avr-chip[aria-pressed="true"] { background: var(--secondary-container); color: var(--on-secondary-container); border-radius: 12px; }
 
 /* the floating navigation island (phones) — <nav class="avr-island"><a aria-current="page">…</a>…</nav> */

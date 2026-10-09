@@ -17,7 +17,7 @@
 | **avr music** | частный стриминг музыки: Android, iPhone, сайт | `apps/`, `android/`, `packages/` | работает |
 | **avrtube** | видео без рекламы на движке NewPipe: Android и iPhone, связан с avr music | `tube/` | в работе |
 | **avrgram** | Telegram для Android с режимом призрака и защитой | `gram/` | в работе |
-| **сайты** | сайты на avthsr.space в общем стиле (кроме kgs и lks54) | `sites/` | в работе |
+| **сайты** | сайты на avthsr.space в общем стиле (кроме kgs, lks54 и old) | `sites/` | в работе |
 | **стиль avr** | цвета светлой и тёмной темы, шрифты, формы, движение, UI-кит | [`brand/`](brand/README.md) | готов |
 
 Всё в одном репозитории: общий стиль из `brand/` берут и сайты, и приложения; сборки и выкладка — через GitHub Actions.
@@ -197,7 +197,8 @@ docker compose up -d --build
 # Сайты
 
 `sites/` — сайты на avthsr.space. Workflow **sites** снимает их публичную часть (как видит браузер) в
-`sites/mirror/`, дальше каждый сайт переводится на стиль avr и выкладывается через Actions. kgs и lks54 не трогаем.
+`sites/mirror/`, дальше каждый сайт переводится на стиль avr и выкладывается через Actions. kgs и lks54 не трогаем, old остаётся
+в своём стиле web 1.0.
 
 ## Лицензия
 

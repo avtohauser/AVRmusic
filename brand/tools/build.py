@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Draws every brand file of avr from one geometry: the star in its colours, the products' signs (the star plus
-the product's one attribute), the wordmarks "avr" + suffix as real outlines (Outfit, no font needed to show them),
+"""Draws every brand file of avr from one geometry: the star in its colours (the base of every product), avr
+music's logo (the star with two sound waves), the wordmarks "avr" + suffix as real outlines (Outfit, no font needed to show them),
 the lockups, the app icons and the star backgrounds. Run from the repository root:
 
     python3 brand/tools/build.py          (needs fontTools: pip install fonttools)
@@ -62,30 +62,27 @@ def grad(gid, a=PINK, b=VIOLET):
           f'<stop offset="0" stop-color="{a}"/><stop offset="1" stop-color="{b}"/></linearGradient>')
 
 
-# ---------- the products' attributes: one or two lines beside the star, 6 thick, round ends ----------
-# drawn in the sign's 140 × 100 box (the star takes 0–100): the outer shape violet, the inner pink
+# ---------- the star is the base of everything; avr music's own logo adds two sound waves ----------
+# the waves sit in the logo's 140 × 100 box (the star takes 0–100): the inner one pink, the outer violet.
+# No other product gets anything beside the star: their sign is the star, their name says the rest.
+
+def waves(mono=None):
+  p = (lambda c: mono or c)
+  line = 'fill="none" stroke-width="6" stroke-linecap="round"'
+  return (f'<path d="M108 30 A28 28 0 0 1 108 70" stroke="{p(PINK)}" {line}/>'
+          f'<path d="M122 18 A44 44 0 0 1 122 82" stroke="{p(VIOLET)}" {line}/>')
+
 
 def attribute(product, mono=None):
-  p = (lambda c: mono or c)
-  line = 'fill="none" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"'
-  if product == 'avr-music':      # two sound waves
-    return (f'<path d="M108 30 A28 28 0 0 1 108 70" stroke="{p(PINK)}" {line}/>'
-            f'<path d="M122 18 A44 44 0 0 1 122 82" stroke="{p(VIOLET)}" {line}/>')
-  if product == 'avrtube':        # a screen with a play sign in it
-    return (f'<rect x="104" y="24" width="31" height="52" rx="11" stroke="{p(VIOLET)}" {line}/>'
-            f'<path d="M114.5 41 L126 50 L114.5 59 Z" fill="{p(PINK)}" stroke="{p(PINK)}" stroke-width="5" stroke-linejoin="round"/>')
-  if product == 'avrgram':        # a message: the bubble with two lines of text
-    return (f'<path d="M115 23 H124 Q135 23 135 34 V55 Q135 66 124 66 H117 L106 77 V55 Q104 51 104 46 V34 Q104 23 115 23 Z" stroke="{p(VIOLET)}" {line}/>'
-            f'<path d="M113 38.5 H126 M113 50.5 H120" stroke="{p(PINK)}" {line}/>')
-  return ''
+  return waves(mono) if product == 'avr-music' else ''
 
 
 def has_attribute(product):
-  return product in ('avr-music', 'avrtube', 'avrgram')
+  return product == 'avr-music'
 
 
 def sign_svg(product, mono=None, gid='g'):
-  """The product's sign: the star (+ its attribute). avr itself and the studio wear the star alone."""
+  """The product's sign: the star; avr music's is its logo, the star with two waves."""
   if not has_attribute(product):
     return star_svg(mono=mono, gid=gid)
   fill = mono or f'url(#{gid})'
@@ -295,9 +292,9 @@ def main():
   # signs, wordmarks, lockups, icons per product
   for p in PRODUCTS:
     if has_attribute(p):
-      write(f'signs/{p}.svg', sign_svg(p))
-      write(f'signs/{p}-white.svg', sign_svg(p, mono=WHITE))
-      write(f'signs/{p}-teal.svg', sign_svg(p, mono=TEAL))
+      write(f'music/{p}.svg', sign_svg(p))
+      write(f'music/{p}-white.svg', sign_svg(p, mono=WHITE))
+      write(f'music/{p}-teal.svg', sign_svg(p, mono=TEAL))
     for gname, g in GROUNDS.items():
       write(f'wordmarks/{p}-{gname}.svg', wordmark_svg(p, g))
       write(f'lockups/{p}-{gname}.svg', lockup_svg(p, g, 'g'))

@@ -48,7 +48,7 @@
   .card h4 { margin: 0 0 6px; font: 680 18px/24px var(--font); font-variation-settings: "wght" 680, "wdth" 106, "ROND" 80; }
   .card > p, .card h4 + p { font: 400 14px/20px var(--font); color: var(--on-surface-variant); }
   .plate { border-radius: 26px; padding: 26px; display: grid; place-items: center; min-height: 150px; min-width: 0; }
-  .plate.dark, .plate.deep, .ratio, .swatch.edge { box-shadow: inset 0 0 0 1px var(--line); }
+  .plate.dark, .plate.deep, .plate.light, .ratio, .swatch.edge { box-shadow: inset 0 0 0 1px var(--line); }
   .plate.dark { background: #0B4248; } .plate.deep { background: #08353A; } .plate.light { background: #E9EFEF; } .plate.white { background: #fff; }
   .plate.violet { background: #5A4FC8; } .plate.photo { background: linear-gradient(135deg, #3d5a6b, #8a6f7d 45%, #c9a27e); }
   .plate img { max-width: 100%; height: auto; }
@@ -128,7 +128,7 @@
   <div class="bar-in">
     <img src="assets/mark/star.svg" alt="avr">
     <nav class="chips" aria-label="Разделы">
-      <a href="#core">Суть</a><a href="#family">Семья</a><a href="#star">Звезда</a><a href="#signs">Знаки</a><a href="#word">Надпись</a>
+      <a href="#core">Суть</a><a href="#family">Семья</a><a href="#star">Звезда</a><a href="#music">Логотип музыки</a><a href="#word">Надпись</a>
       <a href="#icons">Иконки</a><a href="#color">Цвет</a><a href="#type">Шрифт</a><a href="#motion">Звезда в движении</a><a href="#ui">Интерфейс</a>
       <a href="#voice">Голос</a><a href="#media">Носители</a><a href="#map">Что куда когда</a><a href="#rollout">Внедрение</a><a href="#files">Файлы</a>
     </nav>
@@ -180,8 +180,8 @@
     <header>
       <span class="avr-kicker">Архитектура</span>
       <h2 class="avr-headline">Одна звезда — вся семья</h2>
-      <p class="avr-body avr-muted">Основа бренда — звезда и слово «avr». Каждый продукт — это «avr» и приписка. Звезда одна на всех; у трёх
-        продуктов рядом со звездой есть свой атрибут — знак того, чем продукт занят.</p>
+      <p class="avr-body avr-muted">Основа бренда — просто звезда и слово «avr». Каждый продукт — это «avr» и приписка, звезда одна на всех и
+        ничем не дополняется. Звезда с двумя волнами — это логотип avr music, только её.</p>
     </header>
     <div class="grid five">
       <div><div class="plate dark"><img src="assets/lockups/avr-stacked-dark.svg" alt="avr" style="height:110px"></div><p class="cap"><b>avr</b> — вся экосистема, сайты avthsr.space, общие вещи</p></div>
@@ -194,7 +194,7 @@
     <ul class="avr-stars avr-body">
       <li>Всегда строчными: <b>avr</b>, <b>avr music</b>, <b>avrtube</b>, <b>avrgram</b>, <b>avr studio</b>. Даже в начале предложения.</li>
       <li>Приписка-слово пишется отдельно (<b>avr music</b>, <b>avr studio</b>), приписка-корень — слитно (<b>avrtube</b>, <b>avrgram</b>).</li>
-      <li>Новый продукт получает приписку по тому же правилу и атрибут рядом со звездой — по правилу из раздела «Знаки».</li>
+      <li>Новый продукт получает приписку по тому же правилу и ту же звезду — рядом с ней ничего не добавляем.</li>
       <li>Сайты на avthsr.space — это «avr» без приписки. Личный сайт владельца остаётся со своим именем, но в стиле avr. old.avthsr.space — вне стиля (намеренный web 1.0); kgs и lks54 — не наши.</li>
     </ul>
   </section>
@@ -230,7 +230,7 @@
         <h4 style="margin-top:16px">Градиент</h4>
         <p>Линейный, снизу слева вверх направо: <code>#F2A5C3 → #5A4FC8</code> (135°). Направление не меняем, третий цвет не добавляем.</p>
         <h4 style="margin-top:16px">Поле и размер</h4>
-        <p>Вокруг звезды свободно хотя бы на четверть её ширины. Меньше 12 px звезду не ставим; от 12 до 32 px — только звезда, без атрибутов.</p>
+        <p>Вокруг звезды свободно хотя бы на четверть её ширины. Меньше 12 px звезду не ставим.</p>
       </div>
     </div>
 
@@ -251,29 +251,27 @@
       <div class="plate light no"><svg viewBox="0 0 100 100" width="84" aria-hidden="true" style="filter:drop-shadow(4px 6px 4px rgba(0,0,0,.45))"><defs><linearGradient id="n4" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#F2A5C3"/><stop offset="1" stop-color="#5A4FC8"/></linearGradient></defs><path fill="url(#n4)" d="M50 2C53 30 70 47 98 50C70 53 53 70 50 98C47 70 30 53 2 50C30 47 47 30 50 2Z"/></svg></div>
       <div class="plate photo no"><img src="assets/mark/star.svg" alt="" width="84"></div>
     </div>
-    <p class="note" style="margin-top:10px">Слева направо: не растягиваем; не перекрашиваем градиент; не делаем контуром (кроме атрибутов); без теней и объёма;
+    <p class="note" style="margin-top:10px">Слева направо: не растягиваем; не перекрашиваем градиент; не делаем контуром; без теней и объёма;
       не кладём градиентную звезду на пёстрое фото — там белая. И не заменяем звезду символом ✦ или эмодзи.</p>
   </section>
 
-  <!-- ===================== 4. SIGNS ===================== -->
-  <section class="ch" id="signs">
+  <!-- ===================== 4. THE MUSIC LOGO ===================== -->
+  <section class="ch" id="music">
     <header>
-      <span class="avr-kicker">Знаки продуктов</span>
-      <h2 class="avr-headline">Звезда и атрибут</h2>
-      <p class="avr-body avr-muted">Справа от звезды продукт показывает, чем он занят. Правило одно: линии толщиной 6 (в квадрате 100) со
-        скруглёнными концами, внешняя форма — фиолетовая, внутренняя — розовая, всё в поле 140 × 100.</p>
+      <span class="avr-kicker">Логотип avr music</span>
+      <h2 class="avr-headline">Звезда и две волны — только у музыки</h2>
+      <p class="avr-body avr-muted">Основа — просто звезда. У avr music есть свой логотип: та же звезда и справа две звуковые волны — ближняя розовая,
+        дальняя фиолетовая, линии толщиной 6 со скруглёнными концами, всё в поле 140 × 100. Остальным продуктам рядом со звездой ничего не добавляем.</p>
     </header>
-    <div class="grid">
-      <div><div class="plate dark"><img src="assets/signs/avr-music.svg" alt="" width="168"></div><p class="cap"><b>avr music</b> — две звуковые волны</p></div>
-      <div><div class="plate dark"><img src="assets/signs/avrtube.svg" alt="" width="168"></div><p class="cap"><b>avrtube</b> — экран и Play в нём</p></div>
-      <div><div class="plate dark"><img src="assets/signs/avrgram.svg" alt="" width="168"></div><p class="cap"><b>avrgram</b> — сообщение с двумя строками</p></div>
-      <div><div class="plate dark"><img src="assets/mark/star.svg" alt="" width="84"></div><p class="cap"><b>avr</b> и <b>avr studio</b> — звезда без атрибута</p></div>
+    <div class="grid two">
+      <div><div class="plate dark"><img src="assets/music/avr-music.svg" alt="Логотип avr music" width="190"></div><p class="cap"><b>avr music</b> — звезда с волнами</p></div>
+      <div><div class="plate dark"><img src="assets/mark/star.svg" alt="Звезда" width="96"></div><p class="cap"><b>avr</b>, <b>avrtube</b>, <b>avrgram</b>, <b>avr studio</b> и всё новое — просто звезда</p></div>
     </div>
     <ul class="avr-stars avr-body" style="margin-top:18px">
-      <li>Знак продукта — для его иконки, заставки, аватарки бота, шапки сайта продукта. Везде, где речь о семье целиком, — одна звезда.</li>
-      <li>Атрибуты двигаются только у своего продукта: волны музыки расходятся, пока играет трек; экран avrtube вспыхивает при загрузке видео; строки avrgram печатаются, пока собеседник пишет.</li>
-      <li>Меньше 32 px атрибуты не читаются — ставим одну звезду.</li>
-      <li>Одноцветные версии (белая, бирюзовая) — для значков уведомлений, монохромных иконок Android и печати: <code>assets/signs/*-white.svg</code>, <code>*-teal.svg</code>.</li>
+      <li>Логотип музыки — для иконки avr music, её заставки, аватара бота, шапки music.avthsr.space. Где речь обо всей семье — одна звезда.</li>
+      <li>Волны живые: расходятся, пока играет трек, и по очереди — в лоадере музыки.</li>
+      <li>Меньше 32 px волны не читаются — ставим одну звезду.</li>
+      <li>Одноцветные версии (белая, бирюзовая) — значок уведомления, монохромная иконка Android, печать: <code>assets/music/avr-music-white.svg</code>, <code>-teal.svg</code>.</li>
     </ul>
   </section>
 
@@ -303,7 +301,7 @@
     </div>
     <div class="grid" style="margin-top:12px">
       <div class="card"><h4>Горизонтальная сборка</h4><p>Звезда в 0.62 высоты шрифта, по центру строчных букв, зазор 0.16 em. Шапки сайтов, баннеры, подписи. Минимум — 20 px высоты букв.</p></div>
-      <div class="card"><h4>Вертикальная сборка</h4><p>Знак продукта над надписью, по центру. Заставки, обложки, аватарки, страница «о проекте».</p></div>
+      <div class="card"><h4>Вертикальная сборка</h4><p>Звезда над надписью, по центру (у avr music — звезда с волнами). Заставки, обложки, аватарки, страница «о проекте».</p></div>
       <div class="card"><h4>Цвета</h4><p>На тёмном: «avr» — туман <code>#D3E3E4</code>, приписка — розовый <code>#F2A5C3</code>. На светлом: бирюза <code>#0B4248</code> и фиолетовый <code>#5A4FC8</code>. Одноцветно — белая или бирюзовая версия.</p></div>
       <div class="card"><h4>Нельзя</h4><p>Заглавные буквы, другой шрифт, одинаковый вес у обеих частей, приписка тем же цветом, что «avr», надпись по кривой, обводка.</p></div>
     </div>
@@ -313,9 +311,9 @@
   <section class="ch" id="icons">
     <header>
       <span class="avr-kicker">Иконки приложений</span>
-      <h2 class="avr-headline">Знак на бирюзовой плитке</h2>
-      <p class="avr-body avr-muted">Плитка <code>#0B4248</code> со скруглением 22.5 %, знак продукта по центру: со звездой и атрибутом — 68 % ширины,
-        одна звезда — 56 %. Для Android есть адаптивный передний слой и монохромный слой (тематические иконки).</p>
+      <h2 class="avr-headline">Звезда на бирюзовой плитке</h2>
+      <p class="avr-body avr-muted">Плитка <code>#0B4248</code> со скруглением 22.5 %, звезда по центру — 56 % ширины; у avr music — звезда
+        с волнами, 68 %. Продукты на домашнем экране различает подпись. Для Android есть адаптивный передний слой и монохромный слой (тематические иконки).</p>
     </header>
     <div class="row" style="gap:22px">
       <figure style="margin:0;text-align:center"><img src="assets/icons/avr.svg" alt="" width="104"><figcaption class="cap">avr</figcaption></figure>
@@ -331,7 +329,7 @@
         <tr><td>iPhone, магазины, README</td><td><code>icons/png/&lt;продукт&gt;-1024.png</code></td><td>1024 × 1024</td></tr>
         <tr><td>PWA</td><td><code>icons/png/&lt;продукт&gt;-512.png</code>, <code>-192.png</code></td><td>512, 192</td></tr>
         <tr><td>Фавикон любого сайта avr</td><td><code>icons/avr.svg</code>, <code>icons/png/favicon-32.png</code>, <code>-16</code>, <code>-180</code> (Apple)</td><td>16–180</td></tr>
-        <tr><td>Уведомление Android</td><td><code>signs/&lt;продукт&gt;-white.svg</code> или <code>mark/star-white.svg</code></td><td>24 dp, белая</td></tr>
+        <tr><td>Уведомление Android</td><td><code>mark/star-white.svg</code>, у музыки — <code>music/avr-music-white.svg</code></td><td>24 dp, белая</td></tr>
       </tbody>
     </table></div>
   </section>
@@ -369,7 +367,7 @@
         <tr><td>Текст на фоне</td><td>#D3E3E4 на #0B4248 — 8.4 : 1</td><td>#0B4248 на #E9EFEF — 9.6 : 1</td><td>основной текст</td></tr>
         <tr><td>Подписи</td><td>#A9C4C6 на #0B4248 — 6.0 : 1</td><td>#3E5F63 на #EEF3F3 — 6.2 : 1</td><td>второстепенный текст</td></tr>
         <tr><td>Акцент текстом</td><td>#F2A5C3 на #0B4248 — 5.8 : 1</td><td>#5A4FC8 на #E9EFEF — 5.3 : 1</td><td>ссылки, надписи над заголовком</td></tr>
-        <tr><td>Фиолетовый на бирюзе</td><td>1.8 : 1</td><td>—</td><td>никогда текстом; только звезда и атрибуты</td></tr>
+        <tr><td>Фиолетовый на бирюзе</td><td>1.8 : 1</td><td>—</td><td>никогда текстом; только звезда и волны музыки</td></tr>
         <tr><td>Розовый на бумаге</td><td>—</td><td>1.65 : 1</td><td>никогда текстом; только звезда</td></tr>
       </tbody>
     </table></div>
@@ -558,7 +556,7 @@
           <figure><img src="assets/icons/avrgram.svg" alt=""><figcaption>avrgram</figcaption></figure>
           <figure><img src="assets/icons/avr.svg" alt=""><figcaption>avr</figcaption></figure>
         </div>
-        <p class="cap">Иконки семьи на домашнем экране: одна плитка, одна звезда, свой атрибут.</p>
+        <p class="cap">Иконки семьи на домашнем экране: одна плитка, одна звезда; у музыки — её логотип с волнами.</p>
       </div>
       <div>
         <div class="chat">
@@ -586,12 +584,12 @@
     <div class="tbl"><table>
       <thead><tr><th>Где</th><th>Что</th><th>Файл / код</th><th>Когда</th></tr></thead>
       <tbody>
-        <tr><td><b>Иконка приложения</b></td><td>знак продукта на бирюзовой плитке</td><td><code>assets/icons/&lt;продукт&gt;.svg</code>, <code>icons/png/*</code></td><td>всегда; новый продукт — с первой сборки</td></tr>
+        <tr><td><b>Иконка приложения</b></td><td>звезда на бирюзовой плитке (у музыки — с волнами)</td><td><code>assets/icons/&lt;продукт&gt;.svg</code>, <code>icons/png/*</code></td><td>всегда; новый продукт — с первой сборки</td></tr>
         <tr><td><b>Заставка приложения</b></td><td>звезда приходит, кольца, надпись продукта</td><td><code>BrandIntro</code> (Compose), <code>.avr-star-in</code></td><td>холодный запуск, 1.1 с, раз за запуск</td></tr>
         <tr><td><b>Экран входа и приглашения</b></td><td>звёздное поле + вертикальная сборка</td><td><code>data-avr-starfield</code>, <code>lockups/*-stacked-*.svg</code></td><td>пока человек не вошёл</td></tr>
         <tr><td><b>Шапка сайта</b></td><td>горизонтальная сборка, слева</td><td><code>lockups/&lt;продукт&gt;-dark|light.svg</code></td><td>всегда; на телефоне — только звезда</td></tr>
         <tr><td><b>Герой лендинга</b></td><td>звёздное поле или большая звезда + свечение</td><td><code>data-avr-starfield</code> / <code>.avr-bigstar</code> + <code>.avr-glow</code></td><td>первый экран; одно из двух, не оба</td></tr>
-        <tr><td><b>Загрузка</b></td><td>дышащая звезда (у музыки — со волнами)</td><td><code>.avr-star-loader</code>, <code>BrandLoader</code></td><td>ожидание дольше 0.4 с; короче — ничего</td></tr>
+        <tr><td><b>Загрузка</b></td><td>дышащая звезда (у музыки — с волнами)</td><td><code>.avr-star-loader</code>, <code>BrandLoader</code></td><td>ожидание дольше 0.4 с; короче — ничего</td></tr>
         <tr><td><b>Пустое состояние</b></td><td>звезда 64–96 px + одна фраза + кнопка</td><td><code>mark/star.svg</code></td><td>пустая библиотека, поиск без результатов</td></tr>
         <tr><td><b>Награда</b></td><td>искры из кнопки</td><td><code>sparkle(el)</code>, <code>data-avr-sparkle</code></td><td>лайк, ачивка, приглашение принято, угадал мелодию</td></tr>
         <tr><td><b>Новое и живое</b></td><td>мерцающая звезда</td><td><code>.avr-star.avr-twinkle</code></td><td>бейдж «новое», друг слушает сейчас; ≤ 3 на экран</td></tr>
@@ -600,8 +598,8 @@
         <tr><td><b>Истории, итоги, релизы</b></td><td>большая звезда + надпись продукта</td><td><code>.avr-bigstar</code>, <code>backgrounds/bigstar-*.svg</code></td><td>итоги месяца и года, новости, заметки к релизам</td></tr>
         <tr><td><b>Превью ссылки</b></td><td>картинка 1200 × 630</td><td><code>assets/social/og-&lt;продукт&gt;.png</code> в <code>og:image</code></td><td>на каждой странице сайта</td></tr>
         <tr><td><b>Фавикон</b></td><td>звезда на плитке</td><td><code>icons/avr.svg</code> + <code>favicon-32/16/180.png</code></td><td>все сайты avthsr.space (кроме old, kgs, lks54)</td></tr>
-        <tr><td><b>Бот, канал, профиль</b></td><td>знак в круге</td><td><code>assets/social/avatar-&lt;продукт&gt;.png</code></td><td>аватар бота avr music и будущих ботов</td></tr>
-        <tr><td><b>Уведомления</b></td><td>одноцветный знак</td><td><code>signs/*-white.svg</code>, <code>mark/star-white.svg</code></td><td>значок в строке состояния Android</td></tr>
+        <tr><td><b>Бот, канал, профиль</b></td><td>звезда в круге (у музыки — с волнами)</td><td><code>assets/social/avatar-&lt;продукт&gt;.png</code></td><td>аватар бота avr music и будущих ботов</td></tr>
+        <tr><td><b>Уведомления</b></td><td>одноцветный знак</td><td><code>mark/star-white.svg</code>, <code>music/avr-music-white.svg</code></td><td>значок в строке состояния Android</td></tr>
         <tr><td><b>GitHub</b></td><td>баннер + иконки</td><td><code>assets/social/github-banner.png</code></td><td>README, страницы релизов</td></tr>
         <tr><td><b>Списки и разделители</b></td><td>звезда-маркер, линия со звездой</td><td><code>ul.avr-stars</code>, <code>.avr-divider</code></td><td>лендинги, «о проекте», брендбук</td></tr>
         <tr><td><b>Личный сайт</b></td><td>всё выше + пасхалки</td><td>звёздное поле в терминале, звездопад по команде</td><td>при переделке avthsr.space, все старые пасхалки сохраняются</td></tr>
@@ -637,7 +635,7 @@
       <tbody>
         <tr><td><code>brand/avr.css</code>, <code>brand/avr.js</code></td><td>стиль сайта целиком: цвета обеих тем, шрифты, компоненты, звезда во всех видах</td></tr>
         <tr><td><code>brand/assets/mark/</code></td><td>звезда: градиент, туман, бирюза, белая, розовая, фиолетовая</td></tr>
-        <tr><td><code>brand/assets/signs/</code></td><td>знаки продуктов (звезда + атрибут), цветные и одноцветные</td></tr>
+        <tr><td><code>brand/assets/music/</code></td><td>логотип avr music (звезда с волнами): цветной, белый, бирюзовый</td></tr>
         <tr><td><code>brand/assets/wordmarks/</code>, <code>lockups/</code></td><td>надписи и сборки каждого продукта: тёмная, светлая, белая, бирюзовая; горизонтальные и вертикальные</td></tr>
         <tr><td><code>brand/assets/icons/</code></td><td>иконки приложений (SVG, PNG 1024/512/192), адаптивные слои Android, фавиконы</td></tr>
         <tr><td><code>brand/assets/backgrounds/</code>, <code>social/</code></td><td>звёздное поле, большая звезда, превью ссылок, баннер GitHub, аватары</td></tr>

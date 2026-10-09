@@ -74,9 +74,9 @@ await shot(preview('avr', 1280, 640), 1280, 640, path.join(A, 'social/github-ban
 
 // round avatars: the sign in the middle of a circle-safe square
 for (const p of Object.keys(PRODUCTS)) {
-  const s = 640, sign = fs.existsSync(path.join(A, `signs/${p}.svg`)) ? `signs/${p}.svg` : 'mark/star.svg';
+  const s = 640, sign = fs.existsSync(path.join(A, `music/${p}.svg`)) ? `music/${p}.svg` : 'mark/star.svg';
   await shot(`<div style="position:relative;width:${s}px;height:${s}px;background:radial-gradient(60% 60% at 50% 45%, #155A62, #0B4248 70%);display:grid;place-items:center">
-    <div style="width:${s * (sign.startsWith('signs') ? 0.6 : 0.46)}px">${svg(sign).replace('<svg ', '<svg width="100%" ')}</div></div>`, s, s, path.join(A, `social/avatar-${p}.png`));
+    <div style="width:${s * (sign.startsWith('music') ? 0.6 : 0.46)}px">${svg(sign).replace('<svg ', '<svg width="100%" ')}</div></div>`, s, s, path.join(A, `social/avatar-${p}.png`));
 }
 
 await browser.close();

@@ -1,5 +1,6 @@
-// Moving a library here: Spotify (sign in — liked songs, every playlist, followed artists), a link to one
-// playlist, or a pasted list / CSV. Yandex Music is moved in the app (it reads the library on the phone).
+// Moving a library here: Spotify (sign in — liked songs, every playlist, followed artists), VK Music (pages saved
+// from the browser), a link to one playlist, or a pasted list / CSV. Yandex Music is moved in the app (it reads the
+// library on the phone).
 import { useRef, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
@@ -23,6 +24,7 @@ export default function Transfer() {
       <p className="md-body-lg muted mt-1 mb-5">{tr('Любимые треки станут лайками, плейлисты — плейлистами, исполнители — подписками на новинки. Чего нет на сервере — скачается само.', 'Liked songs become likes, playlists stay playlists, artists become release follows. What is missing gets fetched by itself.')}</p>
       <SpotifyCard />
       <YandexCard />
+      <VkCard />
       <LinkCard />
       <ListCard />
       <p className="md-body-sm muted mt-4"><Link to="/downloads?tab=queue" className="underline">{tr('Ход переноса — в «Загрузках»', 'Progress — in Downloads')}</Link></p>
@@ -77,6 +79,48 @@ function YandexCard() {
         <li>{tr('Отметьте, что перенести, — телефон прочитает библиотеку и отправит её сюда.', 'Pick what to move — the phone reads the library and sends it here.')}</li>
       </ol>
       <p className="md-body-sm muted mt-2">{tr('Пароль никуда не передаётся, доступ к Яндексу не сохраняется. Ссылки на плейлисты Яндекса тоже открываются только в приложении.', 'Your password goes nowhere, and the access to Yandex is not kept. Yandex playlist links also open only in the app.')}</p>
+    </Card>
+  );
+}
+
+/** VK lets no other app read the music, so the listener saves their own pages from the browser and picks them here:
+ *  "Музыка" becomes liked songs, every playlist page a playlist. Only the names are read from the files. */
+function VkCard() {
+  const tr = useTr();
+  const qc = useQueryClient();
+  const file = useRef<HTMLInputElement>(null);
+  const [pages, setPages] = useState<Array<{ name: string; content: string }>>([]);
+  const [busy, setBusy] = useState(false);
+  const go = async () => {
+    setBusy(true);
+    try {
+      const r = await api.post<{ liked: number; playlists: Array<{ title: string; tracks: number }>; empty: string[] }>('/api/transfer/vk', { pages });
+      setPages([]);
+      started(tr, qc);
+      const parts = [r.liked ? tr(`любимых: ${r.liked}`, `liked: ${r.liked}`) : '', r.playlists.length ? tr(`плейлистов: ${r.playlists.length}`, `playlists: ${r.playlists.length}`) : ''].filter(Boolean).join(', ');
+      useUI.getState().toast(tr(`Из ВК — ${parts}`, `From VK — ${parts}`) + (r.empty.length ? tr(`. Без треков: ${r.empty.join(', ')}`, `. No songs in: ${r.empty.join(', ')}`) : ''));
+    } catch (e: any) { useUI.getState().toast(e.message, 'error'); } finally { setBusy(false); }
+  };
+  return (
+    <Card title={tr('ВК Музыка', 'VK Music')} subtitle={tr('Мои треки и плейлисты — из страниц, сохранённых в браузере', 'Your tracks and playlists — from pages saved in the browser')} color="#0077FF">
+      <ol className="md-body-md list-decimal pl-5 space-y-1">
+        <li>{tr('На компьютере откройте vk.com → «Музыка» (или нужный плейлист).', 'On a computer, open vk.com → “Music” (or a playlist).')}</li>
+        <li>{tr('Прокрутите список до самого конца — ВК подгружает треки по мере прокрутки.', 'Scroll the list to the very end — VK loads songs as you scroll.')}</li>
+        <li>{tr('Сохраните страницу: Ctrl+S (на Mac ⌘S), «Веб-страница полностью».', 'Save the page: Ctrl+S (⌘S on a Mac), “Web page, complete”.')}</li>
+        <li>{tr('Выберите здесь сохранённые файлы — можно сразу несколько: «Музыка» станет любимыми, каждый плейлист — плейлистом.', 'Pick the saved files here, several at once: “Music” becomes liked songs, every playlist a playlist.')}</li>
+      </ol>
+      <div className="flex flex-wrap items-center gap-2 mt-3">
+        <M3eButton variant="tonal" onClick={() => file.current?.click()}><m3e-icon variant="rounded" slot="icon" name="folder_open" />{tr('Выбрать страницы (HTML)', 'Pick pages (HTML)')}</M3eButton>
+        <input ref={file} type="file" multiple accept=".html,.htm,.txt,text/html,text/plain" hidden onChange={async (e) => {
+          const picked = await Promise.all([...(e.target.files ?? [])].map(async (f) => ({ name: f.name, content: await f.text() })));
+          setPages((was) => [...was, ...picked].slice(0, 50));
+          e.target.value = '';
+        }} />
+        {pages.length > 0 && <M3eButton variant="text" onClick={() => setPages([])}>{tr('Очистить', 'Clear')}</M3eButton>}
+      </div>
+      {pages.length > 0 && <p className="md-body-sm muted mt-2">{pages.map((p) => p.name).join(' · ')}</p>}
+      <M3eButton variant="filled" className="mt-3" disabled={busy || !pages.length || undefined} onClick={go}><m3e-icon variant="rounded" slot="icon" name="swap_horiz" />{tr('Перенести из ВК', 'Move from VK')}</M3eButton>
+      <p className="md-body-sm muted mt-2">{tr('Пароль от ВК не нужен: из файлов берутся только названия песен, сами песни сервер находит у себя.', 'No VK password needed: only song names are read from the files, the server finds the songs itself.')}</p>
     </Card>
   );
 }

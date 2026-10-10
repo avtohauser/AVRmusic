@@ -1,7 +1,8 @@
 @file:OptIn(ExperimentalLayoutApi::class)
 
 // Moving a library here: Spotify (sign in — liked songs, every playlist, followed artists), Yandex Music
-// (sign in with a code — the phone reads the library), a link to one playlist, or a pasted list / CSV.
+// (sign in with a code — the phone reads the library), VK Music (pages saved in a browser), a link to one
+// playlist, or a pasted list / CSV.
 package space.avthsr.music.ui
 
 import androidx.compose.foundation.background
@@ -63,6 +64,8 @@ import space.avthsr.music.api.importLibrary
 import space.avthsr.music.api.yandexLoginStart
 import space.avthsr.music.api.yandexLoginState
 import space.avthsr.music.api.listTransfer
+import space.avthsr.music.api.VkPagePart
+import space.avthsr.music.api.vkTransfer
 import space.avthsr.music.api.spotifyStart
 import space.avthsr.music.api.transferStatus
 import space.avthsr.music.rememberPicker
@@ -82,6 +85,7 @@ fun TransferScreen() {
       )
       SpotifyCard(status.data?.spotify)
       YandexCard()
+      VkCard()
       Card(tr("Один плейлист по ссылке"), tr("Ссылка на плейлист или альбом Spotify / Яндекс Музыки"), Color(0xFF7D5260)) {
         FilledTonalButton(onClick = { linkDialog = true }, shapes = ButtonDefaults.shapes()) { Ico(Res.drawable.ic_link, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(tr("Вставить ссылку")) }
       }
@@ -235,6 +239,39 @@ private fun PickRow(text: String, on: Boolean, onChange: (Boolean) -> Unit) {
   Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { onChange(!on) }, verticalAlignment = Alignment.CenterVertically) {
     Checkbox(checked = on, onCheckedChange = onChange)
     Text(text, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+  }
+}
+
+/** VK Music: VK lets no other app read the music, so the listener saves their own pages in a browser and picks
+ *  the files here — "Музыка" becomes liked songs, every playlist page a playlist. Only song names are read. */
+@Composable
+private fun VkCard() {
+  val nav = LocalNav.current
+  val cs = MaterialTheme.colorScheme
+  val pages = remember { mutableStateListOf<VkPagePart>() }
+  val pick = rememberPicker(Pick.TEXT_FILE) { files ->
+    files.forEach { f -> runCatching { f.open().readByteArray().decodeToString() }.onSuccess { if (pages.size < 50) pages.add(VkPagePart(f.name, it)) } }
+  }
+  Card(tr("ВК Музыка"), tr("Мои треки и плейлисты — из страниц, сохранённых в браузере"), Color(0xFF0077FF)) {
+    Text(
+      tr("На компьютере откройте vk.com → «Музыка» (или нужный плейлист), прокрутите список до конца и сохраните страницу (Ctrl+S, «Веб-страница полностью»). Потом добавьте здесь сохранённые файлы: «Музыка» станет любимыми, каждый плейлист — плейлистом."),
+      style = MaterialTheme.typography.bodyMedium,
+    )
+    Spacer(Modifier.height(10.dp))
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+      FilledTonalButton(onClick = pick, shapes = ButtonDefaults.shapes()) { Ico(Res.drawable.ic_folder, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(tr("Добавить страницу")) }
+      if (pages.isNotEmpty()) TextButton(onClick = { pages.clear() }) { Text(tr("Очистить")) }
+    }
+    if (pages.isNotEmpty()) Text(pages.joinToString(" · ") { it.name }, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
+    Spacer(Modifier.height(8.dp))
+    Button(enabled = pages.isNotEmpty(), onClick = {
+      val list = pages.toList()
+      act(then = { pages.clear(); nav.jobs() }) {
+        val r = Api.vkTransfer(list)
+        App.say(tr("Перенос из ВК начат: любимых {}, плейлистов {}", r.liked, r.playlists.size))
+      }
+    }, shapes = ButtonDefaults.shapes()) { Text(tr("Перенести из ВК")) }
+    Text(tr("Пароль от ВК не нужен: из файлов берутся только названия песен."), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
   }
 }
 

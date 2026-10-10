@@ -125,7 +125,7 @@ fun ProfileScreen() {
           ProfileItem(Res.drawable.ic_quiz, tr("Угадай мелодию"), tr("Игра с друзьями на скорость")) { nav.route("game") }
           ProfileItem(Res.drawable.ic_event, tr("Концерты"), tr("Ваши исполнители в вашем городе")) { nav.route("concerts") }
           ProfileItem(Res.drawable.ic_mic, tr("Распознать песню"), tr("Узнать, что играет рядом")) { nav.route("recognize") }
-          ProfileItem(Res.drawable.ic_import, tr("Перенести музыку"), tr("Всё из Spotify и Яндекс Музыки: лайки, плейлисты, исполнители")) { nav.route("transfer") }
+          ProfileItem(Res.drawable.ic_import, tr("Перенести музыку"), tr("Всё из Spotify, Яндекс Музыки и ВК: лайки, плейлисты, исполнители")) { nav.route("transfer") }
           ProfileItem(Res.drawable.ic_alarm, tr("Будильник"), alarmLine()) { nav.route("alarm") }
         }
       }

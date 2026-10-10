@@ -510,6 +510,35 @@ test('co-owners, blend, radar, reports, follows, lyrics search and lists to move
   assert.equal(csv[0].isrc, 'USQX91300108');
   assert.equal(csv[0].durationSec, 370);
 
+  // VK Music: pages saved from the browser — the full site, its newer rows, the mobile site, a plain list
+  const { parseVkPage } = await import('../src/services/transfer.js');
+  const full = parseVkPage('<html><head><title>Музыка | ВКонтакте</title></head><body>'
+    + '<div class="audio_row" data-audio="[1,2,&quot;&quot;,&quot;Get Lucky&quot;,&quot;Daft Punk&quot;,369]"></div>'
+    + '<div class="audio_row" data-audio="[3,2,&quot;&quot;,&quot;Rock &amp;amp; Roll&quot;,&quot;Led Zeppelin&quot;,220]"></div>'
+    + '<div class="audio_row" data-audio="[1,2,&quot;&quot;,&quot;Get Lucky&quot;,&quot;Daft Punk&quot;,369]"></div></body></html>');
+  assert.equal(full.mine, true);
+  assert.deepEqual(full.tracks.map((t) => `${t.artist} — ${t.title} · ${t.durationSec}`), ['Daft Punk — Get Lucky · 369', 'Led Zeppelin — Rock & Roll · 220']);
+  const rows = parseVkPage('<html><title>Дорога домой | ВКонтакте</title><div class="audio_row _audio_row"><div class="audio_row__performers"><a>Muse</a></div>'
+    + '<div class="audio_row__title"><span class="audio_row__title_inner">Uprising</span></div><div class="audio_row__duration">5:04</div></div></html>');
+  assert.equal(rows.mine, false);
+  assert.equal(rows.title, 'Дорога домой');
+  assert.deepEqual(rows.tracks[0], { artist: 'Muse', title: 'Uprising', durationSec: 304 });
+  const mobile = parseVkPage('<html><title>Аудиозаписи</title><div class="ai_info"><span class="ai_title">Numb</span><span class="ai_artist">Linkin Park</span><div class="ai_dur" data-dur="185"></div></div></html>');
+  assert.equal(mobile.mine, true);
+  assert.equal(mobile.tracks[0].artist, 'Linkin Park');
+  assert.equal(parseVkPage('Muse — Uprising', 'В машину.txt').title, 'В машину');
+  assert.equal(parseVkPage('<html><title>Аудиозаписи Ивана | ВКонтакте</title><div data-audio="[1,2,&quot;&quot;,&quot;Numb&quot;,&quot;Linkin Park&quot;,185]"></div></html>').mine, true);
+  assert.equal(parseVkPage('<html><title>Музыка для бега | ВКонтакте</title><div data-audio="[1,2,&quot;&quot;,&quot;Numb&quot;,&quot;Linkin Park&quot;,185]"></div></html>').mine, false);
+  const vkEmpty = await app.inject({ method: 'POST', url: '/api/transfer/vk', headers: h, payload: { pages: [{ name: 'a.html', content: '<html><body><div>ничего</div></body></html>' }] } });
+  assert.equal(vkEmpty.statusCode, 400);
+  const vk = await app.inject({ method: 'POST', url: '/api/transfer/vk', headers: h, payload: { pages: [
+    { name: 'music.html', content: '<html><title>Музыка | ВКонтакте</title><div data-audio="[1,2,&quot;&quot;,&quot;Uprising&quot;,&quot;Muse&quot;,304]"></div></html>' },
+    { name: 'road.html', content: '<html><title>Дорога | ВКонтакте</title><div data-audio="[1,2,&quot;&quot;,&quot;One More Time&quot;,&quot;Daft Punk&quot;,320]"></div></html>' },
+  ] } });
+  assert.equal(vk.statusCode, 200, vk.body);
+  assert.equal(vk.json().liked, 1);
+  assert.deepEqual(vk.json().playlists, [{ title: 'Дорога', tracks: 1 }]);
+
   // a library the app read from Yandex Music becomes one transfer job
   const empty = await app.inject({ method: 'POST', url: '/api/transfer/import', headers: h, payload: { source: 'yandex' } });
   assert.equal(empty.statusCode, 400);

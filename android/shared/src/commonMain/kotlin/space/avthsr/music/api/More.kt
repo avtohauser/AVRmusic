@@ -86,6 +86,12 @@ suspend fun Api.spotifyStart(): UrlBox = get("/api/transfer/spotify/start")
 suspend fun Api.listTransfer(text: String, target: String, title: String) {
   call("POST", "/api/transfer/list", buildJsonObject { put("text", text); put("target", target); put("title", title.trim()) }.toString())
 }
+/** A VK page the listener saved in a browser: its file name and its text (only song names are read from it). */
+@Serializable data class VkPagePart(val name: String, val content: String)
+@Serializable data class VkMovedPlaylist(val title: String = "", val tracks: Int = 0)
+@Serializable data class VkMoved(val liked: Int = 0, val playlists: List<VkMovedPlaylist> = emptyList(), val empty: List<String> = emptyList())
+@Serializable private data class VkPages(val pages: List<VkPagePart>)
+suspend fun Api.vkTransfer(pages: List<VkPagePart>): VkMoved = post("/api/transfer/vk", json.encodeToString(VkPages.serializer(), VkPages(pages)))
 suspend fun Api.spotifySettings(): SpotifySettings = get("/api/admin/spotify")
 suspend fun Api.saveSpotify(clientId: String, secret: String) {
   call("PUT", "/api/admin/spotify", buildJsonObject { put("clientId", clientId.trim()); if (secret.isNotBlank()) put("secret", secret.trim()) }.toString())

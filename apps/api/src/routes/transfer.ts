@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { config } from '../config.js';
 import { badRequest } from '../lib/errors.js';
 import { enqueue } from '../services/jobs.js';
-import { parseList, setSpotifyApp, spotifyApp, spotifyAuthorizeUrl, spotifyCallback, yandexLoginPoll, yandexLoginStart } from '../services/transfer.js';
+import { parseList, parseVkPage, setSpotifyApp, spotifyApp, spotifyAuthorizeUrl, spotifyCallback, yandexLoginPoll, yandexLoginStart } from '../services/transfer.js';
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
 
@@ -92,6 +92,28 @@ export default async function transferRoutes(app: FastifyInstance) {
       kind: 'transfer', source: b.source, userId: req.userId, canAcquire: mayAcquire(req), liked: b.liked, playlists, artists: b.artists, albums: b.albums,
     });
     return { jobId: job.id, liked: b.liked.length, playlists: playlists.length, artists: b.artists.length, albums: b.albums.length };
+  });
+
+  /* ---------- VK Music: pages the listener saved from the browser ---------- */
+
+  app.post('/api/transfer/vk', { ...auth, bodyLimit: 96 * 1024 * 1024 }, async (req) => {
+    const b = z.object({ pages: z.array(z.object({ name: z.string().max(300).default(''), content: z.string().min(1).max(40_000_000) })).min(1).max(50) }).parse(req.body ?? {});
+    const liked: Array<{ title: string; artist: string; durationSec?: number | null }> = [];
+    const playlists: Array<{ title: string; tracks: typeof liked }> = [];
+    const empty: string[] = [];
+    for (const page of b.pages) {
+      const v = parseVkPage(page.content, page.name);
+      if (!v.tracks.length) { empty.push(page.name || v.title || 'страница'); continue; }
+      if (v.mine) liked.push(...v.tracks);
+      else playlists.push({ title: (v.title || 'ВК Музыка').slice(0, 120), tracks: v.tracks });
+    }
+    if (!liked.length && !playlists.length) {
+      throw badRequest('Не нашёл треков на странице. Откройте «Музыку» во ВКонтакте на компьютере, прокрутите список до самого конца и сохраните страницу (Ctrl+S, «Веб-страница полностью»)');
+    }
+    const job = enqueue({ kind: 'acquire', title: 'Перенос из ВК Музыки', requestedBy: req.userId }, {
+      kind: 'transfer', source: 'vk', userId: req.userId, canAcquire: mayAcquire(req), liked, playlists,
+    });
+    return { jobId: job.id, liked: liked.length, playlists: playlists.map((p) => ({ title: p.title, tracks: p.tracks.length })), empty };
   });
 
   /* ---------- a list or a CSV ---------- */

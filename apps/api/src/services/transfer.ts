@@ -3,6 +3,8 @@
 //    every playlist, the followed artists and the saved albums come over — songs found by their ISRC;
 //  - Yandex Music: the listener signs in with a code; their app reads "Мне нравится", every playlist, the
 //    liked artists and albums and sends the lists (Yandex keeps its API closed to servers abroad);
+//  - VK Music: VK gives no way in for other apps, so the listener saves their own music page (or a playlist's)
+//    from the browser and uploads the file; the songs are read from it — names only, nothing is fetched from VK;
 //  - any service: a pasted list ("Artist — Title" per line) or a CSV export (e.g. Exportify).
 // Liked songs become likes, playlists become playlists, followed artists are followed here (their new
 // releases come in). Songs not in the library are fetched from the catalogue. Runs as one fetch job.
@@ -18,7 +20,7 @@ import { findInCatalogue, type LinkTrack } from './linkImport.js';
 export interface TransferPlaylist { title: string; tracks: LinkTrack[] }
 export interface TransferPayload {
   kind: 'transfer';
-  source: 'spotify' | 'yandex' | 'list';
+  source: 'spotify' | 'yandex' | 'vk' | 'list';
   userId: string;
   canAcquire: boolean;
   liked?: LinkTrack[];
@@ -27,7 +29,7 @@ export interface TransferPayload {
   albums?: Array<{ title: string; artist: string }>;
 }
 
-const SOURCE_NAME = { spotify: 'Spotify', yandex: 'Яндекс Музыки', list: 'списка' } as const;
+const SOURCE_NAME = { spotify: 'Spotify', yandex: 'Яндекс Музыки', vk: 'ВК Музыки', list: 'списка' } as const;
 
 /* ---------- settings: the admin's Spotify app ---------- */
 
@@ -196,6 +198,71 @@ export function parseList(text: string): LinkTrack[] {
     const m = /^(.+?)\s+[—–-]\s+(.+)$/.exec(l.replace(/^\d+[.)]\s*/, ''));
     return m ? { artist: m[1].trim(), title: m[2].trim() } : null;
   }).filter((t): t is LinkTrack => !!t);
+}
+
+/* ---------- VK Music: a page the listener saved from the browser ---------- */
+
+const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', ndash: '–', mdash: '—', laquo: '«', raquo: '»' };
+const unescapeHtml = (x: string) => x.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, e: string) => {
+  if (e[0] === '#') { const n = e[1] === 'x' || e[1] === 'X' ? parseInt(e.slice(2), 16) : Number(e.slice(1)); return Number.isFinite(n) ? String.fromCodePoint(n) : m; }
+  return ENTITIES[e.toLowerCase()] ?? m;
+});
+// VK escapes names twice in places ("&amp;amp;"), and a name may carry a highlight tag
+const cleanName = (x: unknown) => unescapeHtml(unescapeHtml(String(x ?? '').replace(/<[^>]*>/g, ''))).replace(/\s+/g, ' ').trim();
+const toSec = (x: string) => { const [m, sec] = x.split(':').map(Number); return Number.isFinite(m) && Number.isFinite(sec) ? m * 60 + sec : null; };
+
+export interface VkPage { title: string | null; mine: boolean; tracks: LinkTrack[] }
+
+/**
+ * The songs on a VK page saved from the browser: the full site (each row carries its song as data-audio:
+ * [id, owner, url, title, performer, duration, …]), its newer rows (performer / title / duration blocks) or the
+ * mobile site (ai_title / ai_artist). Text that is not a page is read as a plain list. "mine" — the listener's own
+ * music (it goes to likes), otherwise it is a playlist called as the page is.
+ */
+export function parseVkPage(content: string, fileName = ''): VkPage {
+  const seen = new Set<string>();
+  const tracks: LinkTrack[] = [];
+  const add = (artist: string, title: string, durationSec: number | null) => {
+    if (!artist || !title) return;
+    const key = `${artist.toLowerCase()}|${title.toLowerCase()}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    tracks.push({ artist, title, durationSec });
+  };
+  const isPage = /<html|<body|<div[\s>]/i.test(content.slice(0, 200_000));
+  if (!isPage) {
+    for (const t of parseList(content)) add(t.artist, t.title, t.durationSec ?? null);
+  } else {
+    for (const m of content.matchAll(/data-audio="([^"]*)"/g)) {
+      try {
+        const a = JSON.parse(unescapeHtml(m[1]));
+        if (Array.isArray(a)) add(cleanName(a[4]), cleanName(a[3]), Number(a[5]) > 0 ? Number(a[5]) : null);
+      } catch { /* a row that is not a song */ }
+    }
+    if (!tracks.length) {
+      // rows without data-audio: the performer, the title and the duration in their own blocks
+      for (const row of content.split(/class="[^"]*\baudio_row\b/).slice(1)) {
+        const performer = /audio_row__performers[^>]*>([\s\S]*?)<\/div>/.exec(row)?.[1];
+        const title = /audio_row__title_inner[^>]*>([\s\S]*?)<\/(?:span|div)>/.exec(row)?.[1];
+        const dur = /audio_row__duration[^>]*>\s*(\d{1,2}:\d{2})/.exec(row)?.[1];
+        if (performer && title) add(cleanName(performer), cleanName(title), dur ? toSec(dur) : null);
+      }
+    }
+    if (!tracks.length) {
+      // the mobile site
+      for (const row of content.split(/class="[^"]*\bai_info\b/).slice(1)) {
+        const title = /class="[^"]*\bai_title\b[^"]*"[^>]*>([\s\S]*?)<\/(?:span|div)>/.exec(row)?.[1];
+        const artist = /class="[^"]*\bai_artist\b[^"]*"[^>]*>([\s\S]*?)<\/(?:span|div)>/.exec(row)?.[1];
+        const dur = /data-dur="(\d+)"/.exec(row)?.[1];
+        if (title && artist) add(cleanName(artist), cleanName(title), dur ? Number(dur) : null);
+      }
+    }
+  }
+  const raw = isPage ? cleanName(/<title[^>]*>([\s\S]*?)<\/title>/i.exec(content)?.[1] ?? '') : '';
+  const title = raw.replace(/\s*[|—–-]\s*(ВКонтакте|VK|ВК)\s*$/i, '').trim() || fileName.replace(/\.[^.]+$/, '').trim() || null;
+  // VK calls one's own music "Музыка" or "Аудиозаписи <name>"; a playlist is called as it is
+  const mine = /^(моя )?музыка$|^(мои )?аудиозаписи(\s|$)|^(my )?(music|audio)$/i.test((title ?? '').trim());
+  return { title, mine, tracks };
 }
 
 /* ---------- the job ---------- */

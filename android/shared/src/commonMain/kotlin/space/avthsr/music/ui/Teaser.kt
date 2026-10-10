@@ -269,7 +269,7 @@ private fun InsidePage(shown: Boolean) {
     Res.drawable.ic_search to tr("Любой трек играет сразу"),
     Res.drawable.ic_lyrics to tr("Тексты караоке"),
     Res.drawable.ic_quiz to tr("Угадай мелодию"),
-    Res.drawable.ic_import to tr("Переезд из Spotify и Яндекса"),
+    Res.drawable.ic_import to tr("Переезд из Spotify, Яндекса и ВК"),
     Res.drawable.ic_offline to tr("Офлайн и свои устройства"),
     Res.drawable.ic_send to tr("Что играет — в Telegram"),
   )

@@ -214,7 +214,7 @@ function ProfileLinks() {
     ['/friends', 'group', tr('Друзья', 'Friends'), tr('Кто что слушает, вместе, блендер', 'Who plays what, together, blends')],
     ['/inbox', 'inbox', tr('Входящие', 'Inbox'), tr('Что прислали и новинки', 'What was sent and new releases')],
     ['/recap', 'leaderboard', tr('Мои итоги', 'My recap'), tr('Месяц и год в цифрах', 'Your month and year in numbers')],
-    ['/transfer', 'swap_horiz', tr('Перенести музыку', 'Move your music'), tr('Из Spotify, Яндекс Музыки, списком', 'From Spotify, Yandex Music, a list')],
+    ['/transfer', 'swap_horiz', tr('Перенести музыку', 'Move your music'), tr('Из Spotify, Яндекс Музыки, ВК, списком', 'From Spotify, Yandex Music, VK, a list')],
     ['/game', 'quiz', tr('Угадай мелодию', 'Guess the song'), tr('Игра с друзьями на скорость', 'A speed game with friends')],
     ['/services', 'hub', tr('Сервисы', 'Services'), tr('Telegram, Last.fm, концерты', 'Telegram, Last.fm, concerts')],
     ['/help-downloads', 'volunteer_activism', tr('Помочь с загрузками', 'Help with downloads'), tr('Запасной аккаунт YouTube — быстрее качается', 'A spare YouTube account — faster downloads')],

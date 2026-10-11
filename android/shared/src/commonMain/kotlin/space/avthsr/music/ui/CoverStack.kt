@@ -2,17 +2,24 @@
 // little smaller, askew and darker further down. The top card is thrown off in any direction with the
 // finger: it flies that way out of the cover area and stays stuck out past its edge, wherever the throw
 // pointed (top, bottom, the sides, the corners), under the player's other parts, and the next card
-// rises in its place. Every thrown
-// card stays around like that, older ones a little further out; grab one and pull, and it comes back on
-// top (its song plays). Track changes from anywhere
-// (the end of a song, the buttons, the queue) flip the deck the same way. One continuous cursor moves
-// along the playing order on the expressive spring; every card's place is computed from it while
-// drawing, so flipping never recomposes.
+// rises in its place. Every thrown card stays around like that, older ones a little further out; grab
+// one and pull it in, and it comes back on top (its song plays). Track changes from anywhere (the end
+// of a song, the buttons, the queue) flip the deck the same way.
+//
+// One continuous cursor moves along the playing order on the expressive spring, and the cards on the
+// pile's rails are placed from it while drawing, so flipping never recomposes. A card let go of leaves
+// the rails for a while: it flies home on its own spring, carried on by the finger's speed, so the next
+// throw never waits for it and never shakes it. The deck runs a step ahead of the player: it shows the
+// card it asked for at once and gives the player a moment to follow (a jam goes through the server);
+// if the player stays where it was, the deck goes back to it.
 package space.avthsr.music.ui
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.VectorConverter
-import androidx.compose.animation.core.animate
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitTouchSlopOrCancellation
@@ -27,14 +34,17 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.foundation.background
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.GraphicsLayerScope
@@ -43,18 +53,22 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.input.pointer.util.addPointerInputChange
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.launch
 import coil3.compose.AsyncImage
 import coil3.compose.LocalPlatformContext
 import coil3.request.ImageRequest
 import coil3.request.crossfade
-import androidx.compose.ui.layout.ContentScale
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import space.avthsr.music.api.Api
 import space.avthsr.music.api.Track
 import space.avthsr.music.player.PlayerConn
@@ -69,6 +83,7 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sign
 import kotlin.math.sin
+import kotlin.math.sqrt
 
 private val CardShape = RoundedCornerShape(32.dp)
 
@@ -82,17 +97,42 @@ private const val AROUND = 60
 /** Thrown cards older than this are decoded small: they are only ever seen at the edges. */
 private const val FULL_AGE = 2f
 
+/** How far the next card rises while the top one is pulled all the way to its place at the edge. */
+private const val RISE = 0.6f
+
+/** Where a let-go card is headed: where the finger left it, carried on by its speed for this long (s). */
+private const val CARRY = 0.12f
+
+/** How long the player may take to follow the deck to the card it asked for (a jam goes through the server). */
+private const val FOLLOW_MS = 2500L
+
 /** The queue in playing order (shuffle included), the place of the playing track in it, and the track at a place. */
 fun PlayerUi.deckOrder(): List<Int> = order.ifEmpty { queue.indices.toList() }
 fun PlayerUi.deckPos(): Int = deckOrder().indexOf(index).coerceAtLeast(0)
 fun PlayerUi.deckTrack(p: Int): Track? = deckOrder().getOrNull(p)?.let { queue.getOrNull(it) }
 
+/** A card let go of, on its way home ([toTop]: back on top of the pile, otherwise to its place at the edge). */
+class Flight(val toTop: Boolean, from: Offset) {
+  /** where the card is from its home */
+  val off = Animatable(from, Offset.VectorConverter)
+  var job: Job? = null
+}
+
 /**
  * Where the deck is: a continuous place along the playing order (5.3 = the sixth card a third of the
  * way off). The player owns it, so the colours and the background can follow a flip too.
  */
-class Deck(start: Float) {
-  val cursor = Animatable(start)
+class Deck(start: Int, val scope: CoroutineScope) {
+  val cursor = Animatable(start.toFloat())
+  /** how far the next card has risen under a throw that is still in the hand (the cursor stays put meanwhile) */
+  var rise by mutableFloatStateOf(0f)
+  /** where the deck is drawn */
+  val at: Float get() = cursor.value + rise
+  /** the card on top, or the one the deck is flipping to */
+  var target by mutableIntStateOf(start)
+  /** the card the deck asked the player for with a throw or a pull, until the player gets there */
+  var asked by mutableStateOf<Int?>(null)
+  /** a finger holds a card: the deck is the finger's until it lets go */
   var dragging by mutableStateOf(false)
   /** the direction each thrown card went (track id → radians), so it lies on that side of the pile */
   val angles = mutableStateMapOf<String, Float>()
@@ -101,22 +141,45 @@ class Deck(start: Float) {
   var hand by mutableStateOf(Offset.Zero)
   /** the held card is the top one being thrown (not a thrown one being pulled back) */
   var throwing by mutableStateOf(false)
-  /** the thrown card is on its own way to its place now, in the direction it was let go */
-  var flying by mutableStateOf(false)
-  /** how old the card pulled back was when it was grabbed (its place at the edge stays put meanwhile) */
-  var heldAge by mutableStateOf(0f)
+  /** cards let go of and still on their way home, by their place in the playing order */
+  val flights = mutableStateMapOf<Int, Flight>()
+
+  /** Flips to [p]: the track changed from elsewhere. */
+  suspend fun flipTo(p: Int) {
+    target = p
+    glide(Motion.expressive.defaultSpatialSpec())
+  }
+
+  /** The cursor goes to [target] from where the deck is drawn; a long jump only shows its last steps. */
+  suspend fun glide(spec: AnimationSpec<Float>) {
+    // the rise goes into the cursor; without one the cursor keeps its speed (flips in a row flow on)
+    if (rise != 0f) {
+      cursor.snapTo(at)
+      rise = 0f
+    }
+    val gap = target - cursor.value
+    if (abs(gap) > 2.5f) cursor.snapTo(target - sign(gap) * 1.5f)
+    cursor.animateTo(target.toFloat(), spec)
+  }
 }
 
 @Composable
 fun rememberDeck(s: PlayerUi): Deck {
   val pos = s.deckPos()
-  val deck = remember { Deck(pos.toFloat()) }
-  // a track change from anywhere flips the deck; a long jump only shows its last step
-  LaunchedEffect(pos) {
+  // the deck's own scope, not the cover area's: a flip goes on while the lyrics are up instead of the covers
+  val scope = rememberCoroutineScope()
+  val deck = remember { Deck(pos, scope) }
+  LaunchedEffect(pos, deck.dragging, deck.asked) {
     if (deck.dragging) return@LaunchedEffect
-    val gap = pos - deck.cursor.value
-    if (abs(gap) > 2.5f) deck.cursor.snapTo(pos - sign(gap) * 1.5f)
-    deck.cursor.animateTo(pos.toFloat(), Motion.expressive.defaultSpatialSpec())
+    val asked = deck.asked
+    if (asked != null) {
+      // the deck is already on the card it asked for; if the player doesn't get there, it goes back to the player
+      if (asked != pos) delay(FOLLOW_MS)
+      deck.asked = null
+      return@LaunchedEffect
+    }
+    // a track change from anywhere else flips the deck
+    if (deck.target != pos) deck.flipTo(pos)
   }
   return deck
 }
@@ -133,6 +196,9 @@ private fun jitterOf(t: Track) = (hash(t) / 9 % 1000) / 1000f
 private fun jitter2Of(t: Track) = (hash(t) / 9001 % 1000) / 1000f
 
 private fun Deck.angleOf(t: Track): Float = angles[t.id] ?: ((hash(t) / 9000 % 3600) / 3600f * 2f * PI.toFloat())
+
+/** How long ago card [p] was thrown, in cards (0 for the last one); it follows the deck smoothly. */
+private fun Deck.age(p: Int): Float = max(0f, at - p - 1f)
 
 /** The deck's measures in px: the top card's side and the box it is centred in (the cover area). */
 private class Geo(val side: Float, val boxW: Float, val boxH: Float)
@@ -173,39 +239,52 @@ private const val REST_DARK = 0.3f
 
 private fun lerp(a: Float, b: Float, k: Float) = a + (b - a) * k
 
-/** Places card [p] (track [t]) for the current cursor and finger. */
-private fun GraphicsLayerScope.place(deck: Deck, t: Track, p: Int, g: Geo) {
-  val x = p - deck.cursor.value
-  val held = deck.held == p
-  shape = CardShape
-  clip = true
-  when {
-    // the top card in the hand: it follows the finger and, the farther out, the more it shrinks and turns
-    // toward how it will lie beside the pile
-    held && deck.throwing -> {
-      val h = deck.hand
-      val angle = if (deck.flying || h.getDistance() < 0.5f) deck.angleOf(t) else atan2(h.y, h.x)
-      val rest = Rest(angle, g, t, 0f)
-      val k = (h.getDistance() / rest.center.getDistance().coerceAtLeast(1f)).coerceIn(0f, 1f)
-      translationX = h.x
-      translationY = h.y
-      rotationZ = lerp(0f, rest.rotation, k)
-      val sc = lerp(1f, REST_SCALE, k)
-      scaleX = sc; scaleY = sc
-      shadowElevation = 24.dp.toPx()
+/**
+ * A card off the pile's rails — in the hand or flying home: where it is (from the deck's centre), the
+ * place at the edge it belongs to, and how far toward that place it is (0 on top, 1 there).
+ */
+private class Free(val at: Offset, val rest: Rest, val lifted: Boolean) {
+  val u = (at.getDistance() / rest.center.getDistance().coerceAtLeast(1f)).coerceIn(0f, 1f)
+}
+
+private fun Deck.free(p: Int, t: Track, g: Geo): Free? {
+  val flight = flights[p]
+  return when {
+    // the top card in the hand: the farther out, the more it shrinks and turns toward how it will lie
+    // on the side the finger is taking it
+    held == p && throwing -> {
+      val h = hand
+      Free(h, Rest(if (h.getDistance() < 0.5f) angleOf(t) else atan2(h.y, h.x), g, t, 0f), lifted = true)
     }
     // a thrown card pulled back: it grows and straightens as it comes over the pile
-    held -> {
-      val rest = Rest(deck.angleOf(t), g, t, deck.heldAge)
-      val at = rest.center + deck.hand
-      val k = (1f - at.getDistance() / rest.center.getDistance().coerceAtLeast(1f)).coerceIn(0f, 1f)
-      translationX = at.x
-      translationY = at.y
-      rotationZ = lerp(rest.rotation, 0f, k)
-      val sc = lerp(REST_SCALE, 1f, k)
-      scaleX = sc; scaleY = sc
-      shadowElevation = 24.dp.toPx()
+    held == p -> {
+      val rest = Rest(angleOf(t), g, t, age(p))
+      Free(rest.center + hand, rest, lifted = true)
     }
+    flight != null -> {
+      val rest = Rest(angleOf(t), g, t, age(p))
+      Free(if (flight.toTop) flight.off.value else rest.center + flight.off.value, rest, lifted = false)
+    }
+    else -> null
+  }
+}
+
+/** Places card [p] (track [t]) for the deck's place, the finger and the flights. */
+private fun GraphicsLayerScope.place(deck: Deck, t: Track, p: Int, g: Geo) {
+  shape = CardShape
+  clip = true
+  val free = deck.free(p, t, g)
+  if (free != null) {
+    translationX = free.at.x
+    translationY = free.at.y
+    rotationZ = lerp(0f, free.rest.rotation, free.u)
+    val sc = lerp(1f, REST_SCALE, free.u)
+    scaleX = sc; scaleY = sc
+    shadowElevation = (if (free.lifted) 24f else lerp(24f, 0f, free.u)).dp.toPx()
+    return
+  }
+  val x = p - deck.at
+  when {
     // the pile: the top edges step up, each card behind peeks out above the one in front
     x >= 0f -> {
       val d = min(x, DEPTH)
@@ -216,7 +295,7 @@ private fun GraphicsLayerScope.place(deck: Deck, t: Track, p: Int, g: Geo) {
       alpha = if (x > DEPTH - 0.6f) ((DEPTH + 0.2f - x) / 0.8f).coerceIn(0f, 1f) else 1f
       shadowElevation = (24f - 7f * d).coerceAtLeast(4f).dp.toPx()
     }
-    // on its way between the top and its place at the edge (either way)
+    // on its way between the top and its place at the edge (either way), flipped by a track change
     x > -1f -> {
       val u = -x
       val rest = Rest(deck.angleOf(t), g, t, 0f)
@@ -240,10 +319,10 @@ private fun GraphicsLayerScope.place(deck: Deck, t: Track, p: Int, g: Geo) {
   }
 }
 
-/** How dark card [p] is: down the pile and around it, darker (read while drawing, so it follows the cursor). */
-private fun Deck.darkness(p: Int): Float {
-  if (held == p) return 0f
-  val x = p - cursor.value
+/** How dark card [p] is: down the pile and around it, darker (read while drawing, so it follows the deck). */
+private fun Deck.darkness(p: Int, t: Track, g: Geo): Float {
+  free(p, t, g)?.let { return if (it.lifted) 0f else lerp(0f, REST_DARK, it.u) }
+  val x = p - at
   return when {
     x >= 0f -> 0.22f * min(x, 2f)
     x > -1f -> lerp(0f, REST_DARK, -x)
@@ -254,11 +333,13 @@ private fun Deck.darkness(p: Int): Float {
 /** Which layer card [p] is drawn in; changes only when a card crosses from one to another. */
 private fun Deck.layer(p: Int): Float {
   if (held == p) return 400f
-  val x = p - cursor.value
+  // flying over the pile, the latest above the earlier
+  if (p in flights) return 300f
+  val x = p - at
   return when {
     x >= 0f -> 200f - floor(x)
-    // flying over everything; at the edges, under the pile, the most recent above the older
     x > -1f -> 300f
+    // at the edges, under the pile, the most recent above the older
     else -> 100f - ceil(-x)
   }
 }
@@ -269,17 +350,19 @@ private fun Density.geo(w: Float, h: Float): Geo {
   return Geo(side, w, h)
 }
 
-/** The card under a finger at [at] (from the deck's centre): the top one, or a thrown one by its edge. */
-private fun Density.pick(deck: Deck, s: PlayerUi, pos: Int, at: Offset, g: Geo): Int? {
-  val top = g.side / 2f
-  val hasTop = s.deckTrack(pos) != null
-  if (hasTop && abs(at.x) <= top && abs(at.y) <= top) return pos
-  // the thrown ones, the most recent first (it lies above the older)
+/** The card under a finger at [at] (from the deck's centre): the top one, or a thrown one lying at the edge. */
+private fun Density.pick(deck: Deck, s: PlayerUi, at: Offset, g: Geo): Int? {
+  val top = deck.target
+  val r = g.side / 2f
+  val hasTop = s.deckTrack(top) != null
+  if (hasTop && abs(at.x) <= r && abs(at.y) <= r) return top
+  // the thrown ones, the most recent first (it lies above the older); one still flying isn't caught
   val half = g.side * REST_SCALE / 2f
   for (j in 1..AROUND) {
-    val p = pos - j
+    val p = top - j
     val t = s.deckTrack(p) ?: break
-    val rest = Rest(deck.angleOf(t), g, t, j - 1f)
+    if (p in deck.flights) continue
+    val rest = Rest(deck.angleOf(t), g, t, deck.age(p))
     val q = at - rest.center
     val a = -rest.rotation * PI.toFloat() / 180f
     val lx = q.x * cos(a) - q.y * sin(a)
@@ -287,112 +370,148 @@ private fun Density.pick(deck: Deck, s: PlayerUi, pos: Int, at: Offset, g: Geo):
     if (abs(lx) <= half && abs(ly) <= half) return p
   }
   // the pile's edges peeking out above the top card
-  if (hasTop && abs(at.x) <= top && at.y < -top && at.y >= -top - PEEK.toPx() * DEPTH) return pos
+  if (hasTop && abs(at.x) <= r && at.y < -r && at.y >= -r - PEEK.toPx() * DEPTH) return top
   return null
+}
+
+/* ---------- letting go ---------- */
+
+/**
+ * The finger's speed as a let-go card's start on the spring that takes it [from] where it is home: toward
+ * home no faster than the spring can stop it there (faster, it flies past and comes back like on a rubber
+ * band), away from home and sideways only a little.
+ */
+private fun tame(from: Offset, v: Offset, spec: FiniteAnimationSpec<Offset>): Offset {
+  val d = from.getDistance()
+  if (d < 1f) return Offset.Zero
+  val w = sqrt((spec as? SpringSpec<*>)?.stiffness ?: 380f)
+  val home = Offset(-from.x / d, -from.y / d)
+  val along = v.x * home.x + v.y * home.y
+  val side = v - home * along
+  val sideMax = w * d * 0.3f
+  val s = side.getDistance()
+  return home * along.coerceIn(-0.5f * w * d, w * d) + (if (s > sideMax) side * (sideMax / s) else side)
+}
+
+/** Card [p] flies home on its own spring, starting [from] where it is with the finger's speed [v]. */
+private fun Deck.fly(p: Int, toTop: Boolean, from: Offset, v: Offset, spec: FiniteAnimationSpec<Offset>) {
+  flights[p]?.job?.cancel()
+  val f = Flight(toTop, from)
+  flights[p] = f
+  f.job = scope.launch {
+    try {
+      f.off.animateTo(Offset.Zero, spec, initialVelocity = tame(from, v, spec))
+      // back on the rails only where the deck draws it the same, so it never jumps
+      snapshotFlow { if (toTop) target != p || abs(at - p) < 0.02f else target <= p || at - p > 0.98f }.first { it }
+    } finally {
+      if (flights[p] === f) flights.remove(p)
+    }
+  }
+}
+
+/** The deck goes to its target from where it is drawn, right away (no frame with the rise lost). */
+private fun Deck.settle(spec: AnimationSpec<Float>) {
+  scope.launch(start = CoroutineStart.UNDISPATCHED) { glide(spec) }
+}
+
+/** The top card let go of: thrown on (the next track plays) or back on top. */
+private fun Deck.letGoTop(s: PlayerUi, p: Int, t: Track, g: Geo, ended: Boolean, v: Offset) {
+  val h = hand
+  val aim = h + v * CARRY
+  val go = ended && s.deckTrack(p)?.id == t.id && p < s.deckOrder().lastIndex && aim.getDistance() > g.side * 0.25f
+  held = null
+  throwing = false
+  if (go) {
+    // it lies on the side it was headed for, the finger's speed included
+    val angle = atan2(aim.y, aim.x)
+    angles[t.id] = angle
+    target = p + 1
+    asked = p + 1
+    fly(p, toTop = false, from = h - Rest(angle, g, t, age(p)).center, v = v, spec = Motion.expressive.defaultSpatialSpec())
+    settle(Motion.expressive.defaultSpatialSpec())
+    PlayerConn.next()
+  } else {
+    fly(p, toTop = true, from = h, v = v, spec = Motion.expressive.fastSpatialSpec())
+    settle(Motion.expressive.fastSpatialSpec())
+  }
+  dragging = false
+}
+
+/** A thrown card let go of: pulled in toward the pile, it is back on top (its song plays); otherwise back to its edge. */
+private fun Deck.letGoPulled(s: PlayerUi, p: Int, t: Track, g: Geo, ended: Boolean, v: Offset) {
+  val rest = Rest(angleOf(t), g, t, age(p))
+  val h = hand
+  // only a pull toward the pile counts, not a tug along the edge or further out
+  val d = rest.center.getDistance().coerceAtLeast(1f)
+  val aim = h + v * CARRY
+  val inward = -(aim.x * rest.center.x + aim.y * rest.center.y) / d
+  val index = s.deckOrder().getOrNull(p)
+  val go = ended && index != null && s.deckTrack(p)?.id == t.id && inward > g.side * 0.1f
+  held = null
+  if (go) {
+    target = p
+    asked = p
+    fly(p, toTop = true, from = rest.center + h, v = v, spec = Motion.expressive.defaultSpatialSpec())
+    settle(Motion.expressive.defaultSpatialSpec())
+    PlayerConn.seekToTrack(index!!)
+  } else {
+    fly(p, toTop = false, from = h, v = v, spec = Motion.expressive.fastSpatialSpec())
+    // a flip the finger cut short goes on
+    settle(Motion.expressive.defaultSpatialSpec())
+  }
+  dragging = false
 }
 
 @Composable
 fun CoverStack(s: PlayerUi, deck: Deck, modifier: Modifier = Modifier, pauseScale: () -> Float = { 1f }) {
-  val order = s.deckOrder()
   val pos = s.deckPos()
-  val cursor = deck.cursor
-  val scope = rememberCoroutineScope()
+  // the gesture reads the latest queue without restarting: a restart would drop the card from the finger
+  val latest by rememberUpdatedState(s)
 
   BoxWithConstraints(
     // not clipped: the thrown cards reach past the area, under the player's other parts (which keep
     // their touches: only the area itself takes the deck's)
     modifier
       .graphicsLayer { val k = pauseScale(); scaleX = k; scaleY = k }
-      .pointerInput(pos, order, s.queue) {
+      .pointerInput(deck) {
         awaitEachGesture {
           val down = awaitFirstDown(requireUnconsumed = false)
+          val now = latest
           val g = geo(size.width.toFloat(), size.height.toFloat())
           val center = Offset(size.width / 2f, size.height / 2f)
-          val p = pick(deck, s, pos, down.position - center, g) ?: return@awaitEachGesture
-          val t = s.deckTrack(p) ?: return@awaitEachGesture
+          val p = pick(deck, now, down.position - center, g) ?: return@awaitEachGesture
+          val t = now.deckTrack(p) ?: return@awaitEachGesture
           val start = awaitTouchSlopOrCancellation(down.id) { change, _ -> change.consume() } ?: return@awaitEachGesture
+          val throwing = p == deck.target
+          // a card still on its way back on top is caught where it is
+          val caught = if (deck.flights[p] != null) deck.free(p, t, g)?.at else null
+          deck.flights.remove(p)?.job?.cancel()
           val tracker = VelocityTracker()
+          tracker.addPointerInputChange(down)
           tracker.addPointerInputChange(start)
-          val throwing = p == pos
-          deck.dragging = true
           deck.throwing = throwing
-          deck.flying = false
-          deck.hand = start.position - down.position
-          deck.heldAge = (pos - p - 1f).coerceAtLeast(0f)
+          deck.hand = (caught ?: Offset.Zero) + (start.position - down.position)
           deck.held = p
-          val ended = drag(start.id) { change ->
-            deck.hand += change.positionChange()
-            change.consume()
-            tracker.addPointerInputChange(change)
-            if (throwing) {
-              // the next card rises and the colours follow as far as the throw has come
-              val h = deck.hand
-              val angle = if (h.getDistance() < 0.5f) deck.angleOf(t) else atan2(h.y, h.x)
-              val k = (h.getDistance() / Rest(angle, g, t, 0f).center.getDistance().coerceAtLeast(1f)).coerceIn(0f, 1f)
-              scope.launch { cursor.snapTo(pos + 0.6f * k) }
-            }
-          }
-          val v = tracker.calculateVelocity()
-          val fling = Offset(v.x, v.y)
-          val h = deck.hand
-          val r = h.getDistance()
-          val spatial = Motion.expressive.defaultSpatialSpec<Float>()
-          fun finish() {
-            deck.held = null
-            deck.throwing = false
-            deck.flying = false
-            deck.dragging = false
-          }
-          if (throwing) {
-            val angle = if (r > g.side * 0.03f) atan2(h.y, h.x) else atan2(fling.y, fling.x)
-            val outward = fling.x * h.x + fling.y * h.y > 0f
-            val go = ended && pos < order.lastIndex &&
-              (r > g.side * 0.25f || (fling.getDistance() > 1100f && outward && r > g.side * 0.04f))
-            if (go) {
-              // it flies on the way it was thrown and sticks out from behind the screen's edge on that side
-              deck.angles[t.id] = angle
-              deck.flying = true
-              val place = Rest(angle, g, t, 0f).center
-              PlayerConn.next()
-              scope.launch {
-                coroutineScope {
-                  launch {
-                    animate(Offset.VectorConverter, h, place, initialVelocity = fling, animationSpec = Motion.expressive.defaultSpatialSpec()) { o, _ -> deck.hand = o }
-                  }
-                  launch { cursor.animateTo(pos + 1f, spatial) }
-                }
-                finish()
-              }
-            } else {
-              scope.launch {
-                coroutineScope {
-                  launch { animate(Offset.VectorConverter, h, Offset.Zero, animationSpec = Motion.expressive.fastSpatialSpec()) { o, _ -> deck.hand = o } }
-                  launch { cursor.animateTo(pos.toFloat(), Motion.expressive.fastSpatialSpec()) }
-                }
-                finish()
+          deck.dragging = true
+          var ended = false
+          var v = Offset.Zero
+          try {
+            ended = drag(start.id) { change ->
+              deck.hand += change.positionChange()
+              change.consume()
+              tracker.addPointerInputChange(change)
+              if (throwing) {
+                // the next card rises (and the colours follow) as far as the throw has come
+                val h = deck.hand
+                val angle = if (h.getDistance() < 0.5f) deck.angleOf(t) else atan2(h.y, h.x)
+                deck.rise = RISE * (h.getDistance() / Rest(angle, g, t, 0f).center.getDistance().coerceAtLeast(1f)).coerceIn(0f, 1f)
               }
             }
-          } else {
-            val go = ended && (r > g.side * 0.08f || fling.getDistance() > 900f)
-            if (go) {
-              // pulled in from the edge: back on top, and its song plays
-              val home = Offset.Zero - Rest(deck.angleOf(t), g, t, deck.heldAge).center
-              if (p == pos - 1) PlayerConn.prevTrack() else PlayerConn.seekToTrack(order[p])
-              scope.launch {
-                // from far back, like any long jump, only the last steps are shown
-                if (pos - p > 3) cursor.snapTo(p + 2.5f)
-                coroutineScope {
-                  launch { cursor.animateTo(p.toFloat(), spatial) }
-                  launch { animate(Offset.VectorConverter, h, home, animationSpec = Motion.expressive.defaultSpatialSpec()) { o, _ -> deck.hand = o } }
-                }
-                finish()
-              }
-            } else {
-              scope.launch {
-                animate(Offset.VectorConverter, h, Offset.Zero, animationSpec = Motion.expressive.fastSpatialSpec()) { o, _ -> deck.hand = o }
-                finish()
-              }
-            }
+            val velocity = tracker.calculateVelocity()
+            v = Offset(velocity.x, velocity.y)
+          } finally {
+            // also when the gesture is cut short: the card never stays stuck in a hand that is gone
+            if (throwing) deck.letGoTop(latest, p, t, g, ended, v) else deck.letGoPulled(latest, p, t, g, ended, v)
           }
         }
       },
@@ -403,8 +522,8 @@ fun CoverStack(s: PlayerUi, deck: Deck, modifier: Modifier = Modifier, pauseScal
       density.geo(constraints.maxWidth.toFloat(), constraints.maxHeight.toFloat())
     }
     val side = with(density) { g.side.toDp() }
-    // which cards exist right now; changes only when the cursor passes a whole card
-    val base by remember { derivedStateOf { floor(cursor.value).toInt() } }
+    // which cards exist right now; changes only when the deck passes a whole card
+    val base by remember { derivedStateOf { floor(deck.at).toInt() } }
     for (p in max(0, base - AROUND - 1)..(base + DEPTH.toInt() + 1)) {
       val track = s.deckTrack(p) ?: continue
       key(p) { StackCard(track, p, deck, g, side, top = p == pos) }
@@ -416,7 +535,7 @@ fun CoverStack(s: PlayerUi, deck: Deck, modifier: Modifier = Modifier, pauseScal
 private fun StackCard(t: Track, p: Int, deck: Deck, g: Geo, side: Dp, top: Boolean) {
   val z by remember(p) { derivedStateOf { deck.layer(p) } }
   // an old card, seen only at the edge, is decoded small (dozens of them at once)
-  val small by remember(p) { derivedStateOf { deck.held != p && deck.cursor.value - p > FULL_AGE } }
+  val small by remember(p) { derivedStateOf { deck.held != p && p !in deck.flights && deck.at - p > FULL_AGE } }
   val density = LocalDensity.current
   Box(
     Modifier.zIndex(z).size(side)
@@ -425,7 +544,7 @@ private fun StackCard(t: Track, p: Int, deck: Deck, g: Geo, side: Dp, top: Boole
   ) {
     DeckCover(t.coverUrl, side, if (small) (g.side * REST_SCALE).toInt().coerceAtMost(with(density) { 220.dp.roundToPx() }) else null)
     // down the pile and around it, darker: a layer's alpha, so flipping never redraws the cover
-    Box(Modifier.matchParentSize().graphicsLayer { alpha = deck.darkness(p) }.background(Color.Black))
+    Box(Modifier.matchParentSize().graphicsLayer { alpha = deck.darkness(p, t, g) }.background(Color.Black))
   }
 }
 

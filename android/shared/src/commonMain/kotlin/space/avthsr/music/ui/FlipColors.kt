@@ -54,7 +54,7 @@ fun FlipTheme(s: PlayerUi, deck: Deck, content: @Composable () -> Unit) {
   val next = rememberCoverSeed(s.deckTrack(pos + 1)?.coverUrl)
   val prev = rememberCoverSeed(s.deckTrack(pos - 1)?.coverUrl)
   // how far the deck is toward a neighbour, in steps: changes a couple of dozen times per flip at most
-  val step by remember(pos) { derivedStateOf { ((deck.cursor.value - pos) * STEPS).roundToInt().coerceIn(-STEPS, STEPS) } }
+  val step by remember(pos) { derivedStateOf { ((deck.at - pos) * STEPS).roundToInt().coerceIn(-STEPS, STEPS) } }
   val from = remember(here, dark, variant, contrast) { here?.let { schemeFrom(it, dark, variant, contrast) } }
   val towardSeed = if (step > 0) next else if (step < 0) prev else null
   val toward = remember(towardSeed, dark, variant, contrast) { towardSeed?.let { schemeFrom(it, dark, variant, contrast) } }

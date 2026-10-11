@@ -192,12 +192,12 @@ private fun NowPlayingContent(deck: Deck, onClose: () -> Unit) {
     } else if (t != null) {
       // flipping the deck slides the background toward the next (or previous) cover as far as the card has come
       val pos = s.deckPos()
-      BlurredCover(t.coverUrl, Modifier.fillMaxSize().graphicsLayer { alpha = 1f - abs(deck.cursor.value - pos).coerceIn(0f, 1f) }, alpha = 0.6f)
+      BlurredCover(t.coverUrl, Modifier.fillMaxSize().graphicsLayer { alpha = 1f - abs(deck.at - pos).coerceIn(0f, 1f) }, alpha = 0.6f)
       s.deckTrack(pos + 1)?.let { n ->
-        BlurredCover(n.coverUrl, Modifier.fillMaxSize().graphicsLayer { alpha = (deck.cursor.value - pos).coerceIn(0f, 1f) }, alpha = 0.6f)
+        BlurredCover(n.coverUrl, Modifier.fillMaxSize().graphicsLayer { alpha = (deck.at - pos).coerceIn(0f, 1f) }, alpha = 0.6f)
       }
       s.deckTrack(pos - 1)?.let { p ->
-        BlurredCover(p.coverUrl, Modifier.fillMaxSize().graphicsLayer { alpha = (pos - deck.cursor.value).coerceIn(0f, 1f) }, alpha = 0.6f)
+        BlurredCover(p.coverUrl, Modifier.fillMaxSize().graphicsLayer { alpha = (pos - deck.at).coerceIn(0f, 1f) }, alpha = 0.6f)
       }
     }
     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(if (canvas) listOf(cs.background.copy(alpha = 0.5f), Color.Transparent, cs.background.copy(alpha = 0.6f), cs.background) else listOf(cs.background.copy(alpha = 0.35f), cs.background.copy(alpha = 0.8f), cs.background))))

@@ -80,7 +80,8 @@ export default async function transferRoutes(app: FastifyInstance) {
   const track = z.object({ title: z.string().trim().min(1).max(300), artist: z.string().trim().min(1).max(300), durationSec: z.number().nullish(), isrc: z.string().max(20).nullish() });
   app.post('/api/transfer/import', { ...auth, bodyLimit: 32 * 1024 * 1024 }, async (req) => {
     const b = z.object({
-      source: z.enum(['yandex']),
+      // only Yandex Music for now; older app builds send no source at all
+      source: z.enum(['yandex']).default('yandex'),
       liked: z.array(track).max(50_000).default([]),
       playlists: z.array(z.object({ title: z.string().trim().max(120).default(''), tracks: z.array(track).max(20_000) })).max(1000).default([]),
       artists: z.array(z.string().trim().min(1).max(300)).max(5000).default([]),

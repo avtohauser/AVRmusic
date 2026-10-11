@@ -40,7 +40,8 @@ suspend fun Api.yandexLoginState(id: String): YandexLoginState = get("/api/trans
 @Serializable data class MovedAlbum(val title: String, val artist: String)
 @Serializable
 private data class MovedLibrary(
-  val source: String = "yandex",
+  // no default: a field left at its default is not sent at all, and the server needs to know the source
+  val source: String,
   val liked: List<MovedTrack> = emptyList(),
   val playlists: List<MovedPlaylist> = emptyList(),
   val artists: List<String> = emptyList(),
@@ -49,7 +50,7 @@ private data class MovedLibrary(
 
 /** Send what was read; the server fetches the songs, makes the playlists, likes and follows. */
 suspend fun Api.importLibrary(liked: List<MovedTrack>, playlists: List<MovedPlaylist>, artists: List<String>, albums: List<MovedAlbum>) {
-  call("POST", "/api/transfer/import", json.encodeToString(MovedLibrary(liked = liked, playlists = playlists, artists = artists, albums = albums)))
+  call("POST", "/api/transfer/import", json.encodeToString(MovedLibrary(source = "yandex", liked = liked, playlists = playlists, artists = artists, albums = albums)))
 }
 
 /** What the listener has in Yandex Music: counts to pick from (the songs are read when moving). */

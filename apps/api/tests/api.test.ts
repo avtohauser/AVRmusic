@@ -549,6 +549,9 @@ test('co-owners, blend, radar, reports, follows, lyrics search and lists to move
   } });
   assert.equal(moved.statusCode, 200, moved.body);
   assert.deepEqual({ ...moved.json(), jobId: undefined }, { jobId: undefined, liked: 1, playlists: 1, artists: 1, albums: 1 });
+  // the app's older builds send no source at all
+  const bare = await app.inject({ method: 'POST', url: '/api/transfer/import', headers: h, payload: { liked: [{ title: 'Uprising', artist: 'Muse' }] } });
+  assert.equal(bare.statusCode, 200, bare.body);
 });
 
 test('downloads spread over the exits; a silent exit hands its download over', async () => {

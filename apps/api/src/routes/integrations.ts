@@ -9,7 +9,7 @@ import { checkCitySoon, concertCities, concertsOf } from '../services/concerts.j
 import { backupNow, listBackups } from '../services/backup.js';
 import { getMeta } from '../services/meta.js';
 import { setTgApp, tgApp, tgLoginCode, tgLoginPassword, tgLoginStart, tgProfile, tgSetEnabled, tgUnlink } from '../services/tgProfile.js';
-import { latestApp } from '../services/appUpdate.js';
+import { iosSource, latestApp } from '../services/appUpdate.js';
 
 const page = (title: string, text: string) => `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${title}</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0B4248;color:#E6F4F1;font:16px system-ui,sans-serif}
@@ -72,9 +72,12 @@ export default async function integrationRoutes(app: FastifyInstance) {
     return { ok: true };
   });
 
-  /* ---------- the newest Android app ---------- */
+  /* ---------- the newest apps ---------- */
 
   app.get('/api/app/latest', async () => latestApp());
+  // the iPhone app's source for AltStore / SideStore: public, they fetch it without signing in; its links
+  // point back at the address it was fetched from
+  app.get('/api/app/altstore.json', async (req) => iosSource(`${req.protocol}://${req.host}`));
 
   /* ---------- Last.fm ---------- */
 

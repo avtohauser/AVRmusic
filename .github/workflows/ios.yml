@@ -91,7 +91,9 @@ jobs:
           body: |
             AVRmusic для iPhone и iPad (iOS 16+): то же приложение, что и для Android — общий код на Compose Multiplatform, Material 3 Expressive, Google Sans Flex. Музыка играет в фоне и с экрана блокировки (⏮ ⏯ ⏭, ♥), офлайн-треки, «Моя волна», канвасы, админка.
 
-            **Установка (без App Store):** IPA не подписан. Поставьте [AltStore](https://altstore.io) или [Sideloadly](https://sideloadly.io) на компьютер, подключите iPhone и установите `AVRmusic-${{ env.APP_VERSION }}.ipa` — они подпишут его вашим Apple ID. С бесплатным Apple ID подпись живёт 7 дней (AltStore продлевает сама), с платным аккаунтом разработчика — год.
+            **Установка через AltStore (лучше всего):** поставьте [AltStore](https://altstore.io) (или SideStore) и добавьте источник avr music: на сайте сервиса откройте `/welcome` → «Добавить в AltStore» или в AltStore → «Источники» → «+» вставьте `<адрес сайта>/api/app/altstore.json`. Эта и следующие версии появятся там сами и ставятся одной кнопкой, подпись AltStore продлевает сам.
+
+            **Вручную:** IPA не подписан — [Sideloadly](https://sideloadly.io) подпишет `AVRmusic-${{ env.APP_VERSION }}.ipa` вашим Apple ID. С бесплатным Apple ID подпись живёт 7 дней, с платным аккаунтом разработчика — год.
           files: |
             out/*.ipa
             out/SHA256SUMS.txt

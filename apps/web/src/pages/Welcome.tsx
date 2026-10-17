@@ -339,21 +339,26 @@ function HowToJoin({ tr }: { tr: Tr }) {
 }
 
 function Apps({ tr }: { tr: Tr }) {
-  const apps: Array<[string, string, string, string, string]> = [
+  // the iPhone app's source for AltStore / SideStore: new builds show up there and install with one tap
+  const source = `altstore://source?url=${encodeURIComponent(`${location.origin}/api/app/altstore.json`)}`;
+  const apps: Array<[string, string, string, string, string, [string, string]?]> = [
     ['android', 'Android', tr('Приложение обновляется само. Скачайте APK и разрешите установку.', 'The app updates itself. Download the APK and allow installing it.'), `${RELEASES}/latest`, tr('Скачать APK', 'Download APK')],
-    ['ios', 'iPhone', tr('Файл IPA ставится через AltStore или Sideloadly с вашим Apple ID.', 'Install the IPA with AltStore or Sideloadly using your Apple ID.'), RELEASES, tr('Найти IPA', 'Find the IPA')],
+    ['ios', 'iPhone', tr('Через AltStore: добавьте источник avr music — новые версии ставятся одной кнопкой, подпись продлевается сама.', 'With AltStore: add the avr music source — new versions install with one tap and the signature renews by itself.'), source, tr('Добавить в AltStore', 'Add to AltStore'), [RELEASES, tr('Файл IPA', 'The IPA file')]],
     ['language', tr('Сайт', 'Web'), tr('Работает прямо в браузере, можно установить как приложение.', 'Works right in the browser and installs like an app.'), '/login', tr('Открыть', 'Open')],
   ];
   return (
     <section className="wl-section">
       <SectionHead kicker={tr('Приложения', 'Apps')} title={tr('Одинаково на телефоне и компьютере', 'The same on phone and computer')} />
       <div className="wl-grid3">
-        {apps.map(([icon, title, text, href, cta], i) => (
+        {apps.map(([icon, title, text, href, cta, more], i) => (
           <article key={title} className="wl-card wl-reveal flex flex-col" style={{ ['--d' as any]: `${i * 90}ms` }}>
             <span className="wl-card-icon" style={shapeMask('cookie12')}><m3e-icon variant="rounded" name={icon} filled /></span>
             <h3 className="md-title-lg mt-4">{title}</h3>
             <p className="md-body-md muted mt-1.5 flex-1">{text}</p>
-            <M3eButton variant="tonal" className="mt-4 self-start" href={href} target={href.startsWith('http') ? '_blank' : undefined}>{cta}</M3eButton>
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <M3eButton variant="tonal" href={href} target={href.startsWith('http') ? '_blank' : undefined}>{cta}</M3eButton>
+              {more && <M3eButton variant="text" href={more[0]} target="_blank">{more[1]}</M3eButton>}
+            </div>
           </article>
         ))}
       </div>

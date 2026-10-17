@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { moveFile } from '../src/lib/util.js';
+import { altstoreSource, iosBuilds, IOS_PRIVACY } from '../src/services/appUpdate.js';
 
 test('moveFile works across disks (rename fails with EXDEV)', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'avr-move-'));
@@ -79,4 +80,32 @@ test('YouTube accounts: validated, the old single cookies file migrated, a refus
     delete process.env.XDG_CONFIG_HOME;
     fs.rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('the AltStore source lists every iPhone build, as the IPA carries its version', () => {
+  const ipa = (n: string, size: number) => ({ name: n, size, browser_download_url: `https://example.com/${n}` });
+  const builds = iosBuilds([
+    { tag_name: 'android-v0.1.0.63', published_at: '2026-10-11T12:03:33Z', assets: [ipa('AVRmusic-0.1.0.63.apk', 1)] },
+    { tag_name: 'ios-v0.1.0.38', published_at: '2026-10-08T22:22:31Z', assets: [ipa('AVRmusic-0.1.0.38.ipa', 100)] },
+    { tag_name: 'ios-v0.1.0.43', published_at: '2026-10-11T12:38:46Z', assets: [ipa('AVRmusic-0.1.0.43.ipa', 200), ipa('SHA256SUMS.txt', 2)] },
+    { tag_name: 'ios-v0.1.0.44', draft: true, assets: [ipa('AVRmusic-0.1.0.44.ipa', 300)] },
+  ]);
+  assert.deepEqual(builds.map((b) => b.build), ['43', '38']);
+  const src = altstoreSource(builds, 'https://music.example.com');
+  const app = src.apps[0];
+  assert.equal(app.bundleIdentifier, 'space.avthsr.music');
+  assert.deepEqual(app.versions[0], {
+    version: '0.1.0', buildVersion: '43', date: '2026-10-11T12:38:46Z', localizedDescription: 'avr music 0.1.0, сборка 43.',
+    downloadURL: 'https://example.com/AVRmusic-0.1.0.43.ipa', size: 200, minOSVersion: '16.0',
+  });
+  assert.equal((app as any).downloadURL, 'https://example.com/AVRmusic-0.1.0.43.ipa');
+  assert.equal(app.iconURL, 'https://music.example.com/icons/icon-512.png');
+  assert.deepEqual(altstoreSource([], 'https://x').apps[0].versions, []);
+});
+
+test('the AltStore source declares exactly the permissions the iPhone app asks for', () => {
+  // AltStore refuses an app that asks for more than its source says
+  const spec = fs.readFileSync(new URL('../../../android/iosApp/project.yml', import.meta.url), 'utf8');
+  const asked = [...spec.matchAll(/^\s*(NS\w+UsageDescription):\s*(.+)$/gm)].map((m) => [m[1], m[2].trim()]);
+  assert.deepEqual(Object.fromEntries(asked), IOS_PRIVACY);
 });

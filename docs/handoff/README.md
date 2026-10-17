@@ -117,7 +117,7 @@ curl 'localhost:8090/search?q=lofi'                                           # 
 |---|---|---|
 | `deploy.yml` | каждый push в рабочую ветку | копирует код на сервер в `/opt/avrmusic`, запускает `deploy/install.sh`, ждёт health, печатает отчёт |
 | `android.yml` | push в `android/**` или `package.json`, вручную | подписанный APK (R8), релиз `android-v<версия>`; ключ подписи хранится на сервере |
-| `ios.yml` | push в iOS-часть — только проверка компиляции; IPA — **только вручную** | IPA на `macos-15-intel`, heap 10g, таймаут 120 мин, релиз `ios-v<версия>` |
+| `ios.yml` | push в iOS-часть — только проверка компиляции; IPA — **только вручную** | IPA на `macos-15-intel`, heap 10g, таймаут 120 мин, релиз `ios-v<версия>`; источник AltStore (`/api/app/altstore.json`) подхватывает его сам. Новое разрешение в Info.plist → добавить в `IOS_PRIVACY` (`apps/api/src/services/appUpdate.ts`), иначе AltStore откажет |
 | `tube.yml` | push в `tube/**` | собирает движок и пробует его на YouTube (итоги — в `::notice`) |
 | `storage.yml` | вручную: setup / migrate / cleanup / watchdog | обслуживание сервера-хранилища |
 | `sites-check.yml` | push в `sites/main/**` | собирает визитку и проверяет её (ссылки на файлы, разбор скриптов); выкладка — `sites/main/deploy.ps1` |

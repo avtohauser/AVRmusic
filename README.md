@@ -104,7 +104,7 @@
 | Платформа | Как поставить |
 |---|---|
 | **Android 6+** | [Последний APK](https://github.com/avtohauser/AVRmusic/releases/latest) — дальше приложение обновляется само |
-| **iPhone / iPad (iOS 16+)** | IPA из [релизов](https://github.com/avtohauser/AVRmusic/releases) (тег `ios-v…`), ставится через [AltStore](https://altstore.io) или [Sideloadly](https://sideloadly.io) с вашим Apple ID |
+| **iPhone / iPad (iOS 16+)** | через [AltStore](https://altstore.io) или SideStore: источник `<сайт>/api/app/altstore.json` (кнопка «Добавить в AltStore» на `/welcome`) — новые сборки приходят туда сами, подпись продлевается сама; или IPA из [релизов](https://github.com/avtohauser/AVRmusic/releases) (тег `ios-v…`) через [Sideloadly](https://sideloadly.io) |
 | **Браузер** | Сайт сервиса; устанавливается как приложение (PWA) |
 
 Гости без кода видят страницу-презентацию (`/welcome` на сайте, листалка при первом запуске приложения).

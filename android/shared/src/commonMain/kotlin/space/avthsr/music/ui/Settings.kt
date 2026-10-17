@@ -2,6 +2,7 @@
 
 package space.avthsr.music.ui
 
+import space.avthsr.music.api.LikePrefs
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Row
@@ -112,6 +113,25 @@ fun SettingsScreen() {
       val lockLyrics by LockLyrics.enabled.collectAsStateWithLifecycle()
       SwitchRow(tr("Текст на экране блокировки"), tr("Строчка, которая звучит, — в шторке и на заблокированном экране"), lockLyrics) { LockLyrics.set(it) }
       if (Platform.name == "Android") Equalizer()
+
+      Spacer(Modifier.height(24.dp))
+      Text(tr("Лайки и суперлайки"), style = MaterialTheme.typography.headlineSmall)
+      val superOn by LikePrefs.superOn.collectAsStateWithLifecycle()
+      SwitchRow(tr("Суперлайки"), tr("Лучшее из любимого — отдельным плейлистом. Трек со звездой остаётся и в «Любимых», а «Моя волна» слушает суперлайки внимательнее."), superOn) { LikePrefs.setSuperOn(it) }
+      if (superOn) {
+        val tapSuper by LikePrefs.tapSuper.collectAsStateWithLifecycle()
+        Group(tr("Нажатие на сердце")) {
+          Choices(listOf(Choice("like", tr("Лайк")), Choice("super", tr("Суперлайк"))), if (tapSuper) "super" else "like") { LikePrefs.setTapSuper(it == "super") }
+        }
+        Text(
+          if (tapSuper) tr("Долгое нажатие на сердце — обычный лайк.") else tr("Долгое нажатие на сердце — суперлайк."),
+          Modifier.padding(top = 6.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        val superFirst by LikePrefs.superFirst.collectAsStateWithLifecycle()
+        Group(tr("Первым в медиатеке и на главной")) {
+          Choices(listOf(Choice("liked", tr("Любимые")), Choice("super", tr("Суперлайки"))), if (superFirst) "super" else "liked") { LikePrefs.setSuperFirst(it == "super") }
+        }
+      }
 
       Spacer(Modifier.height(24.dp))
       Text(tr("Друзья и офлайн"), style = MaterialTheme.typography.headlineSmall)

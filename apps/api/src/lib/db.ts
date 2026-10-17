@@ -425,6 +425,13 @@ const MIGRATIONS: string[] = [
     linked_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
   `,
+  // 18: superlikes — a like with a star: the track stays in Liked and is also in Superlikes (since super_at);
+  //     a superlike on a song still being fetched waits for it like a like does
+  `
+  ALTER TABLE likes ADD COLUMN super_at TEXT;
+  CREATE INDEX idx_likes_super ON likes(user_id, entity_type, super_at) WHERE super_at IS NOT NULL;
+  ALTER TABLE pending_likes ADD COLUMN super INTEGER NOT NULL DEFAULT 0;
+  `,
 ];
 
 export function openDatabase(dbPath = config.dbPath): DB {

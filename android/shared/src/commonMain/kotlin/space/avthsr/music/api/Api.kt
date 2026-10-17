@@ -254,12 +254,18 @@ object Api {
   /* ---------- me ---------- */
 
   suspend fun likedTracks(): List<Track> = get("/api/me/likes/tracks")
+  suspend fun superTracks(): List<Track> = get("/api/me/likes/tracks?super=1")
   suspend fun likedAlbums(): List<AlbumSummary> = get("/api/me/likes/albums")
   suspend fun likedArtists(): List<ArtistSummary> = get("/api/me/likes/artists")
   suspend fun likeIds(): Map<String, List<String>> = get("/api/me/likes/ids")
 
   suspend fun setLike(type: String, id: String, liked: Boolean) {
     call(if (liked) "PUT" else "DELETE", "/api/me/likes/$type/${enc(id)}")
+  }
+
+  /** A superlike: a like with a star (off: the star goes, the like stays). */
+  suspend fun setSuperLike(id: String, on: Boolean) {
+    call(if (on) "PUT" else "DELETE", "/api/me/superlikes/${enc(id)}")
   }
 
   suspend fun reportPlay(trackId: String, ms: Long, context: String?) {

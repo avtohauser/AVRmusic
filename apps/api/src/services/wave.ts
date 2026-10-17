@@ -1,7 +1,7 @@
 // "My Wave": an endless personal stream (like Yandex Music's My Wave / Spotify DJ).
 //
 // Taste is learnt from what each listener does: tracks played to the end count for their artist and
-// genre, early skips count against, likes count a lot, recent listening counts more than old; skips in
+// genre, early skips count against, likes count a lot (superlikes more), recent listening counts more than old; skips in
 // the current session push an artist (and a genre) away at once. Artists are related by the catalogue's
 // "related artists", by who listens to them together, shared playlists and guest appearances, so the
 // wave brings artists the listener hasn't heard yet but that sit next to their favourites — and new
@@ -46,8 +46,9 @@ export function userTaste(db: DB, userId: string): Taste {
     if (skipped && age < 30) add(t.skips, p.track_id, 1);
     if (skipped && age < 0.125) { add(t.sessionSkip, p.artist_id, 1); add(t.sessionSkipGenre, p.genre, 1); }
   }
-  for (const r of db.prepare(`SELECT l.entity_type, l.entity_id, t.artist_id, t.genre FROM likes l LEFT JOIN tracks t ON l.entity_type = 'track' AND t.id = l.entity_id WHERE l.user_id = ?`).all(userId) as any[]) {
-    if (r.entity_type === 'track') { t.liked.add(r.entity_id); add(t.artist, r.artist_id, 3); add(t.genre, r.genre, 1.5); }
+  for (const r of db.prepare(`SELECT l.entity_type, l.entity_id, l.super_at, t.artist_id, t.genre FROM likes l LEFT JOIN tracks t ON l.entity_type = 'track' AND t.id = l.entity_id WHERE l.user_id = ?`).all(userId) as any[]) {
+    // a superlike says more than a like
+    if (r.entity_type === 'track') { t.liked.add(r.entity_id); add(t.artist, r.artist_id, r.super_at ? 5 : 3); add(t.genre, r.genre, r.super_at ? 2.5 : 1.5); }
     else if (r.entity_type === 'artist') add(t.artist, r.entity_id, 5);
     else if (r.entity_type === 'album') add(t.artist, (db.prepare('SELECT artist_id FROM albums WHERE id = ?').get(r.entity_id) as any)?.artist_id, 2);
   }

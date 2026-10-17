@@ -158,9 +158,12 @@ function renumber(db: DB, playlistId: string) {
   rows.forEach((r, i) => upd.run(i, playlistId, r.track_id));
 }
 
-export function likedTracks(db: DB, userId: string): Track[] {
+/** The listener's liked tracks, the latest first; [superOnly] — only the superliked ones, by when they got the star. */
+export function likedTracks(db: DB, userId: string, superOnly = false): Track[] {
   const rows = db
-    .prepare(`SELECT ${TRACK_SELECT}, l.created_at AS added_at ${TRACK_FROM} JOIN likes l ON l.entity_id = t.id AND l.entity_type = 'track' WHERE l.user_id = ? ORDER BY l.created_at DESC`)
+    .prepare(superOnly
+      ? `SELECT ${TRACK_SELECT}, l.super_at AS added_at ${TRACK_FROM} JOIN likes l ON l.entity_id = t.id AND l.entity_type = 'track' WHERE l.user_id = ? AND l.super_at IS NOT NULL ORDER BY l.super_at DESC`
+      : `SELECT ${TRACK_SELECT}, l.created_at AS added_at ${TRACK_FROM} JOIN likes l ON l.entity_id = t.id AND l.entity_type = 'track' WHERE l.user_id = ? ORDER BY l.created_at DESC`)
     .all(userId) as any[];
   return mapTracks(db, rows, userId);
 }

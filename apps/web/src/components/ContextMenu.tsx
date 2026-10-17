@@ -5,7 +5,7 @@ import type { Track } from '@avrmusic/shared';
 import { M3eActionList, M3eBottomSheet, M3eListAction, M3eMenu, M3eMenuItem } from '@/md';
 import { useUI } from '@/stores/ui';
 import { usePlayer } from '@/stores/player';
-import { useLikes } from '@/stores/likes';
+import { useLikePrefs, useLikes } from '@/stores/likes';
 import { useAuth } from '@/stores/auth';
 import { useT } from '@/lib/i18n';
 import { api, albumZipUrl, downloadUrl, playlistZipUrl } from '@/lib/api';
@@ -72,6 +72,7 @@ export function ContextMenu() {
     items.push({ icon: 'queue_music', label: t('addToQueue'), onClick: () => player.addToQueue([track]) });
     if (user) {
       items.push({ icon: 'favorite', label: likes.has('track', track.id) ? t('unlike') : t('like'), onClick: () => { likes.toggle('track', track.id); } });
+      if (useLikePrefs.getState().superOn) items.push({ icon: 'star', label: likes.supers.has(track.id) ? trNow('Убрать суперлайк', 'Remove the superlike') : trNow('Суперлайк', 'Superlike'), onClick: () => { likes.toggleSuper(track.id).catch(() => toast(t('error'), 'error')); } });
       items.push({ icon: 'playlist_add', label: t('addToPlaylist'), onClick: () => setAddToPlaylist({ trackIds: [track.id] }) });
       if (playlistId && canRemove) items.push({ icon: 'playlist_remove', label: t('removeFromPlaylist'), danger: true, onClick: async () => { await api.del(`/api/playlists/${playlistId}/tracks/${track.id}`); qc.invalidateQueries({ queryKey: ['playlist', playlistId] }); qc.invalidateQueries({ queryKey: ['playlists'] }); toast(t('removed')); } });
     }

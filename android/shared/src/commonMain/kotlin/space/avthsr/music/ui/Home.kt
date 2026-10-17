@@ -2,6 +2,8 @@
 
 package space.avthsr.music.ui
 
+import space.avthsr.music.api.Likes
+import space.avthsr.music.api.LikePrefs
 import space.avthsr.music.tr
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.animation.core.LinearEasing
@@ -246,6 +248,10 @@ fun WaveCard() {
 @Composable
 private fun QuickPicks(picks: List<JsonObject>) {
   val nav = LocalNav.current
+  val superOn by LikePrefs.superOn.collectAsStateWithLifecycle()
+  val superFirst by LikePrefs.superFirst.collectAsStateWithLifecycle()
+  val supers by Likes.supers.collectAsStateWithLifecycle()
+  val starTile = superOn && superFirst && supers.isNotEmpty()
   Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
     picks.take(6).chunked(2).forEach { row ->
       Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -254,7 +260,7 @@ private fun QuickPicks(picks: List<JsonObject>) {
           val isPlaylist = o.containsKey("owner")
           val album = if (kind == null && !isPlaylist) o.decode(AlbumSummary.serializer()) else null
           val playlist = if (isPlaylist) o.decode(PlaylistSummary.serializer()) else null
-          val title = album?.title ?: playlist?.title ?: tr("Любимые треки")
+          val title = album?.title ?: playlist?.title ?: if (starTile) tr("Суперлайки") else tr("Любимые треки")
           val cover = album?.coverUrl ?: playlist?.let { it.coverUrl ?: it.mosaic.firstOrNull() }
           Row(
             Modifier.weight(1f).height(60.dp).clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh)
@@ -262,12 +268,15 @@ private fun QuickPicks(picks: List<JsonObject>) {
                 when {
                   album != null -> nav.album(album.id)
                   playlist != null -> nav.playlist(playlist.id)
+                  starTile -> nav.superliked()
                   else -> nav.liked()
                 }
               },
             verticalAlignment = Alignment.CenterVertically,
           ) {
-            if (kind == "liked") {
+            if (kind == "liked" && starTile) {
+              Box(Modifier.size(60.dp).background(Brand.Teal), contentAlignment = Alignment.Center) { SuperStar(Modifier.size(30.dp)) }
+            } else if (kind == "liked") {
               Box(Modifier.size(60.dp).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) {
                 Ico(Res.drawable.ic_heart_filled, null, tint = MaterialTheme.colorScheme.onPrimary)
               }

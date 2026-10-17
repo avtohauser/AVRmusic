@@ -283,8 +283,10 @@ async function acquireTrackNow(db: DB, deezerTrackId: number, api: JobApi, cance
 
 /** Likes left on a song while it was playing straight from the catalogue land on the library's track. */
 export function applyPendingLikes(db: DB, deezerId: number, trackId: string) {
-  const rows = db.prepare('SELECT user_id FROM pending_likes WHERE deezer_id = ?').all(deezerId) as any[];
-  for (const r of rows) db.prepare("INSERT OR IGNORE INTO likes(user_id, entity_type, entity_id) VALUES (?, 'track', ?)").run(r.user_id, trackId);
+  const rows = db.prepare('SELECT user_id, super FROM pending_likes WHERE deezer_id = ?').all(deezerId) as any[];
+  const like = db.prepare(`INSERT INTO likes(user_id, entity_type, entity_id, super_at) VALUES (?, 'track', ?, ?)
+    ON CONFLICT(user_id, entity_type, entity_id) DO UPDATE SET super_at = COALESCE(likes.super_at, excluded.super_at)`);
+  for (const r of rows) like.run(r.user_id, trackId, r.super ? new Date().toISOString() : null);
   if (rows.length) db.prepare('DELETE FROM pending_likes WHERE deezer_id = ?').run(deezerId);
 }
 

@@ -523,3 +523,8 @@ input.slim-range { -webkit-appearance: none; appearance: none; height: 4px; bord
 input.slim-range::-webkit-slider-thumb { -webkit-appearance: none; width: 4px; height: 18px; border-radius: 2px; background: var(--md-sys-color-primary); }
 input.slim-range::-moz-range-thumb { width: 4px; height: 18px; border: 0; border-radius: 2px; background: var(--md-sys-color-primary); }
 }
+
+/* a superlike: the star pops in with a turn */
+.super-pop { animation: super-pop .55s cubic-bezier(.34, 1.56, .64, 1); }
+@keyframes super-pop { 0% { transform: scale(.3) rotate(-90deg); opacity: .4; } 60% { transform: scale(1.35) rotate(12deg); opacity: 1; } 100% { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .super-pop { animation: none; } }

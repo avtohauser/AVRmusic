@@ -12,6 +12,7 @@ import { getUser } from '../services/auth.js';
 import { clamp, parseIntSafe } from '../lib/util.js';
 import { recentlyPlayedTracks } from '../services/home.js';
 import { lastfmScrobble } from '../services/lastfm.js';
+import { nowIso } from '../lib/db.js';
 
 const LikeType = z.enum(['track', 'album', 'artist', 'playlist']);
 
@@ -19,7 +20,8 @@ export default async function meRoutes(app: FastifyInstance) {
   const db = app.db;
   const auth = { preHandler: app.authenticate };
 
-  app.get('/api/me/likes/tracks', auth, async (req) => likedTracks(db, req.userId!));
+  // ?super=1: only the superliked ones
+  app.get('/api/me/likes/tracks', auth, async (req) => likedTracks(db, req.userId!, (req.query as any)?.super === '1'));
 
   app.get('/api/me/likes/albums', auth, async (req) => {
     const rows = db.prepare(`SELECT ${ALBUM_SELECT} ${ALBUM_FROM} JOIN likes l ON l.entity_id = al.id AND l.entity_type='album' WHERE l.user_id = ? ORDER BY l.created_at DESC`).all(req.userId) as any[];
@@ -32,9 +34,13 @@ export default async function meRoutes(app: FastifyInstance) {
   });
 
   app.get('/api/me/likes/ids', auth, async (req) => {
-    const rows = db.prepare('SELECT entity_type, entity_id FROM likes WHERE user_id = ?').all(req.userId) as any[];
-    const out: Record<string, string[]> = { track: [], album: [], artist: [], playlist: [] };
-    for (const r of rows) (out[r.entity_type] ??= []).push(r.entity_id);
+    const rows = db.prepare('SELECT entity_type, entity_id, super_at FROM likes WHERE user_id = ?').all(req.userId) as any[];
+    // "super": the superliked tracks (they are in "track" too)
+    const out: Record<string, string[]> = { track: [], album: [], artist: [], playlist: [], super: [] };
+    for (const r of rows) {
+      (out[r.entity_type] ??= []).push(r.entity_id);
+      if (r.entity_type === 'track' && r.super_at) out.super.push(r.entity_id);
+    }
     return out;
   });
 
@@ -66,6 +72,31 @@ export default async function meRoutes(app: FastifyInstance) {
     const id = type === 'track' ? libraryOf(p.id) ?? p.id : p.id;
     db.prepare('DELETE FROM likes WHERE user_id = ? AND entity_type = ? AND entity_id = ?').run(req.userId, type, id);
     return { liked: false };
+  });
+
+  /* ---------- superlikes: a like with a star; the track is in Liked and in Superlikes ---------- */
+
+  app.put('/api/me/superlikes/:id', auth, async (req) => {
+    const { id: raw } = z.object({ id: z.string() }).parse(req.params);
+    // a song still being fetched: the superlike waits for it
+    if (raw.startsWith('dz:') && !libraryOf(raw)) {
+      db.prepare('INSERT INTO pending_likes (user_id, deezer_id, super) VALUES (?, ?, 1) ON CONFLICT(user_id, deezer_id) DO UPDATE SET super = 1').run(req.userId, Number(raw.slice(3)));
+      return { liked: true, superliked: true, pending: true };
+    }
+    const id = libraryOf(raw) ?? raw;
+    if (!db.prepare('SELECT 1 FROM tracks WHERE id = ?').get(id)) throw notFound();
+    db.prepare(`INSERT INTO likes(user_id, entity_type, entity_id, super_at) VALUES (?, 'track', ?, ?)
+      ON CONFLICT(user_id, entity_type, entity_id) DO UPDATE SET super_at = COALESCE(likes.super_at, excluded.super_at)`).run(req.userId, id, nowIso());
+    return { liked: true, superliked: true };
+  });
+
+  /** Takes the star off; the like stays. */
+  app.delete('/api/me/superlikes/:id', auth, async (req) => {
+    const { id: raw } = z.object({ id: z.string() }).parse(req.params);
+    if (raw.startsWith('dz:')) db.prepare('UPDATE pending_likes SET super = 0 WHERE user_id = ? AND deezer_id = ?').run(req.userId, Number(raw.slice(3)));
+    const id = libraryOf(raw) ?? raw;
+    db.prepare("UPDATE likes SET super_at = NULL WHERE user_id = ? AND entity_type = 'track' AND entity_id = ?").run(req.userId, id);
+    return { liked: !!db.prepare("SELECT 1 FROM likes WHERE user_id = ? AND entity_type = 'track' AND entity_id = ?").get(req.userId, id), superliked: false };
   });
 
   app.post('/api/me/plays', auth, async (req) => {

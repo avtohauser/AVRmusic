@@ -29,7 +29,7 @@ export const TRACK_SELECT = `
 `;
 export const TRACK_FROM = `FROM tracks t JOIN artists ar ON ar.id = t.artist_id LEFT JOIN albums al ON al.id = t.album_id`;
 
-export function mapTrack(db: DB, r: any, userId?: string | null, likedSet?: Set<string>): Track {
+export function mapTrack(db: DB, r: any, userId?: string | null, likedSet?: Set<string>, superSet?: Set<string>): Track {
   const featuring = db
     .prepare(`SELECT a.id, a.name, a.image_path FROM track_artists ta JOIN artists a ON a.id = ta.artist_id WHERE ta.track_id = ? ORDER BY ta.position`)
     .all(r.id)
@@ -62,12 +62,15 @@ export function mapTrack(db: DB, r: any, userId?: string | null, likedSet?: Set<
   };
   if (r.added_at) t.addedAt = r.added_at;
   if (userId) t.liked = likedSet ? likedSet.has(r.id) : isLiked(db, userId, 'track', r.id);
+  if (userId && t.liked && (superSet ? superSet.has(r.id) : superIds(db, userId, [r.id]).size)) t.superliked = true;
   return t;
 }
 
 export function mapTracks(db: DB, rows: any[], userId?: string | null): Track[] {
-  const likedSet = userId ? likedIds(db, userId, 'track', rows.map((r) => r.id)) : undefined;
-  return rows.map((r) => mapTrack(db, r, userId, likedSet));
+  const ids = rows.map((r) => r.id);
+  const likedSet = userId ? likedIds(db, userId, 'track', ids) : undefined;
+  const superSet = userId ? superIds(db, userId, ids) : undefined;
+  return rows.map((r) => mapTrack(db, r, userId, likedSet, superSet));
 }
 
 export const ALBUM_SELECT = `
@@ -104,13 +107,18 @@ export function isLiked(db: DB, userId: string, type: LikeType, id: string): boo
   return !!db.prepare('SELECT 1 FROM likes WHERE user_id=? AND entity_type=? AND entity_id=?').get(userId, type, id);
 }
 
-export function likedIds(db: DB, userId: string, type: LikeType, ids: string[]): Set<string> {
+/** Which of these tracks the listener superliked (liked with a star). */
+export function superIds(db: DB, userId: string, ids: string[]): Set<string> {
+  return likedIds(db, userId, 'track', ids, true);
+}
+
+export function likedIds(db: DB, userId: string, type: LikeType, ids: string[], superOnly = false): Set<string> {
   if (!ids.length) return new Set();
   const out = new Set<string>();
   for (let i = 0; i < ids.length; i += 500) {
     const chunk = ids.slice(i, i + 500);
     const rows = db
-      .prepare(`SELECT entity_id FROM likes WHERE user_id=? AND entity_type=? AND entity_id IN (${chunk.map(() => '?').join(',')})`)
+      .prepare(`SELECT entity_id FROM likes WHERE user_id=? AND entity_type=?${superOnly ? ' AND super_at IS NOT NULL' : ''} AND entity_id IN (${chunk.map(() => '?').join(',')})`)
       .all(userId, type, ...chunk) as any[];
     rows.forEach((r) => out.add(r.entity_id));
   }

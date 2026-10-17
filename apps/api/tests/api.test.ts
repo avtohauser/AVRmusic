@@ -496,6 +496,32 @@ test('co-owners, blend, radar, reports, follows, lyrics search and lists to move
   applyPendingLikes(app.db, 777, song);
   assert.ok((await app.inject({ method: 'GET', url: '/api/me/likes/ids', headers: h })).json().track.includes(song));
 
+  // a superlike: a like with a star — in Liked and in Superlikes; taking the star off keeps the like
+  const sup = await app.inject({ method: 'PUT', url: `/api/me/superlikes/${song}`, headers: h });
+  assert.deepEqual(sup.json(), { liked: true, superliked: true });
+  let ids = (await app.inject({ method: 'GET', url: '/api/me/likes/ids', headers: h })).json();
+  assert.ok(ids.super.includes(song) && ids.track.includes(song));
+  const supers = (await app.inject({ method: 'GET', url: '/api/me/likes/tracks?super=1', headers: h })).json();
+  assert.deepEqual(supers.map((x: any) => x.id), [song]);
+  assert.equal(supers[0].superliked, true);
+  assert.ok((await app.inject({ method: 'GET', url: '/api/me/likes/tracks', headers: h })).json().find((x: any) => x.id === song).superliked);
+  assert.deepEqual((await app.inject({ method: 'DELETE', url: `/api/me/superlikes/${song}`, headers: h })).json(), { liked: true, superliked: false });
+  ids = (await app.inject({ method: 'GET', url: '/api/me/likes/ids', headers: h })).json();
+  assert.ok(!ids.super.includes(song) && ids.track.includes(song));
+  assert.equal((await app.inject({ method: 'GET', url: '/api/me/likes/tracks?super=1', headers: h })).json().length, 0);
+  // the star again, then the like off: both go
+  await app.inject({ method: 'PUT', url: `/api/me/superlikes/${song}`, headers: h });
+  await app.inject({ method: 'DELETE', url: `/api/me/likes/track/${song}`, headers: h });
+  ids = (await app.inject({ method: 'GET', url: '/api/me/likes/ids', headers: h })).json();
+  assert.ok(!ids.super.includes(song) && !ids.track.includes(song));
+  // a superlike on a song still being fetched waits for it too
+  assert.equal((await app.inject({ method: 'PUT', url: '/api/me/superlikes/dz:778', headers: h })).json().pending, true);
+  app.db.prepare('UPDATE tracks SET deezer_id = 778 WHERE id = ?').run(song);
+  applyPendingLikes(app.db, 778, song);
+  ids = (await app.inject({ method: 'GET', url: '/api/me/likes/ids', headers: h })).json();
+  assert.ok(ids.super.includes(song) && ids.track.includes(song));
+  app.db.prepare('UPDATE tracks SET deezer_id = 777 WHERE id = ?').run(song);
+
   // found by a line of its lyrics
   app.db.prepare('UPDATE tracks SET lyrics_plain = ? WHERE id = ?').run('Первая строка\nМы идём по ночному городу\nКонец', song);
   const byLine = (await app.inject({ method: 'GET', url: `/api/search?q=${encodeURIComponent('ночному городу')}&type=lyrics`, headers: h })).json();

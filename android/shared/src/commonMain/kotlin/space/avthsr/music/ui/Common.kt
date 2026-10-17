@@ -88,6 +88,11 @@ import space.avthsr.music.App
 import space.avthsr.music.res.*
 import space.avthsr.music.api.Api
 import space.avthsr.music.api.Likes
+import androidx.compose.material3.minimumInteractiveComponentSize
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import space.avthsr.music.api.LikePrefs
 import space.avthsr.music.api.PlaylistSummary
 import space.avthsr.music.api.Track
 import space.avthsr.music.player.Offline
@@ -105,6 +110,7 @@ class Nav(private val c: NavController, val openPlayer: () -> Unit) {
   fun catalogAlbum(id: Long) = go("calbum/$id")
   fun catalogArtist(id: Long) = go("cartist/$id")
   fun liked() = go("liked")
+  fun superliked() = go("superliked")
   fun profile() = c.navigate("profile") {
     popUpTo(c.graph.findStartDestination().id) { saveState = true }
     launchSingleTop = true
@@ -391,6 +397,8 @@ fun TrackRow(
 ) {
   val currentId by PlayerConn.currentId.collectAsStateWithLifecycle()
   val liked by Likes.tracks.collectAsStateWithLifecycle()
+  val supers by Likes.supers.collectAsStateWithLifecycle()
+  val superOn by LikePrefs.superOn.collectAsStateWithLifecycle()
   val current = currentId == t.id
   var menu by remember { mutableStateOf(false) }
   Row(
@@ -417,7 +425,8 @@ fun TrackRow(
         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
     }
-    if (t.id in liked) Ico(Res.drawable.ic_heart_filled, tr("В избранном"), Modifier.size(16.dp), MaterialTheme.colorScheme.primary)
+    if (t.id in liked && superOn && t.id in supers) SuperStar(Modifier.size(16.dp))
+    else if (t.id in liked) Ico(Res.drawable.ic_heart_filled, tr("В избранном"), Modifier.size(16.dp), MaterialTheme.colorScheme.primary)
     Box {
       IconButton(onClick = { menu = true }) { Ico(Res.drawable.ic_more, tr("Ещё"), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
       TrackMenu(t, menu, { menu = false }, menuExtra)
@@ -444,6 +453,13 @@ fun TrackMenu(t: Track, expanded: Boolean, close: () -> Unit, extra: (@Composabl
       text = { Text(if (on) tr("Убрать из избранного") else tr("В избранное")) },
       leadingIcon = { Ico(if (on) Res.drawable.ic_heart_filled else Res.drawable.ic_heart_outline) },
       onClick = { close(); toggleLike("track", t.id) },
+    )
+    val superOn by LikePrefs.superOn.collectAsStateWithLifecycle()
+    val supers by Likes.supers.collectAsStateWithLifecycle()
+    if (superOn) DropdownMenuItem(
+      text = { Text(if (t.id in supers) tr("Убрать суперлайк") else tr("Суперлайк")) },
+      leadingIcon = { SuperStar(Modifier.size(22.dp)) },
+      onClick = { close(); toggleSuperLike(t.id) },
     )
     DropdownMenuItem(text = { Text(tr("Добавить в плейлист")) }, leadingIcon = { Ico(Res.drawable.ic_playlist_add) }, onClick = { close(); pick = true })
     if (t.hasLyrics) DropdownMenuItem(text = { Text(tr("Текст песни")) }, leadingIcon = { Ico(Res.drawable.ic_lyrics) }, onClick = {
@@ -490,28 +506,71 @@ fun toggleLike(type: String, id: String) {
   }
 }
 
+fun toggleSuperLike(id: String) {
+  App.scope.launch {
+    runCatching { Likes.toggleSuper(id) }
+      .onSuccess { App.say(if (it) tr("★ Суперлайк — трек в «Суперлайках»") else tr("Суперлайк убран, лайк остался")) }
+      .onFailure { App.say(it.message ?: tr("Не получилось")) }
+  }
+}
+
+/** The avr star of a superliked track. */
+@Composable
+fun SuperStar(modifier: Modifier = Modifier) = BrandMark(modifier, waves = false)
+
+/**
+ * The heart. On a track a long press gives a superlike — the heart turns into the avr star and the track
+ * goes to Superlikes as well (the settings can swap what the tap and the long press do).
+ */
 @Composable
 fun LikeButton(type: String, id: String) {
   val liked by Likes.of(type).collectAsStateWithLifecycle()
+  val supers by Likes.supers.collectAsStateWithLifecycle()
+  val superOn by LikePrefs.superOn.collectAsStateWithLifecycle()
+  val tapSuper by LikePrefs.tapSuper.collectAsStateWithLifecycle()
   val on = id in liked
-  // the heart pops on the expressive spring when it changes, and its colour slides
+  val canStar = type == "track" && superOn
+  val starred = canStar && id in supers
+  // the heart (or the star) pops on the expressive spring when it changes, and its colour slides
   val pop = remember { Animatable(1f) }
-  var was by remember { mutableStateOf(on) }
-  LaunchedEffect(on) {
-    if (was != on) {
-      was = on
-      pop.snapTo(if (on) 0.6f else 0.85f)
+  var was by remember { mutableStateOf(on to starred) }
+  LaunchedEffect(on, starred) {
+    if (was != (on to starred)) {
+      val grew = (starred && !was.second) || (on && !was.first)
+      was = on to starred
+      pop.snapTo(if (starred && grew) 0.3f else if (grew) 0.6f else 0.85f)
       pop.animateTo(1f, Motion.expressive.fastSpatialSpec())
     }
   }
   val tint by animateColorAsState(if (on) MaterialTheme.colorScheme.primary else LocalContentColor.current, Motion.expressive.defaultEffectsSpec(), label = "heart")
-  IconButton(onClick = { toggleLike(type, id) }, shapes = IconButtonDefaults.shapes()) {
-    Ico(
-      if (on) Res.drawable.ic_heart_filled else Res.drawable.ic_heart_outline, if (on) tr("Убрать из избранного") else tr("В избранное"),
+  val label = if (starred) tr("Убрать суперлайк") else if (on) tr("Убрать из избранного") else tr("В избранное")
+  val icon: @Composable () -> Unit = {
+    if (starred) SuperStar(Modifier.size(24.dp).graphicsLayer { scaleX = pop.value; scaleY = pop.value; rotationZ = (1f - pop.value) * -90f })
+    else Ico(
+      if (on) Res.drawable.ic_heart_filled else Res.drawable.ic_heart_outline, label,
       Modifier.graphicsLayer { scaleX = pop.value; scaleY = pop.value },
       tint = tint,
     )
   }
+  if (!canStar) {
+    IconButton(onClick = { toggleLike(type, id) }, shapes = IconButtonDefaults.shapes()) { icon() }
+    return
+  }
+  val tap = { if (tapSuper) toggleSuperLike(id) else toggleLike(type, id) }
+  // the long press buzzes by itself (combinedClickable's haptics)
+  val long = { if (tapSuper) toggleLike(type, id) else toggleSuperLike(id) }
+  Box(
+    Modifier.minimumInteractiveComponentSize().size(40.dp).clip(CircleShape)
+      .combinedClickable(
+        role = Role.Button,
+        onClickLabel = label,
+        onLongClickLabel = if (tapSuper) tr("Обычный лайк") else tr("Суперлайк"),
+        onLongClick = long,
+        onClick = tap,
+      )
+      .semantics { contentDescription = label },
+    contentAlignment = Alignment.Center,
+  ) { icon() }
 }
 
 /** Adds tracks to one of the user's playlists (or a new one). */

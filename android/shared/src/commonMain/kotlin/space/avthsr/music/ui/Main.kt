@@ -238,6 +238,7 @@ private fun Main() {
           screen("search") { SearchScreen() }
           screen("library") { LibraryScreen() }
           screen("liked") { LikedScreen() }
+          screen("superliked") { LikedScreen(starred = true) }
           screen("profile") { ProfileScreen() }
           screen("jobs") { JobsScreen() }
           screen("album/{id}") { AlbumScreen(it.arg("id")) }

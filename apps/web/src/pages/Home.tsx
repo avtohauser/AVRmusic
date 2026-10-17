@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useHome } from '@/lib/queries';
 import { useAuth } from '@/stores/auth';
 import { usePlayer } from '@/stores/player';
+import { useLikePrefs, useLikes } from '@/stores/likes';
 import { api } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { M3eButton } from '@/md';
@@ -23,7 +24,12 @@ export default function Home() {
   const user = useAuth((s) => s.user);
   const info = useAuth((s) => s.info);
   const t = useT();
+  const tr = useTr();
   const play = usePlayer.getState().playTracks;
+  // the liked tile leads to Superlikes when the listener put them first (and has some)
+  const superPref = useLikePrefs((s) => s.superOn && s.first === 'super');
+  const hasSupers = useLikes((s) => s.supers.size > 0);
+  const superFirst = superPref && hasSupers;
   // Greeting follows the device's own clock and time zone (not the server's)
   const [hour, setHour] = useState(() => new Date().getHours());
   useEffect(() => { const id = setInterval(() => setHour(new Date().getHours()), 60_000); return () => clearInterval(id); }, []);
@@ -73,7 +79,9 @@ export default function Home() {
       {data.quickPicks.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3 mb-8 fade-in">
           {data.quickPicks.map((q: any) => {
-            if (q.kind === 'liked') return <QuickPick key="liked" title={q.title} to="/liked" liked onPlay={async () => play(await api.get<Track[]>('/api/me/likes/tracks'), 0, 'liked')} />;
+            if (q.kind === 'liked') return superFirst
+              ? <QuickPick key="liked" title={tr('Суперлайки', 'Superlikes')} to="/superliked" starred onPlay={async () => play(await api.get<Track[]>('/api/me/likes/tracks?super=1'), 0, 'superliked')} />
+              : <QuickPick key="liked" title={q.title} to="/liked" liked onPlay={async () => play(await api.get<Track[]>('/api/me/likes/tracks'), 0, 'liked')} />;
             if ('owner' in q) return <QuickPick key={q.id} title={q.title} cover={q.coverUrl} mosaic={q.mosaic} to={`/playlist/${q.id}`} onPlay={async () => play((await api.get<{ tracks: Track[] }>(`/api/playlists/${q.id}`)).tracks, 0, `playlist:${q.id}`)} />;
             return <QuickPick key={q.id} title={q.title} cover={q.coverUrl} to={`/album/${q.id}`} onPlay={async () => play((await api.get<{ tracks: Track[] }>(`/api/albums/${q.id}`)).tracks, 0, `album:${q.id}`)} />;
           })}

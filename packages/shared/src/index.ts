@@ -81,6 +81,8 @@ export interface Track {
   featuring: ArtistSummary[];
   album: { id: string; title: string; year: number | null } | null;
   liked?: boolean;
+  /** liked with a star: also in the listener's Superlikes */
+  superliked?: boolean;
   addedAt?: string;
   /** who put it in this playlist (shared playlists) */
   addedBy?: FriendRef | null;

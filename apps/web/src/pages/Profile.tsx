@@ -6,7 +6,8 @@ import { useTr } from '@/lib/social';
 import { lockLyricsOn, setLockLyrics } from '@/lib/lockLyrics';
 import { useAuth } from '@/stores/auth';
 import { useUI } from '@/stores/ui';
-import { useLikes } from '@/stores/likes';
+import { useLikePrefs, useLikes } from '@/stores/likes';
+import { SuperStar } from '@/components/LikeButton';
 import { PRESET_COLORS, useTheme } from '@/stores/theme';
 import { useI18n, useT } from '@/lib/i18n';
 import { api } from '@/lib/api';
@@ -48,6 +49,38 @@ function PlaybackSettings() {
         <span className="min-w-0"><span className="block">{tr('Строка текста на экране блокировки', 'Lyric line on the lock screen')}</span><span className="block md-body-sm muted">{tr('Текущая строчка песни вместо имени исполнителя — в шторке, на экране блокировки и в наушниках', 'The current line instead of the artist — in notifications, on the lock screen and in headphones')}</span></span>
         <M3eSwitch checked={lyricsOn || undefined} icons="selected" onChange={(e: Event) => { const v = !!(e.target as any).checked; setLockLyrics(v); setLyricsOn(v); }} />
       </label>
+    </section>
+  );
+}
+
+/** Likes: superlikes on or off, what the heart's tap does, which list the library shows first. */
+function LikeSettings() {
+  const tr = useTr();
+  const prefs = useLikePrefs();
+  return (
+    <section className="surface-low rounded-[28px] p-5 space-y-4">
+      <h2 className="md-title-lg emph flex items-center gap-2"><SuperStar className="w-6 h-6" />{tr('Лайки и суперлайки', 'Likes and superlikes')}</h2>
+      <label className="flex items-center justify-between gap-3 md-body-lg">
+        <span className="min-w-0"><span className="block">{tr('Суперлайки', 'Superlikes')}</span><span className="block md-body-sm muted">{tr('Лучшее из любимого — отдельным плейлистом. Трек со звездой остаётся и в «Любимых», а «Моя волна» слушает суперлайки внимательнее.', 'The best of your likes as a playlist of its own. A starred track stays in Liked too, and My Wave listens to superlikes more closely.')}</span></span>
+        <M3eSwitch checked={prefs.superOn || undefined} icons="selected" onChange={(e: Event) => prefs.set({ superOn: !!(e.target as any).checked })} />
+      </label>
+      {prefs.superOn && <>
+        <div>
+          <div className="md-label-lg muted mb-2">{tr('Нажатие на сердце', 'Tapping the heart')}</div>
+          <M3eSegmentedButton onChange={(e: Event) => { const v = (e.target as any)?.value; if (v) prefs.set({ tap: v }); }}>
+            <M3eButtonSegment value="like" checked={prefs.tap === 'like' || undefined}><m3e-icon variant="rounded" slot="icon" name="favorite" />{tr('Лайк', 'Like')}</M3eButtonSegment>
+            <M3eButtonSegment value="super" checked={prefs.tap === 'super' || undefined}><m3e-icon variant="rounded" slot="icon" name="star" />{tr('Суперлайк', 'Superlike')}</M3eButtonSegment>
+          </M3eSegmentedButton>
+          <div className="md-body-sm muted mt-1.5">{prefs.tap === 'like' ? tr('Долгое нажатие (или правый клик) — суперлайк.', 'A long press (or a right click) — a superlike.') : tr('Долгое нажатие (или правый клик) — обычный лайк.', 'A long press (or a right click) — a plain like.')}</div>
+        </div>
+        <div>
+          <div className="md-label-lg muted mb-2">{tr('Первым в библиотеке и на главной', 'First in the library and on the home page')}</div>
+          <M3eSegmentedButton onChange={(e: Event) => { const v = (e.target as any)?.value; if (v) prefs.set({ first: v }); }}>
+            <M3eButtonSegment value="liked" checked={prefs.first === 'liked' || undefined}>{tr('Любимые', 'Liked')}</M3eButtonSegment>
+            <M3eButtonSegment value="super" checked={prefs.first === 'super' || undefined}>{tr('Суперлайки', 'Superlikes')}</M3eButtonSegment>
+          </M3eSegmentedButton>
+        </div>
+      </>}
     </section>
   );
 }
@@ -182,7 +215,7 @@ export default function Profile() {
       {stats && stats.topGenres.length > 0 && <div className="mb-8"><h2 className="md-headline-sm emph mb-3">{t('topGenres')}</h2><div className="flex flex-wrap gap-2">{stats.topGenres.map((g) => <span key={g.name} className="px-3 py-1.5 rounded-full bg-secondary-container text-on-secondary-container md-label-lg">{g.name} · {g.n}</span>)}</div></div>}
 
       <div className="grid md:grid-cols-2 gap-4 max-w-5xl">
-        <div className="space-y-4"><PlaybackSettings /><ThemeSettings /></div>
+        <div className="space-y-4"><PlaybackSettings /><LikeSettings /><ThemeSettings /></div>
         <section className="surface-low rounded-[28px] p-5 space-y-6">
           <form onSubmit={saveProfile} className="space-y-3">
             <h2 className="md-title-lg emph">{t('profile')}</h2>

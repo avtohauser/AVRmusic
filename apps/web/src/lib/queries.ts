@@ -15,6 +15,8 @@ export const usePlaylist = (id: string | undefined) => useQuery({ queryKey: ['pl
 export const useMyPlaylists = () => { const user = useAuth((s) => s.user); return useQuery({ queryKey: ['playlists', 'mine', user?.id], queryFn: () => api.get<PlaylistSummary[]>('/api/playlists'), enabled: !!user, staleTime: 30_000 }); };
 export const usePublicPlaylists = () => useQuery({ queryKey: ['playlists', 'public'], queryFn: () => api.get<PlaylistSummary[]>('/api/playlists/public'), enabled: canBrowse() });
 export const useLikedTracks = () => { const user = useAuth((s) => s.user); return useQuery({ queryKey: ['liked', 'tracks', user?.id], queryFn: () => api.get<Track[]>('/api/me/likes/tracks'), enabled: !!user }); };
+/** The superliked tracks, by when they got the star. */
+export const useSuperTracks = () => { const user = useAuth((s) => s.user); return useQuery({ queryKey: ['liked', 'super', user?.id], queryFn: () => api.get<Track[]>('/api/me/likes/tracks?super=1'), enabled: !!user }); };
 export const useLikedAlbums = () => { const user = useAuth((s) => s.user); return useQuery({ queryKey: ['liked', 'albums', user?.id], queryFn: () => api.get<AlbumSummary[]>('/api/me/likes/albums'), enabled: !!user }); };
 export const useLikedArtists = () => { const user = useAuth((s) => s.user); return useQuery({ queryKey: ['liked', 'artists', user?.id], queryFn: () => api.get<ArtistSummary[]>('/api/me/likes/artists'), enabled: !!user }); };
 export const useGenres = () => useQuery({ queryKey: ['genres'], queryFn: () => api.get<Genre[]>('/api/genres'), enabled: canBrowse(), staleTime: 120_000 });

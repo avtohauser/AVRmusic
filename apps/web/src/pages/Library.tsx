@@ -4,6 +4,8 @@ import { M3eButton, M3eFilterChip, M3eFilterChipSet } from '@/md';
 import { useAlbums, useArtists, useGenres, useLikedAlbums, useLikedArtists, useMyPlaylists, usePublicPlaylists } from '@/lib/queries';
 import { useAuth } from '@/stores/auth';
 import { useUI } from '@/stores/ui';
+import { useLikePrefs, useLikes } from '@/stores/likes';
+import { SuperStar } from '@/components/LikeButton';
 import { useT } from '@/lib/i18n';
 import { AlbumCard, ArtistCard, GenreCard, PlaylistCard } from '@/components/Cards';
 import { ShelfSkeleton } from '@/components/Skeleton';
@@ -56,6 +58,10 @@ function Playlists() {
   const mine = useMyPlaylists();
   const pub = usePublicPlaylists();
   const [smart, setSmart] = useState(false);
+  const prefs = useLikePrefs();
+  const supers = useLikes((s) => s.supers.size);
+  // Superlikes beside Liked, the one the listener chose first
+  const likeTiles: Array<'liked' | 'super'> = !prefs.superOn ? ['liked'] : prefs.first === 'super' ? ['super', 'liked'] : ['liked', 'super'];
   if (mine.isLoading || pub.isLoading) return <ShelfSkeleton />;
   const myIds = new Set((mine.data ?? []).map((p) => p.id));
   const others = (pub.data ?? []).filter((p) => !myIds.has(p.id));
@@ -64,11 +70,19 @@ function Playlists() {
       {user && (
         <>
           <div className={grid}>
-            <Link to="/liked" className="media-tile !w-full">
-              <div className="w-full aspect-square rounded-[16px] text-on-primary flex items-center justify-center" style={{ background: 'linear-gradient(135deg, var(--md-sys-color-primary), var(--md-sys-color-tertiary))' }}><m3e-icon variant="rounded" name="favorite" filled style={{ ['--m3e-icon-size' as any]: '48px' }} /></div>
-              <div className="mt-2 md-title-sm">{t('likedSongs')}</div>
-              <div className="md-body-sm muted">{t('playlist')}</div>
-            </Link>
+            {likeTiles.map((tile) => tile === 'liked' ? (
+              <Link key="liked" to="/liked" className="media-tile !w-full">
+                <div className="w-full aspect-square rounded-[16px] text-on-primary flex items-center justify-center" style={{ background: 'linear-gradient(135deg, var(--md-sys-color-primary), var(--md-sys-color-tertiary))' }}><m3e-icon variant="rounded" name="favorite" filled style={{ ['--m3e-icon-size' as any]: '48px' }} /></div>
+                <div className="mt-2 md-title-sm">{t('likedSongs')}</div>
+                <div className="md-body-sm muted">{t('playlist')}</div>
+              </Link>
+            ) : (
+              <Link key="super" to="/superliked" className="media-tile !w-full">
+                <div className="w-full aspect-square rounded-[16px] flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #0B4248, #1d5d63)' }}><SuperStar className="w-14 h-14" /></div>
+                <div className="mt-2 md-title-sm">{tr('Суперлайки', 'Superlikes')}</div>
+                <div className="md-body-sm muted">{tr(`Треков: ${supers}`, `Tracks: ${supers}`)}</div>
+              </Link>
+            ))}
             <AutoTile icon="radar" title={tr('Радар новинок', 'Release radar')} sub={tr('Свежее от ваших исполнителей', 'Fresh from your artists')} color="var(--md-sys-color-tertiary)" onClick={async () => { try { nav(`/playlist/${(await radar()).id}`); } catch (e: any) { useUI.getState().toast(e.message, 'error'); } }} />
             <AutoTile icon="blender" title={tr('Блендер', 'Blend')} sub={tr('Общий плейлист с друзьями', 'One playlist with friends')} color="var(--md-sys-color-secondary)" onClick={() => blendWith(nav, tr)} />
             <AutoTile icon="tune" title={tr('Умный плейлист', 'Smart playlist')} sub={tr('Собирается сам по правилам', 'Builds itself by rules')} color="var(--md-sys-color-primary)" onClick={() => setSmart(true)} />

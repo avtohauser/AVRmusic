@@ -3,6 +3,7 @@ import type { AlbumSummary, ArtistSummary, Genre, PlaylistSummary, Track } from 
 import { M3eIconButton } from '@/md';
 import { Cover } from './Cover';
 import { PlayButton } from './PlayButton';
+import { SuperStar } from './LikeButton';
 import { MorphPlay } from './MorphPlay';
 import { usePlayer } from '@/stores/player';
 import { useUI } from '@/stores/ui';
@@ -117,10 +118,12 @@ export function GenreCard({ genre, wide = false }: { genre: Genre; wide?: boolea
   );
 }
 
-export function QuickPick({ title, cover, mosaic, to, onPlay, liked }: { title: string; cover?: string | null; mosaic?: string[]; to: string; onPlay: () => void; liked?: boolean }) {
+export function QuickPick({ title, cover, mosaic, to, onPlay, liked, starred }: { title: string; cover?: string | null; mosaic?: string[]; to: string; onPlay: () => void; liked?: boolean; starred?: boolean }) {
   return (
     <Link to={to} className="group surface-high rounded-[16px] press flex items-center gap-3 pr-2 overflow-hidden h-[60px] state-layer">
-      {liked ? (
+      {starred ? (
+        <div className="w-[60px] h-full flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg, #0B4248, #1d5d63)' }}><SuperStar className="w-8 h-8" /></div>
+      ) : liked ? (
         <div className="w-[60px] h-full bg-primary text-on-primary flex items-center justify-center shrink-0"><m3e-icon variant="rounded" name="favorite" filled /></div>
       ) : (
         <Cover src={cover} mosaic={mosaic} alt={title} className="w-[60px] h-full !rounded-none" />

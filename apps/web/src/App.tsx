@@ -202,6 +202,7 @@ export default function App() {
               <Route path="/catalog/artist/:id" element={<CatalogArtist />} />
               <Route path="/catalog/album/:id" element={<CatalogAlbum />} />
               <Route path="/liked" element={<RequireAuth><Liked /></RequireAuth>} />
+              <Route path="/superliked" element={<RequireAuth><Liked key="super" starred /></RequireAuth>} />
               <Route path="/downloads" element={<RequireAuth><Downloads /></RequireAuth>} />
               <Route path="/discover" element={<Navigate to="/" replace />} />
               <Route path="/history" element={<RequireAuth><History /></RequireAuth>} />

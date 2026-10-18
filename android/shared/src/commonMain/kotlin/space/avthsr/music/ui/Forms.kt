@@ -1,7 +1,11 @@
 // Small building blocks for the profile and admin screens: form dialogs, confirmations, pickers,
 // formatting of sizes / durations / dates, and a bar chart.
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package space.avthsr.music.ui
 
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ButtonDefaults
 import space.avthsr.music.tr
 import space.avthsr.music.Lang
 import androidx.compose.foundation.Canvas
@@ -70,7 +74,7 @@ data class Field(
 @Composable
 fun FormDialog(title: String, fields: List<Field>, confirm: String = tr("Сохранить"), onDismiss: () -> Unit, onConfirm: (List<String>) -> Unit) {
   val values = remember { mutableStateListOf(*fields.map { it.initial }.toTypedArray()) }
-  AlertDialog(
+  AlertDialog(modifier = Modifier.growIn(),
     onDismissRequest = onDismiss,
     title = { Text(title) },
     text = {
@@ -89,19 +93,19 @@ fun FormDialog(title: String, fields: List<Field>, confirm: String = tr("Сох�
         }
       }
     },
-    confirmButton = { TextButton(onClick = { onDismiss(); onConfirm(values.toList()) }) { Text(confirm) } },
-    dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Отмена")) } },
+    confirmButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = { onDismiss(); onConfirm(values.toList()) }) { Text(confirm) } },
+    dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = onDismiss) { Text(tr("Отмена")) } },
   )
 }
 
 @Composable
 fun ConfirmDialog(title: String, text: String, confirm: String, onDismiss: () -> Unit, onConfirm: () -> Unit) {
-  AlertDialog(
+  AlertDialog(modifier = Modifier.growIn(),
     onDismissRequest = onDismiss,
     title = { Text(title) },
     text = { Text(text) },
-    confirmButton = { TextButton(onClick = { onDismiss(); onConfirm() }) { Text(confirm, color = MaterialTheme.colorScheme.error) } },
-    dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Отмена")) } },
+    confirmButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = { onDismiss(); onConfirm() }) { Text(confirm, color = MaterialTheme.colorScheme.error) } },
+    dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = onDismiss) { Text(tr("Отмена")) } },
   )
 }
 

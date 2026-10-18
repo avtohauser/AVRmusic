@@ -1,9 +1,11 @@
-@file:OptIn(ExperimentalLayoutApi::class)
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalLayoutApi::class)
 
 // Badges the admin makes and gives: they circle around a friend's photo on their page and line up under the
 // name; the admin's tab to make them and give them out.
 package space.avthsr.music.ui
 
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -107,12 +109,12 @@ fun BadgeOrbit(badges: List<Badge>, avatar: Dp, content: @Composable () -> Unit)
     }
   }
   shown?.let { b ->
-    AlertDialog(
+    AlertDialog(modifier = Modifier.growIn(),
       onDismissRequest = { shown = null },
       icon = { BadgeDot(b, 56.dp) },
       title = { Text(b.title) },
       text = { if (b.description.isNotBlank()) Text(b.description) },
-      confirmButton = { TextButton(onClick = { shown = null }) { Text(tr("Круто")) } },
+      confirmButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = { shown = null }) { Text(tr("Круто")) } },
     )
   }
 }
@@ -151,7 +153,7 @@ internal fun AdminBadges() {
       Spacer(Modifier.height(10.dp))
       Button(onClick = { creating = true }, shapes = ButtonDefaults.shapes()) { Ico(Res.drawable.ic_add, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(tr("Новая ачивка")) }
     }
-    items(loader.data.orEmpty(), key = { it.id }) { b ->
+    items(loader.data.orEmpty(), key = { it.id }) { b -> Glide {
       Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(MaterialTheme.colorScheme.surfaceContainer).padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -164,8 +166,8 @@ internal fun AdminBadges() {
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
         FilledTonalButton(onClick = { give = b }, shapes = ButtonDefaults.shapes()) { Text(tr("Выдать")) }
-        IconButton(onClick = { edit = b }) { Ico(Res.drawable.ic_settings, tr("Изменить")) }
-      }
+        IconButton(shapes = IconButtonDefaults.shapes(), onClick = { edit = b }) { Ico(Res.drawable.ic_settings, tr("Изменить")) }
+      } }
     }
   }
   if (creating || edit != null) BadgeEditor(edit, onDismiss = { creating = false; edit = null }) { creating = false; edit = null; loader.reload() }
@@ -178,7 +180,7 @@ private fun BadgeEditor(b: Badge?, onDismiss: () -> Unit, onDone: () -> Unit) {
   var title by remember { mutableStateOf(b?.title ?: "") }
   var desc by remember { mutableStateOf(b?.description ?: "") }
   var color by remember { mutableStateOf(b?.color ?: COLORS.first()) }
-  AlertDialog(
+  AlertDialog(modifier = Modifier.growIn(),
     onDismissRequest = onDismiss,
     title = { Text(if (b == null) tr("Новая ачивка") else tr("Ачивка")) },
     text = {
@@ -195,13 +197,13 @@ private fun BadgeEditor(b: Badge?, onDismiss: () -> Unit, onDone: () -> Unit) {
             Box(Modifier.size(34.dp).clip(CircleShape).background(badgeColor(c)).border(if (c == color) 3.dp else 0.dp, MaterialTheme.colorScheme.onSurface, CircleShape).clickable { color = c })
           }
         }
-        if (b != null) TextButton(onClick = { act(tr("Ачивка удалена"), onDone) { Api.deleteBadge(b.id) } }) { Text(tr("Удалить ачивку"), color = MaterialTheme.colorScheme.error) }
+        if (b != null) TextButton(shapes = ButtonDefaults.shapes(), onClick = { act(tr("Ачивка удалена"), onDone) { Api.deleteBadge(b.id) } }) { Text(tr("Удалить ачивку"), color = MaterialTheme.colorScheme.error) }
       }
     },
     confirmButton = {
-      TextButton(enabled = title.isNotBlank() && emoji.isNotBlank(), onClick = { act(tr("Сохранено"), onDone) { Api.saveBadge(b?.id, title, emoji, color, desc) } }) { Text(tr("Сохранить")) }
+      TextButton(shapes = ButtonDefaults.shapes(), enabled = title.isNotBlank() && emoji.isNotBlank(), onClick = { act(tr("Сохранено"), onDone) { Api.saveBadge(b?.id, title, emoji, color, desc) } }) { Text(tr("Сохранить")) }
     },
-    dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Отмена")) } },
+    dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = onDismiss) { Text(tr("Отмена")) } },
   )
 }
 
@@ -214,24 +216,24 @@ private fun GiveBadgeDialog(b: Badge, onDismiss: () -> Unit, onDone: () -> Unit)
   val people = remember(friends) { (listOfNotNull(me?.let { space.avthsr.music.api.FriendRef(it.id, it.displayName.ifBlank { it.username }, null) }) + friends.map { it.ref }) }
   var picked by remember { mutableStateOf(setOf<String>()) }
   val has = holders.data.orEmpty().map { it.id }.toSet()
-  AlertDialog(
+  AlertDialog(modifier = Modifier.growIn(),
     onDismissRequest = onDismiss,
     icon = { BadgeDot(b, 48.dp) },
     title = { Text(tr("Выдать «{}»", b.title)) },
     text = {
       LazyColumn(Modifier.heightIn(max = 380.dp)) {
-        items(people, key = { it.id }) { f ->
+        items(people, key = { it.id }) { f -> Glide {
           val owned = f.id in has
           Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable(enabled = !owned) { picked = if (f.id in picked) picked - f.id else picked + f.id }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Checkbox(checked = owned || f.id in picked, onCheckedChange = null, enabled = !owned)
             Spacer(Modifier.width(6.dp))
             Text(f.displayName, Modifier.weight(1f))
-            if (owned) TextButton(onClick = { act(tr("Ачивка забрана"), { holders.reload() }) { Api.takeBadge(b.id, f.id) } }) { Text(tr("Забрать")) }
-          }
+            if (owned) TextButton(shapes = ButtonDefaults.shapes(), onClick = { act(tr("Ачивка забрана"), { holders.reload() }) { Api.takeBadge(b.id, f.id) } }) { Text(tr("Забрать")) }
+          } }
         }
       }
     },
-    confirmButton = { TextButton(enabled = picked.isNotEmpty(), onClick = { act(tr("Выдано — придёт во «Входящие»"), onDone) { Api.giveBadge(b.id, picked.toList()) } }) { Text(tr("Выдать")) } },
-    dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Закрыть")) } },
+    confirmButton = { TextButton(shapes = ButtonDefaults.shapes(), enabled = picked.isNotEmpty(), onClick = { act(tr("Выдано — придёт во «Входящие»"), onDone) { Api.giveBadge(b.id, picked.toList()) } }) { Text(tr("Выдать")) } },
+    dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = onDismiss) { Text(tr("Закрыть")) } },
   )
 }

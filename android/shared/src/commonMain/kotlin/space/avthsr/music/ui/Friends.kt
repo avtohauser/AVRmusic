@@ -1,7 +1,10 @@
-@file:OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 
 package space.avthsr.music.ui
 
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
@@ -135,9 +138,9 @@ fun FriendsRow() {
   SectionTitle(
     tr("Друзья"),
     if (listening > 0) tr("Сейчас слушают: {}", listening) else null,
-  ) { TextButton(onClick = { nav.route("friends") }) { Text(tr("Все")) } }
+  ) { TextButton(shapes = ButtonDefaults.shapes(), onClick = { nav.route("friends") }) { Text(tr("Все")) } }
   LazyRow(contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-    items(friends, key = { it.id }) { f -> FriendBubble(f) { nav.route("user/${f.id.encodeURLParameter()}") } }
+    items(friends, key = { it.id }) { f -> Glide { FriendBubble(f) { nav.route("user/${f.id.encodeURLParameter()}") } } }
   }
 }
 
@@ -145,12 +148,15 @@ fun FriendsRow() {
 private fun FriendBubble(f: Friend, onClick: () -> Unit) {
   val cs = MaterialTheme.colorScheme
   val now = f.now
+  // the photo and the name fly into the friend's page (only this copy, if they show twice)
+  val token = rememberSaveable { uniqueToken() }
+  val key = "user:${f.id}"
   Column(
-    Modifier.width(92.dp).clip(RoundedCornerShape(20.dp)).clickable(onClick = onClick).padding(vertical = 6.dp),
+    Modifier.width(92.dp).clip(RoundedCornerShape(20.dp)).clickable { SharedCover.tap(token, key, f.avatarUrl, f.name, circle = true); onClick() }.padding(vertical = 6.dp),
     horizontalAlignment = Alignment.CenterHorizontally,
   ) {
     Box {
-      FriendAvatar(f.avatarUrl, 72.dp, listening = now?.playing == true)
+      FriendAvatar(f.avatarUrl, 72.dp, listening = now?.playing == true, modifier = Modifier.sharedCover(key, token))
       // the cover of what they play, pinned to the photo
       if (now != null) Cover(
         now.track.coverUrl,
@@ -163,7 +169,7 @@ private fun FriendBubble(f: Friend, onClick: () -> Unit) {
       ) { Ico(Res.drawable.ic_headphones, null, Modifier.size(14.dp), cs.onTertiary) }
     }
     Spacer(Modifier.height(6.dp))
-    Text(f.name, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    Text(f.name, Modifier.sharedTitle(key, token), style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
     Text(
       now?.track?.title ?: fmtAgo(f.lastSeenAt),
       style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -178,7 +184,7 @@ fun InboxButton() {
   val nav = LocalNav.current
   val items by Inbox.items.collectAsStateWithLifecycle()
   val unread = Inbox.unread(items)
-  IconButton(onClick = { nav.route("inbox") }) {
+  IconButton(shapes = IconButtonDefaults.shapes(), onClick = { nav.route("inbox") }) {
     BadgedBox(badge = { if (unread > 0) Badge { Text("$unread") } }) { Ico(Res.drawable.ic_inbox, tr("Входящие")) }
   }
 }
@@ -198,19 +204,21 @@ fun FriendsScreen() {
       val sessions = jams.data.orEmpty()
       if (sessions.isNotEmpty()) {
         item { SectionTitle(tr("Слушают вместе")) }
-        items(sessions, key = { "jam:" + it.id }) { j -> JamRow(j) }
+        items(sessions, key = { "jam:" + it.id }) { j -> Glide { JamRow(j) } }
       }
       item { SectionTitle(tr("Все на сервере")) }
       if (friends.isEmpty()) item { Text(tr("Пока никого — пригласите друзей кодом из админки"), Modifier.padding(20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
-      items(friends, key = { it.id }) { f ->
+      items(friends, key = { it.id }) { f -> Glide {
+        val token = rememberSaveable { uniqueToken() }
+        val key = "user:${f.id}"
         Row(
-          Modifier.fillMaxWidth().clickable { nav.route("user/${f.id.encodeURLParameter()}") }.padding(horizontal = 16.dp, vertical = 8.dp),
+          Modifier.fillMaxWidth().clickable { SharedCover.tap(token, key, f.avatarUrl, f.name, circle = true); nav.route("user/${f.id.encodeURLParameter()}") }.padding(horizontal = 16.dp, vertical = 8.dp),
           verticalAlignment = Alignment.CenterVertically,
         ) {
-          FriendAvatar(f.avatarUrl, 56.dp, f.now?.playing == true)
+          FriendAvatar(f.avatarUrl, 56.dp, f.now?.playing == true, Modifier.sharedCover(key, token))
           Spacer(Modifier.width(14.dp))
           Column(Modifier.weight(1f)) {
-            Text(f.name, style = MaterialTheme.typography.titleMedium)
+            Text(f.name, Modifier.sharedTitle(key, token), style = MaterialTheme.typography.titleMedium)
             val n = f.now
             Text(
               if (n != null) (if (n.playing) "♪ " else "❚❚ ") + "${n.track.title} · ${n.track.artists}" else tr("был(а) {}", fmtAgo(f.lastSeenAt)),
@@ -218,7 +226,7 @@ fun FriendsScreen() {
               color = if (n?.playing == true) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
             )
           }
-        }
+        } }
       }
     }
   }
@@ -253,15 +261,27 @@ fun FriendScreen(id: String) {
   val loader = rememberLoad(id) { Api.friend(id) }
   val cs = MaterialTheme.colorScheme
   val scope = rememberCoroutineScope()
+  val peek = SharedCover.peek?.takeIf { it.key == "user:$id" }
   Page {
-    Loaded(loader) { p ->
+    if (loader.state is Load.Loading && peek != null) {
+      LazyColumn(Modifier.fillMaxSize(), contentPadding = screenPadding(top = 56.dp, bottom = 24.dp)) {
+        item {
+          Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            FriendAvatar(peek.cover, 132.dp, modifier = Modifier.sharedCover("user:$id"))
+            Spacer(Modifier.height(12.dp))
+            FlowText(peek.title, MaterialTheme.typography.headlineMedium, Modifier.sharedTitle("user:$id"), maxLines = 1)
+          }
+        }
+        item { Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) { LoadingMark() } }
+      }
+    } else Loaded(loader) { p ->
       LazyColumn(Modifier.fillMaxSize(), contentPadding = screenPadding(top = 56.dp, bottom = 24.dp)) {
         item {
           Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             // the badges the admin gave them circle around the photo
-            BadgeOrbit(p.badges, 132.dp) { FriendAvatar(p.avatarUrl, 132.dp, listening = p.now?.playing == true) }
+            BadgeOrbit(p.badges, 132.dp) { FriendAvatar(p.avatarUrl, 132.dp, listening = p.now?.playing == true, modifier = Modifier.sharedCover("user:$id")) }
             Spacer(Modifier.height(12.dp))
-            FlowText(p.name, MaterialTheme.typography.headlineMedium, maxLines = 1)
+            FlowText(p.name, MaterialTheme.typography.headlineMedium, Modifier.sharedTitle("user:$id"), maxLines = 1)
             if (p.badges.isNotEmpty()) { Spacer(Modifier.height(6.dp)); BadgeChips(p.badges) }
             Text(
               "@${p.username} · " + if (p.now?.playing == true) tr("слушает сейчас") else tr("был(а) {}", fmtAgo(p.lastSeenAt)),
@@ -294,7 +314,7 @@ fun FriendScreen(id: String) {
         }
         if (p.stats.recent.isNotEmpty()) {
           item { SectionTitle(tr("Недавно слушал(а)")) }
-          itemsIndexed(p.stats.recent) { i, t -> TrackRow(t, onClick = { PlayerConn.play(p.stats.recent, i, "user:$id") }) }
+          itemsIndexed(p.stats.recent) { i, t -> Glide { TrackRow(t, onClick = { PlayerConn.play(p.stats.recent, i, "user:$id") }) } }
         }
         if (p.playlists.isNotEmpty()) item {
           SectionTitle(tr("Плейлисты"))
@@ -411,7 +431,7 @@ fun InboxScreen() {
         )
       }
       if (items.isEmpty()) item { Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) { Ico(Res.drawable.ic_inbox, null, Modifier.size(64.dp), MaterialTheme.colorScheme.outline) } }
-      items(items, key = { it.id }) { s -> ShareCard(s) }
+      items(items, key = { it.id }) { s -> Glide { ShareCard(s) } }
     }
   }
 }
@@ -540,7 +560,7 @@ fun SendDialog(kind: String, refId: String, title: String, onDone: () -> Unit) {
   LaunchedEffect(Unit) { Friends.refresh() }
   val picked = remember { mutableStateListOf<String>() }
   var message by remember { mutableStateOf("") }
-  AlertDialog(
+  AlertDialog(modifier = Modifier.growIn(),
     onDismissRequest = onDone,
     title = { Text(tr("Отправить другу")) },
     text = {
@@ -549,7 +569,7 @@ fun SendDialog(kind: String, refId: String, title: String, onDone: () -> Unit) {
         Spacer(Modifier.height(8.dp))
         if (friends.isEmpty()) Text(tr("Друзей пока нет"), color = MaterialTheme.colorScheme.onSurfaceVariant)
         LazyColumn(Modifier.heightIn(max = 260.dp)) {
-          items(friends, key = { it.id }) { f ->
+          items(friends, key = { it.id }) { f -> Glide {
             val on = f.id in picked
             Row(
               Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).clickable { if (on) picked.remove(f.id) else picked.add(f.id) }.padding(vertical = 4.dp),
@@ -559,7 +579,7 @@ fun SendDialog(kind: String, refId: String, title: String, onDone: () -> Unit) {
               Spacer(Modifier.width(10.dp))
               Text(f.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
               Checkbox(checked = on, onCheckedChange = { if (it) picked.add(f.id) else picked.remove(f.id) })
-            }
+            } }
           }
         }
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
@@ -567,14 +587,14 @@ fun SendDialog(kind: String, refId: String, title: String, onDone: () -> Unit) {
       }
     },
     confirmButton = {
-      TextButton(enabled = picked.isNotEmpty(), onClick = {
+      TextButton(shapes = ButtonDefaults.shapes(), enabled = picked.isNotEmpty(), onClick = {
         val to = picked.toList()
         val text = message
         onDone()
         act(if (to.size == 1) tr("Отправлено") else tr("Отправлено: {}", to.size)) { Api.sendShare(to, kind, refId, text) }
       }) { Ico(Res.drawable.ic_send, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(tr("Отправить")) }
     },
-    dismissButton = { TextButton(onClick = onDone) { Text(tr("Отмена")) } },
+    dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = onDone) { Text(tr("Отмена")) } },
   )
 }
 
@@ -587,7 +607,7 @@ fun MembersDialog(p: Playlist, onChanged: () -> Unit, onDone: () -> Unit) {
   LaunchedEffect(Unit) { Friends.refresh() }
   val own = p.isOwner == true || p.owner?.id == Api.user?.id
   val members = p.members.map { it.id }.toSet()
-  AlertDialog(
+  AlertDialog(modifier = Modifier.growIn(),
     onDismissRequest = onDone,
     title = { Text(tr("Плейлист вместе")) },
     text = {
@@ -598,7 +618,7 @@ fun MembersDialog(p: Playlist, onChanged: () -> Unit, onDone: () -> Unit) {
         )
         Spacer(Modifier.height(10.dp))
         LazyColumn(Modifier.heightIn(max = 320.dp)) {
-          items(friends, key = { it.id }) { f ->
+          items(friends, key = { it.id }) { f -> Glide {
             val inside = f.id in members
             Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
               FriendAvatar(f.avatarUrl, 40.dp)
@@ -608,17 +628,17 @@ fun MembersDialog(p: Playlist, onChanged: () -> Unit, onDone: () -> Unit) {
                 if (inside) Text(tr("участник"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
               }
               if (own) {
-                if (inside) TextButton(onClick = { act(tr("{} больше не участник", f.name), onChanged) { Api.removeMember(p.id, f.id) } }) { Text(tr("Убрать")) }
-                else TextButton(onClick = { act(tr("{} приглашён(а)", f.name), onChanged) { Api.addMember(p.id, f.id) } }) { Text(tr("Пригласить")) }
+                if (inside) TextButton(shapes = ButtonDefaults.shapes(), onClick = { act(tr("{} больше не участник", f.name), onChanged) { Api.removeMember(p.id, f.id) } }) { Text(tr("Убрать")) }
+                else TextButton(shapes = ButtonDefaults.shapes(), onClick = { act(tr("{} приглашён(а)", f.name), onChanged) { Api.addMember(p.id, f.id) } }) { Text(tr("Пригласить")) }
               }
-            }
+            } }
           }
         }
       }
     },
-    confirmButton = { TextButton(onClick = onDone) { Text(tr("Готово")) } },
+    confirmButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = onDone) { Text(tr("Готово")) } },
     dismissButton = if (!own && Api.user?.id in members) {
-      { TextButton(onClick = { onDone(); act(tr("Вы вышли из плейлиста"), onChanged) { Api.removeMember(p.id, Api.user!!.id) } }) { Text(tr("Выйти")) } }
+      { TextButton(shapes = ButtonDefaults.shapes(), onClick = { onDone(); act(tr("Вы вышли из плейлиста"), onChanged) { Api.removeMember(p.id, Api.user!!.id) } }) { Text(tr("Выйти")) } }
     } else null,
   )
 }
@@ -646,7 +666,7 @@ fun BlendDialog(onCreated: (String) -> Unit, onDone: () -> Unit) {
   val friends by Friends.list.collectAsStateWithLifecycle()
   LaunchedEffect(Unit) { Friends.refresh() }
   val picked = remember { mutableStateListOf<String>() }
-  AlertDialog(
+  AlertDialog(modifier = Modifier.growIn(),
     onDismissRequest = onDone,
     title = { Text(tr("Блендер")) },
     text = {
@@ -654,7 +674,7 @@ fun BlendDialog(onCreated: (String) -> Unit, onDone: () -> Unit) {
         Text(tr("Общий плейлист из ваших вкусов: любимое каждого и то, что вы слушаете оба. Обновляется каждый день, все — владельцы."), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(8.dp))
         LazyColumn(Modifier.heightIn(max = 280.dp)) {
-          items(friends, key = { it.id }) { f ->
+          items(friends, key = { it.id }) { f -> Glide {
             val on = f.id in picked
             Row(
               Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).clickable { if (on) picked.remove(f.id) else if (picked.size < 4) picked.add(f.id) }.padding(vertical = 4.dp),
@@ -664,19 +684,19 @@ fun BlendDialog(onCreated: (String) -> Unit, onDone: () -> Unit) {
               Spacer(Modifier.width(10.dp))
               Text(f.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
               Checkbox(checked = on, onCheckedChange = { if (it && picked.size < 4) picked.add(f.id) else picked.remove(f.id) })
-            }
+            } }
           }
         }
       }
     },
     confirmButton = {
-      TextButton(enabled = picked.isNotEmpty(), onClick = {
+      TextButton(shapes = ButtonDefaults.shapes(), enabled = picked.isNotEmpty(), onClick = {
         val ids = picked.toList()
         onDone()
         act(tr("Блендер готов")) { onCreated(Api.createBlend(ids).id) }
       }) { Text(tr("Смешать")) }
     },
-    dismissButton = { TextButton(onClick = onDone) { Text(tr("Отмена")) } },
+    dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = onDone) { Text(tr("Отмена")) } },
   )
 }
 

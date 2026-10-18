@@ -2,6 +2,10 @@
 
 package space.avthsr.music.ui
 
+import androidx.compose.runtime.SideEffect
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.expandVertically
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideInHorizontally
@@ -129,7 +133,7 @@ fun Root() {
   }
   val crash by App.lastCrash.collectAsStateWithLifecycle()
   crash?.let { text ->
-    AlertDialog(
+    AlertDialog(modifier = Modifier.growIn(),
       onDismissRequest = { App.lastCrash.value = null },
       title = { Text(tr("Приложение закрылось с ошибкой")) },
       text = {
@@ -139,7 +143,7 @@ fun Root() {
           SelectionContainer { Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
       },
-      confirmButton = { TextButton(onClick = { App.lastCrash.value = null }) { Text(tr("Понятно")) } },
+      confirmButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = { App.lastCrash.value = null }) { Text(tr("Понятно")) } },
     )
   }
 }
@@ -284,7 +288,8 @@ private fun Main() {
         verticalArrangement = Arrangement.spacedBy(8.dp),
       ) {
         val online by Net.online.collectAsStateWithLifecycle()
-        if (!online) OfflineBanner { nav.downloads() }
+        // the offline note unfolds when the network goes and folds away when it is back
+        AnimatedVisibility(!online, enter = expandVertically(Motion.expressive.defaultSpatialSpec()) + fadeIn(), exit = shrinkVertically(Motion.expressive.defaultSpatialSpec()) + fadeOut()) { OfflineBanner { nav.downloads() } }
         MiniPlayer(playerOpen, onOpen = { playerOpen = true })
         NavIsland(controller, Modifier.onSizeChanged { islandPx = it.height + with(density) { 12.dp.roundToPx() } })
       }
@@ -313,7 +318,13 @@ private fun Main() {
       SnackbarHost(snack, Modifier.align(Alignment.BottomCenter).padding(bottom = if (playerOpen) 104.dp else edges.bottom))
       // on top of everything: an invitation that just came, a newer version of the app
       Column(Modifier.align(Alignment.TopCenter).padding(top = cutout + 8.dp, start = 12.dp, end = 12.dp)) {
-        invite?.let { s -> InviteBanner(s, onOpen = { invite = null; playerOpen = false }, onClose = { invite = null }) }
+        // an invitation drops in from the top and flies back up when answered
+        // (the last one stays drawn while it flies away)
+        val lastInvite = remember { mutableStateOf<space.avthsr.music.api.Share?>(null) }
+        SideEffect { if (invite != null) lastInvite.value = invite }
+        AnimatedVisibility(invite != null, enter = slideInVertically(Motion.expressive.defaultSpatialSpec()) { -it } + fadeIn(), exit = slideOutVertically(Motion.expressive.fastSpatialSpec()) { -it } + fadeOut()) {
+          (invite ?: lastInvite.value)?.let { s -> InviteBanner(s, onOpen = { invite = null; playerOpen = false }, onClose = { invite = null }) }
+        }
         UpdateBanner()
       }
     }

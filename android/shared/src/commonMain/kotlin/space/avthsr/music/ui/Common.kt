@@ -86,6 +86,7 @@ import space.avthsr.music.App
 import space.avthsr.music.res.*
 import space.avthsr.music.api.Api
 import space.avthsr.music.api.Likes
+import androidx.compose.animation.core.Animatable
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.animation.slideOutVertically
@@ -135,7 +136,18 @@ val LocalNav = staticCompositionLocalOf<Nav> { error("Nav is not provided") }
 
 @Composable
 fun Ico(res: DrawableResource, desc: String? = null, modifier: Modifier = Modifier, tint: Color = LocalContentColor.current) {
-  Icon(painterResource(res), desc, modifier, tint)
+  // every icon in the app: a new glyph springs in from small, a new colour slides in instead of switching
+  val color = if (tint == Color.Unspecified) tint else animateColorAsState(tint, Motion.expressive.defaultEffectsSpec(), label = "ico-tint").value
+  val pop = remember { Animatable(1f) }
+  var shown by remember { mutableStateOf(res) }
+  LaunchedEffect(res) {
+    if (shown != res) {
+      shown = res
+      pop.snapTo(0.35f)
+      pop.animateTo(1f, Motion.expressive.fastSpatialSpec())
+    }
+  }
+  Icon(painterResource(res), desc, modifier.graphicsLayer { scaleX = pop.value; scaleY = pop.value; alpha = (0.3f + 0.7f * pop.value).coerceIn(0f, 1f) }, color)
 }
 
 /** A line (a count, mostly) that rolls to its new value: the old one slides up and away, the new one rises in. */
@@ -337,7 +349,7 @@ fun MediaCard(
       .combinedClickable(
         interactionSource = interaction,
         indication = LocalIndication.current,
-        onClick = { if (share != null) SharedCover.tap(token, share); onClick() },
+        onClick = { if (share != null) SharedCover.tap(token, share, cover, title, circle); onClick() },
         onLongClick = menu?.let { { open = true } },
       )
       .padding(6.dp),
@@ -421,7 +433,7 @@ fun PlaylistMenu(p: PlaylistSummary, expanded: Boolean, close: () -> Unit) {
 
 @Composable
 fun <T> CardRow(items: List<T>, card: @Composable (T) -> Unit) {
-  LazyRow(contentPadding = PaddingValues(horizontal = 10.dp)) { items(items) { card(it) } }
+  LazyRow(contentPadding = PaddingValues(horizontal = 10.dp)) { items(items) { Glide { card(it) } } }
 }
 
 /* ---------- tracks ---------- */
@@ -469,7 +481,7 @@ fun TrackRow(
       HeartStar(filled = true, star = superOn && t.id in supers, modifier = Modifier.size(16.dp).semantics { contentDescription = tr("В избранном") })
     }
     Box {
-      IconButton(onClick = { menu = true }) { Ico(Res.drawable.ic_more, tr("Ещё"), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+      IconButton(shapes = IconButtonDefaults.shapes(), onClick = { menu = true }) { Ico(Res.drawable.ic_more, tr("Ещё"), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
       TrackMenu(t, menu, { menu = false }, menuExtra)
     }
   }
@@ -613,18 +625,18 @@ fun PlaylistPicker(trackIds: List<String>, onDone: () -> Unit) {
         .onFailure { App.say(it.message ?: tr("Не получилось")) }
     }
   }
-  AlertDialog(
+  AlertDialog(modifier = Modifier.growIn(),
     onDismissRequest = onDone,
     title = { Text(tr("Добавить в плейлист")) },
     text = {
       Column {
         when (val s = loader.state) {
           is Load.Ok -> LazyColumn(Modifier.height(240.dp)) {
-            items(s.data) { p ->
+            items(s.data) { p -> Glide {
               Text(
                 p.title, Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { add(p) }.padding(12.dp),
                 style = MaterialTheme.typography.bodyLarge,
-              )
+              ) }
             }
           }
           is Load.Err -> Text(s.message)
@@ -635,7 +647,7 @@ fun PlaylistPicker(trackIds: List<String>, onDone: () -> Unit) {
       }
     },
     confirmButton = {
-      TextButton(enabled = title.isNotBlank(), onClick = {
+      TextButton(shapes = ButtonDefaults.shapes(), enabled = title.isNotBlank(), onClick = {
         val name = title
         onDone()
         App.scope.launch {
@@ -645,7 +657,7 @@ fun PlaylistPicker(trackIds: List<String>, onDone: () -> Unit) {
         }
       }) { Text(tr("Создать")) }
     },
-    dismissButton = { TextButton(onClick = onDone) { Text(tr("Отмена")) } },
+    dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = onDone) { Text(tr("Отмена")) } },
   )
 }
 
@@ -678,7 +690,7 @@ fun Page(back: Boolean = true, content: @Composable () -> Unit) {
 @Composable
 fun BackButton(modifier: Modifier = Modifier) {
   val nav = LocalNav.current
-  IconButton(onClick = { nav.back() }, modifier = modifier.padding(4.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f))) {
+  IconButton(shapes = IconButtonDefaults.shapes(), onClick = { nav.back() }, modifier = modifier.padding(4.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f))) {
     Ico(Res.drawable.ic_back, tr("Назад"))
   }
 }

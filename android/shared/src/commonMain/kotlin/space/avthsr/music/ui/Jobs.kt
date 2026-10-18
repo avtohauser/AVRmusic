@@ -2,6 +2,7 @@
 
 package space.avthsr.music.ui
 
+import androidx.compose.material3.ButtonDefaults
 import space.avthsr.music.tr
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LinearWavyProgressIndicator
@@ -83,7 +84,7 @@ private fun JobCard(j: AcquireJob) {
     Text(status, style = MaterialTheme.typography.bodySmall, color = if (j.status == "error") cs.error else cs.onSurfaceVariant)
     val mine = j.requestedBy == Api.user?.id || Api.user?.isAdmin == true
     if (mine && (j.status == "queued" || j.status == "running")) {
-      TextButton(onClick = { act(tr("Задача отменена")) { Api.cancelCatalogJob(j.id) } }) { Text(if (j.status == "queued") tr("Убрать из очереди") else tr("Остановить")) }
+      TextButton(shapes = ButtonDefaults.shapes(), onClick = { act(tr("Задача отменена")) { Api.cancelCatalogJob(j.id) } }) { Text(if (j.status == "queued") tr("Убрать из очереди") else tr("Остановить")) }
     }
     if (j.status == "running") {
       Spacer(Modifier.height(8.dp))

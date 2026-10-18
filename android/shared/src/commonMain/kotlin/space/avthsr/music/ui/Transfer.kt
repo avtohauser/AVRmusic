@@ -1,10 +1,11 @@
-@file:OptIn(ExperimentalLayoutApi::class)
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalLayoutApi::class)
 
 // Moving a library here: Spotify (sign in — liked songs, every playlist, followed artists), Yandex Music
 // (sign in with a code — the phone reads the library), VK Music (pages saved in a browser), a link to one
 // playlist, or a pasted list / CSV.
 package space.avthsr.music.ui
 
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -183,7 +184,7 @@ private fun YandexCard() {
         )
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
           Button(onClick = { clipboard.setText(AnnotatedString(code.userCode)); Platform.openUrl(code.url) }, shapes = ButtonDefaults.shapes()) { Text(tr("Скопировать и открыть ya.ru/device")) }
-          TextButton(onClick = { login = null }) { Text(tr("Отмена")) }
+          TextButton(shapes = ButtonDefaults.shapes(), onClick = { login = null }) { Text(tr("Отмена")) }
         }
         Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
           LoadingMark(Modifier.size(24.dp)); Spacer(Modifier.width(8.dp))
@@ -227,7 +228,7 @@ private fun YandexCard() {
               }.onFailure(fail)
             }
           }, shapes = ButtonDefaults.shapes()) { Text(tr("Перенести выбранное")) }
-          TextButton(onClick = { overview = null; token = null }) { Text(tr("Выйти")) }
+          TextButton(shapes = ButtonDefaults.shapes(), onClick = { overview = null; token = null }) { Text(tr("Выйти")) }
         }
       }
     }
@@ -260,7 +261,7 @@ private fun VkCard() {
     Spacer(Modifier.height(10.dp))
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
       FilledTonalButton(onClick = pick, shapes = ButtonDefaults.shapes()) { Ico(Res.drawable.ic_folder, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(tr("Добавить страницу")) }
-      if (pages.isNotEmpty()) TextButton(onClick = { pages.clear() }) { Text(tr("Очистить")) }
+      if (pages.isNotEmpty()) TextButton(shapes = ButtonDefaults.shapes(), onClick = { pages.clear() }) { Text(tr("Очистить")) }
     }
     if (pages.isNotEmpty()) Text(pages.joinToString(" · ") { it.name }, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
     Spacer(Modifier.height(8.dp))

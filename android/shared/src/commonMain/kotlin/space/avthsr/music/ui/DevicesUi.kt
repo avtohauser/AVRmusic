@@ -1,7 +1,11 @@
 // The listener's other devices, from the player: what each plays, its buttons, and moving the music
 // between this one and them.
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package space.avthsr.music.ui
 
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -86,11 +90,11 @@ private fun DeviceCard(d: DeviceInfo, canSend: Boolean) {
       }
     }
     if (d.track != null) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-      IconButton(onClick = { Devices.command(d.id, "prev") }) { Ico(Res.drawable.ic_skip_prev, tr("Предыдущий"), tint = on) }
-      IconButton(onClick = { Devices.command(d.id, if (d.playing) "pause" else "play") }) {
+      IconButton(shapes = IconButtonDefaults.shapes(), onClick = { Devices.command(d.id, "prev") }) { Ico(Res.drawable.ic_skip_prev, tr("Предыдущий"), tint = on) }
+      IconButton(shapes = IconButtonDefaults.shapes(), onClick = { Devices.command(d.id, if (d.playing) "pause" else "play") }) {
         MorphIco(if (d.playing) Res.drawable.ic_pause else Res.drawable.ic_play, if (d.playing) tr("Пауза") else tr("Играть"), Modifier.size(32.dp), on)
       }
-      IconButton(onClick = { Devices.command(d.id, "next") }) { Ico(Res.drawable.ic_skip_next, tr("Следующий"), tint = on) }
+      IconButton(shapes = IconButtonDefaults.shapes(), onClick = { Devices.command(d.id, "next") }) { Ico(Res.drawable.ic_skip_next, tr("Следующий"), tint = on) }
     }
     if (d.kind == "web") Row(verticalAlignment = Alignment.CenterVertically) {
       Ico(Res.drawable.ic_volume, null, Modifier.size(20.dp), on)
@@ -116,7 +120,7 @@ fun DevicesButton(onClick: () -> Unit) {
   val others = list.filter { !it.current && it.id != Devices.id }
   if (others.isEmpty()) return
   Box {
-    IconButton(onClick = onClick) {
+    IconButton(shapes = IconButtonDefaults.shapes(), onClick = onClick) {
       MorphIco(Res.drawable.ic_devices, tr("Устройства"), tint = if (others.any { it.playing }) MaterialTheme.colorScheme.primary else androidx.compose.material3.LocalContentColor.current)
     }
   }

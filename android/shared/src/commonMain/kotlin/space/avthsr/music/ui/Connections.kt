@@ -1,7 +1,10 @@
 // The outside services a listener connects: the Telegram bot (songs by name or link, what friends send),
 // Last.fm (every play scrobbled), and their city — for concerts of the artists they love.
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package space.avthsr.music.ui
 
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -82,7 +85,7 @@ fun ConnectionsScreen() {
             enabled = s.telegram.available, shapes = ButtonDefaults.shapes(),
             onClick = { act { Platform.openUrl(Api.telegramLink()) } },
           ) { Text(tr("Привязать")) }
-          if (s.telegram.linked == null && s.telegram.available) TextButton(onClick = { loader.reload() }) { Text(tr("Я привязал(а)")) }
+          if (s.telegram.linked == null && s.telegram.available) TextButton(shapes = ButtonDefaults.shapes(), onClick = { loader.reload() }) { Text(tr("Я привязал(а)")) }
         }
         TgProfileCard(s.tgProfile) { loader.reload() }
         Service(
@@ -95,7 +98,7 @@ fun ConnectionsScreen() {
         ) {
           if (s.lastfm.linked != null) OutlinedButton(onClick = { act(tr("Last.fm отключён"), { loader.reload() }) { Api.lastfmUnlink() } }, shapes = ButtonDefaults.shapes()) { Text(tr("Отключить")) }
           else Button(enabled = s.lastfm.available, shapes = ButtonDefaults.shapes(), onClick = { act { Platform.openUrl(Api.lastfmStart()) } }) { Text(tr("Подключить")) }
-          if (s.lastfm.linked == null && s.lastfm.available) TextButton(onClick = { loader.reload() }) { Text(tr("Я подключил(а)")) }
+          if (s.lastfm.linked == null && s.lastfm.available) TextButton(shapes = ButtonDefaults.shapes(), onClick = { loader.reload() }) { Text(tr("Я подключил(а)")) }
         }
         val nav = LocalNav.current
         Service(Res.drawable.ic_event, tr("Концерты"), tr("Концерты ваших исполнителей в вашем городе — раз в неделю приходят во «Входящие».")) {
@@ -136,14 +139,14 @@ fun ConcertsScreen() {
             if (c?.city == null) tr("Выберите город — и мы найдём концерты ваших исполнителей") else tr("Ваших исполнителей ищем в афише города"),
             Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
-          TextButton(onClick = { pick = true }) { Text(if (c?.city == null) tr("Выбрать город") else tr("Сменить город")) }
+          TextButton(shapes = ButtonDefaults.shapes(), onClick = { pick = true }) { Text(if (c?.city == null) tr("Выбрать город") else tr("Сменить город")) }
         }
       }
       val list = c?.concerts.orEmpty()
       if (c?.city != null && list.isEmpty()) item {
         Hint(if (c.checkedAt == null) tr("Ищем в афише… загляните через минуту") else tr("Пока ничего — как только ваши исполнители приедут, концерт появится здесь и во «Входящих»"))
       }
-      items(list, key = { it.id }) { ConcertRow(it) }
+      items(list, key = { it.id }) { Glide { ConcertRow(it) } }
     }
   }
   if (pick) CityDialog(onDismiss = { pick = false }) { pick = false; loader.reload() }
@@ -170,7 +173,7 @@ private fun ConcertRow(c: Concert) {
 fun CityDialog(onDismiss: () -> Unit, onDone: () -> Unit) {
   val cities = rememberLoad(Unit) { Api.cities() }
   var q by remember { mutableStateOf("") }
-  AlertDialog(
+  AlertDialog(modifier = Modifier.growIn(),
     onDismissRequest = onDismiss,
     title = { Text(tr("Ваш город")) },
     text = {
@@ -178,18 +181,18 @@ fun CityDialog(onDismiss: () -> Unit, onDone: () -> Unit) {
         OutlinedTextField(q, { q = it }, label = { Text(tr("Поиск")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
         Spacer(Modifier.height(8.dp))
         LazyColumn(Modifier.heightIn(max = 360.dp)) {
-          items(cities.data.orEmpty().filter { q.isBlank() || it.name.contains(q.trim(), ignoreCase = true) }, key = { it.slug }) { c ->
+          items(cities.data.orEmpty().filter { q.isBlank() || it.name.contains(q.trim(), ignoreCase = true) }, key = { it.slug }) { c -> Glide {
             Text(
               c.name,
               Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { act(tr("Город сохранён"), onDone) { Api.setCity(c.slug) } }.padding(12.dp),
               style = MaterialTheme.typography.bodyLarge,
-            )
+            ) }
           }
         }
       }
     },
-    confirmButton = { TextButton(onClick = { act(tr("Город убран"), onDone) { Api.setCity(null) } }) { Text(tr("Не искать")) } },
-    dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Отмена")) } },
+    confirmButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = { act(tr("Город убран"), onDone) { Api.setCity(null) } }) { Text(tr("Не искать")) } },
+    dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = onDismiss) { Text(tr("Отмена")) } },
   )
 }
 
@@ -230,7 +233,7 @@ private fun TgProfileCard(st: space.avthsr.music.api.TgProfileState, reload: () 
         )
         if (step == 2) Text(tr("Код пришёл в Telegram (чат «Telegram»). Не пересылайте его никому."), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-          TextButton(onClick = { step = 0; value = "" }) { Text(tr("Отмена")) }
+          TextButton(shapes = ButtonDefaults.shapes(), onClick = { step = 0; value = "" }) { Text(tr("Отмена")) }
           Button(enabled = value.isNotBlank() && !busy, shapes = ButtonDefaults.shapes(), onClick = {
             val v = value
             go {

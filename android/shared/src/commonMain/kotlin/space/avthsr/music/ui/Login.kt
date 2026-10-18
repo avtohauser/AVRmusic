@@ -141,11 +141,11 @@ fun LoginScreen() {
         else Text(if (register) tr("Создать аккаунт") else tr("Войти"), style = MaterialTheme.typography.titleMedium)
       }
       if (!setup) Row {
-        TextButton(onClick = { register = !register; error = null }) {
+        TextButton(shapes = ButtonDefaults.shapes(), onClick = { register = !register; error = null }) {
           Text(if (register) tr("Уже есть аккаунт? Войти") else tr("Есть код приглашения? Регистрация"))
         }
       }
-      if (!setup) TextButton(onClick = { teaser = true }) { Text(tr("Что такое avr music?")) }
+      if (!setup) TextButton(shapes = ButtonDefaults.shapes(), onClick = { teaser = true }) { Text(tr("Что такое avr music?")) }
     }
   }
 }

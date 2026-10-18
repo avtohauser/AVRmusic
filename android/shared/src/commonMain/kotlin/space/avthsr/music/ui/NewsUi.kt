@@ -2,6 +2,7 @@
 
 package space.avthsr.music.ui
 
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -55,7 +56,7 @@ fun NewsScreen() {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = screenPadding(start = 16.dp, end = 16.dp, top = 56.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
       item { FlowText(tr("Новости"), MaterialTheme.typography.headlineMedium, Modifier.padding(horizontal = 4.dp), maxLines = 1) }
       if (items.isEmpty()) item { Text(tr("Новостей пока нет"), Modifier.padding(4.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
-      items(items, key = { it.id }) { n -> NewsCard(n) }
+      items(items, key = { it.id }) { n -> Glide { NewsCard(n) } }
     }
   }
 }
@@ -69,7 +70,7 @@ private fun NewsCard(n: NewsItem, onDelete: (() -> Unit)? = null) {
       if (n.body.isNotBlank()) Text(n.body, Modifier.padding(top = 4.dp), style = MaterialTheme.typography.bodyMedium)
       Text(listOfNotNull(fmtDateTime(n.createdAt), n.author).joinToString(" · "), Modifier.padding(top = 6.dp), style = MaterialTheme.typography.labelSmall, color = cs.onSurfaceVariant)
     }
-    if (onDelete != null) IconButton(onClick = onDelete) { Ico(Res.drawable.ic_delete, tr("Удалить")) }
+    if (onDelete != null) IconButton(shapes = IconButtonDefaults.shapes(), onClick = onDelete) { Ico(Res.drawable.ic_delete, tr("Удалить")) }
   }
 }
 
@@ -94,7 +95,7 @@ fun NewsBanner(onOpen: () -> Unit) {
       if (n.body.isNotBlank()) Text(n.body, style = MaterialTheme.typography.bodyMedium, color = cs.onPrimaryContainer, maxLines = 3, overflow = TextOverflow.Ellipsis)
       if (unread.size > 1) Text(tr("и ещё {}", unread.size - 1), style = MaterialTheme.typography.labelMedium, color = cs.onPrimaryContainer.copy(alpha = 0.8f))
       Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-        TextButton(onClick = { News.markRead() }) { Text(tr("Понятно")) }
+        TextButton(shapes = ButtonDefaults.shapes(), onClick = { News.markRead() }) { Text(tr("Понятно")) }
       }
     }
   }
@@ -132,7 +133,7 @@ fun AdminNews() {
       }
     }
     if (items.isEmpty()) item { Text(tr("Новостей пока нет"), Modifier.padding(4.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
-    items(items, key = { it.id }) { n -> NewsCard(n) { remove = n } }
+    items(items, key = { it.id }) { n -> Glide { NewsCard(n) { remove = n } } }
   }
   remove?.let { n ->
     ConfirmDialog(tr("Удалить «{}»?", n.title), tr("Новость пропадёт у всех."), tr("Удалить"), { remove = null }) {

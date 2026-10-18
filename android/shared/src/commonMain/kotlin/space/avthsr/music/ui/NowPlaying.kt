@@ -2,6 +2,7 @@
 
 package space.avthsr.music.ui
 
+import androidx.compose.material3.ButtonDefaults
 import space.avthsr.music.tr
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideInHorizontally
@@ -209,7 +210,7 @@ private fun NowPlayingContent(deck: Deck, onClose: () -> Unit) {
       // the cover deck spans the whole width (thrown covers stick out from the screen's edges); the rest keeps its margins
       val margins = Modifier.padding(horizontal = 24.dp)
       Row(margins.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = onClose) { Ico(Res.drawable.ic_expand_more, tr("Свернуть")) }
+        IconButton(shapes = IconButtonDefaults.shapes(), onClick = onClose) { Ico(Res.drawable.ic_expand_more, tr("Свернуть")) }
         Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
           val v = jam
           val along by space.avthsr.music.player.Follow.friend.collectAsStateWithLifecycle()
@@ -220,13 +221,13 @@ private fun NowPlayingContent(deck: Deck, onClose: () -> Unit) {
             if (inWave) Text(Queue.modeLabel(Queue.waveMode.value), style = MaterialTheme.typography.labelSmall, color = cs.primary)
           }
         }
-        IconButton(onClick = { jamOpen = true }) {
+        IconButton(shapes = IconButtonDefaults.shapes(), onClick = { jamOpen = true }) {
           MorphIco(Res.drawable.ic_headphones, tr("Слушать вместе"), tint = if (jam != null) cs.tertiary else LocalContentColor.current)
         }
         CastButton(LocalContentColor.current)
         DevicesButton { devicesOpen = true }
         Box {
-          IconButton(onClick = { menu = true }, enabled = t != null) { Ico(Res.drawable.ic_more, tr("Ещё")) }
+          IconButton(shapes = IconButtonDefaults.shapes(), onClick = { menu = true }, enabled = t != null) { Ico(Res.drawable.ic_more, tr("Ещё")) }
           if (t != null) TrackMenu(t, menu, { menu = false }) { close ->
             // canvases on / off right from the player
             DropdownMenuItem(text = { Text(tr("Устройства")) }, leadingIcon = { Ico(Res.drawable.ic_devices) }, onClick = { close(); devicesOpen = true })
@@ -413,7 +414,7 @@ private fun QueueSheet(s: PlayerUi, onDismiss: () -> Unit) {
   ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
     Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
       RollText(tr("Очередь · {}", s.queue.size), Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
-      TextButton(onClick = { PlayerConn.clearQueue() }, enabled = s.queue.size > 1) { Ico(Res.drawable.ic_clear_all, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(tr("Очистить")) }
+      TextButton(shapes = ButtonDefaults.shapes(), onClick = { PlayerConn.clearQueue() }, enabled = s.queue.size > 1) { Ico(Res.drawable.ic_clear_all, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(tr("Очистить")) }
     }
     Text(
       tr("Перетаскивайте за ≡, чтобы поменять порядок"), Modifier.padding(horizontal = 20.dp),
@@ -453,7 +454,7 @@ private fun QueueSheet(s: PlayerUi, onDismiss: () -> Unit) {
             Text(t.title, maxLines = 1, overflow = TextOverflow.Ellipsis, color = if (current) cs.primary else cs.onSurface, style = MaterialTheme.typography.titleSmall)
             Text(t.artists, maxLines = 1, overflow = TextOverflow.Ellipsis, color = cs.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
           }
-          if (!current) IconButton(onClick = { PlayerConn.removeAt(i) }) { Ico(Res.drawable.ic_close, tr("Убрать"), tint = cs.onSurfaceVariant) }
+          if (!current) IconButton(shapes = IconButtonDefaults.shapes(), onClick = { PlayerConn.removeAt(i) }) { Ico(Res.drawable.ic_close, tr("Убрать"), tint = cs.onSurfaceVariant) }
         }
       }
     }

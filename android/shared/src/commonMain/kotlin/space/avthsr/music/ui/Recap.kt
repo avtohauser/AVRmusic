@@ -1,8 +1,12 @@
 // The listener's month or year in music, as stories: big animated numbers, the track and artists of the
 // period, genres, the hours music plays, discoveries and a "personality" — each card can be shared as a
 // picture. Pages turn by themselves; a tap on the left or right edge goes back or on, a hold pauses.
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package space.avthsr.music.ui
 
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
@@ -123,12 +127,12 @@ fun RecapScreen() {
   Page {
     Column(Modifier.fillMaxSize().background(cs.background).padding(top = LocalEdges.current.top + 52.dp, bottom = LocalEdges.current.bottom)) {
       Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = { offset++ }, enabled = offset < 20) { Ico(Res.drawable.ic_skip_prev, tr("Раньше")) }
+        IconButton(shapes = IconButtonDefaults.shapes(), onClick = { offset++ }, enabled = offset < 20) { Ico(Res.drawable.ic_skip_prev, tr("Раньше")) }
         Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)) {
           ToggleButton(checked = period == "month", onCheckedChange = { period = "month"; offset = 0 }) { Text(tr("Месяц")) }
           ToggleButton(checked = period == "year", onCheckedChange = { period = "year"; offset = 0 }) { Text(tr("Год")) }
         }
-        IconButton(onClick = { offset-- }, enabled = offset > 0) { Ico(Res.drawable.ic_skip_next, tr("Позже")) }
+        IconButton(shapes = IconButtonDefaults.shapes(), onClick = { offset-- }, enabled = offset > 0) { Ico(Res.drawable.ic_skip_next, tr("Позже")) }
       }
       Spacer(Modifier.height(8.dp))
       Box(Modifier.weight(1f).fillMaxWidth()) {

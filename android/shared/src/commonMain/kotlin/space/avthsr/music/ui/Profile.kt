@@ -1,5 +1,10 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package space.avthsr.music.ui
 
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.IconButtonDefaults
 import org.jetbrains.compose.resources.DrawableResource
 import space.avthsr.music.Pick
 import space.avthsr.music.Platform
@@ -105,7 +110,7 @@ fun ProfileScreen() {
         }
         if (s.topTracks.isNotEmpty()) {
           item { SectionTitle(tr("Любимые треки по прослушиваниям")) }
-          itemsIndexed(s.topTracks.take(5)) { i, t -> TrackRow(t, onClick = { PlayerConn.play(s.topTracks, i, "top") }) }
+          itemsIndexed(s.topTracks.take(5)) { i, t -> Glide { TrackRow(t, onClick = { PlayerConn.play(s.topTracks, i, "top") }) } }
         }
         if (s.topGenres.isNotEmpty()) item {
           Text(
@@ -149,7 +154,7 @@ fun ProfileScreen() {
           Spacer(Modifier.height(16.dp))
           Text(tr("avr music для {} {}", Platform.name, Platform.version), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
           val update by space.avthsr.music.player.AppUpdate.available.collectAsStateWithLifecycle()
-          update?.let { r -> TextButton(onClick = { space.avthsr.music.player.AppUpdate.prompt.value = true }) { Text(tr("Обновить до {}", r.version)) } }
+          update?.let { r -> TextButton(shapes = ButtonDefaults.shapes(), onClick = { space.avthsr.music.player.AppUpdate.prompt.value = true }) { Text(tr("Обновить до {}", r.version)) } }
         }
       }
     }
@@ -214,13 +219,13 @@ fun HistoryScreen() {
         item {
           Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(tr("История"), style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
-            if (list.isNotEmpty()) IconButton(onClick = { clear = true }) { Ico(Res.drawable.ic_close, tr("Очистить")) }
+            if (list.isNotEmpty()) IconButton(shapes = IconButtonDefaults.shapes(), onClick = { clear = true }) { Ico(Res.drawable.ic_close, tr("Очистить")) }
           }
         }
         if (list.isEmpty()) item { Text(tr("Пока пусто"), Modifier.padding(20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
         val tracks = list.map { it.track }
-        itemsIndexed(list) { i, e ->
-          TrackRow(e.track, onClick = { PlayerConn.play(tracks, i, "history") }, subtitle = "${e.track.artists} · ${fmtAgo(e.playedAt)}")
+        itemsIndexed(list) { i, e -> Glide {
+          TrackRow(e.track, onClick = { PlayerConn.play(tracks, i, "history") }, subtitle = "${e.track.artists} · ${fmtAgo(e.playedAt)}") }
         }
       }
     }

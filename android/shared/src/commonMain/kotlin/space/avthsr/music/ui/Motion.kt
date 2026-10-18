@@ -26,6 +26,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.ui.graphics.Shape
@@ -81,11 +85,19 @@ object SharedCover {
   var key by mutableStateOf<String?>(null)
     private set
 
-  fun tap(token: String, key: String) {
+  /** what the tapped card showed: the page it opens draws its header from it at once, before it loads */
+  var peek by mutableStateOf<Peek?>(null)
+    private set
+
+  fun tap(token: String, key: String, cover: String? = null, title: String? = null, circle: Boolean = false) {
     this.token = token
     this.key = key
+    peek = title?.let { Peek(key, cover, it, circle) }
   }
 }
+
+/** A tapped card's cover and title, for the header of the page it opens. */
+data class Peek(val key: String, val cover: String?, val title: String, val circle: Boolean)
 
 /**
  * Marks a cover as the same thing as the cover with [key] elsewhere, so it flows between them.
@@ -136,4 +148,17 @@ fun LazyItemScope.Glide(content: @Composable () -> Unit) {
 fun List<space.avthsr.music.api.Track>.rowKeys(): List<String> {
   val seen = HashMap<String, Int>()
   return map { t -> val n = seen[t.id] ?: 0; seen[t.id] = n + 1; "${t.id}#$n" }
+}
+
+/** A dialog (or a panel) that grows in from a little smaller as it appears, on the expressive spring. */
+@Composable
+fun Modifier.growIn(): Modifier {
+  val k = remember { Animatable(0f) }
+  LaunchedEffect(Unit) { k.animateTo(1f, Motion.expressive.defaultSpatialSpec()) }
+  return graphicsLayer {
+    val v = k.value
+    scaleX = 0.86f + 0.14f * v
+    scaleY = 0.86f + 0.14f * v
+    alpha = v.coerceIn(0f, 1f)
+  }
 }

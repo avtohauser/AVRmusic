@@ -164,7 +164,7 @@ private fun Result(r: Recognized, again: () -> Unit) {
     Spacer(Modifier.height(12.dp))
     if (r.catalog.isEmpty()) HearHint(tr("В каталоге не нашлось — попробуйте поиск"))
     LazyColumn(Modifier.weight(1f, fill = false), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-      items(r.catalog.take(5), key = { it.id }) { t -> CatalogHit(t) }
+      items(r.catalog.take(5), key = { it.id }) { t -> Glide { CatalogHit(t) } }
     }
     Spacer(Modifier.height(8.dp))
     FilledTonalButton(onClick = again, shapes = ButtonDefaults.shapes()) { Ico(Res.drawable.ic_mic, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(tr("Узнать другую")) }

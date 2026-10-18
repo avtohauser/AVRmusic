@@ -115,7 +115,7 @@ fun Teaser(onLogin: () -> Unit, onCode: () -> Unit) {
         Spacer(Modifier.width(8.dp))
         Wordmark(22.sp, dark = true)
         Spacer(Modifier.weight(1f))
-        TextButton(onClick = { markSeen(); onLogin() }) { Text(tr("Войти"), color = Brand.Pink) }
+        TextButton(shapes = ButtonDefaults.shapes(), onClick = { markSeen(); onLogin() }) { Text(tr("Войти"), color = Brand.Pink) }
       }
       HorizontalPager(pager, Modifier.weight(1f).fillMaxWidth(), beyondViewportPageCount = 1) { i ->
         val shown = pager.settledPage == i

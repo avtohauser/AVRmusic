@@ -2,6 +2,8 @@
 
 package space.avthsr.music.ui
 
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.ToggleButton
 import androidx.compose.foundation.combinedClickable
 import space.avthsr.music.tr
@@ -106,8 +108,8 @@ fun SearchScreen() {
       placeholder = { Text(tr("Что хотите послушать?")) },
       leadingIcon = { Ico(Res.drawable.ic_search) },
       trailingIcon = {
-        if (q.isNotEmpty()) IconButton(onClick = { q = "" }) { Ico(Res.drawable.ic_close, tr("Очистить")) }
-        else if (voice != null) IconButton(onClick = voice) { Ico(Res.drawable.ic_mic, tr("Сказать голосом")) }
+        if (q.isNotEmpty()) IconButton(shapes = IconButtonDefaults.shapes(), onClick = { q = "" }) { Ico(Res.drawable.ic_close, tr("Очистить")) }
+        else if (voice != null) IconButton(shapes = IconButtonDefaults.shapes(), onClick = voice) { Ico(Res.drawable.ic_mic, tr("Сказать голосом")) }
       },
       singleLine = true,
       shape = RoundedCornerShape(28.dp),
@@ -124,7 +126,7 @@ fun SearchScreen() {
       if (query.isEmpty()) {
         if (recent.isNotEmpty()) {
           item {
-            SectionTitle(tr("Недавние запросы")) { TextButton(onClick = { Recent.clear(); recent = emptyList() }) { Text(tr("Очистить")) } }
+            SectionTitle(tr("Недавние запросы")) { TextButton(shapes = ButtonDefaults.shapes(), onClick = { Recent.clear(); recent = emptyList() }) { Text(tr("Очистить")) } }
             Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
               recent.forEach { r -> AssistChip(onClick = { q = r; query = r }, label = { Text(r) }, leadingIcon = { Ico(Res.drawable.ic_history, null, Modifier.size(18.dp)) }) }
             }
@@ -133,11 +135,11 @@ fun SearchScreen() {
         val g = genres.data.orEmpty()
         if (g.isNotEmpty()) {
           item { SectionTitle(tr("Обзор: жанры и настроения")) }
-          items(g.chunked(2)) { row ->
+          items(g.chunked(2)) { row -> Glide {
             Row(Modifier.padding(horizontal = 16.dp, vertical = 5.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
               row.forEach { GenreTile(it, Modifier.weight(1f)) { nav.genre(it.slug) } }
               if (row.size == 1) Box(Modifier.weight(1f))
-            }
+            } }
           }
         }
         return@LazyColumn
@@ -197,7 +199,7 @@ fun SearchScreen() {
         if (c != null && (c.tracks.isNotEmpty() || c.albums.isNotEmpty() || c.artists.isNotEmpty())) {
           item { SectionTitle(tr("В каталоге"), tr("Нажмите — заиграет сразу целиком, а сервер сохранит трек себе")) }
           val top = c.tracks.take(8)
-          itemsIndexed(top) { i, t -> CatalogTrackRow(t, onPlay = { keep(); Instant.play(top, i, "search") }) }
+          itemsIndexed(top) { i, t -> Glide { CatalogTrackRow(t, onPlay = { keep(); Instant.play(top, i, "search") }) } }
           if (c.albums.isNotEmpty()) item { CardRow(c.albums) { CatalogAlbumCard(it) } }
           if (c.artists.isNotEmpty()) item {
             CardRow(c.artists) { a -> MediaCard(a.name, "", a.imageUrl, { nav.catalogArtist(a.id) }, share = "cartist:${a.id}", circle = true, width = 124.dp) }
@@ -221,7 +223,7 @@ private fun ResultRow(
   var open by remember { mutableStateOf(false) }
   val token = rememberSaveable { uniqueToken() }
   Row(
-    Modifier.fillMaxWidth().combinedClickable(onClick = { if (share != null) SharedCover.tap(token, share); onClick() }, onLongClick = menu?.let { { open = true } })
+    Modifier.fillMaxWidth().combinedClickable(onClick = { if (share != null) SharedCover.tap(token, share, cover, title, circle); onClick() }, onLongClick = menu?.let { { open = true } })
       .padding(start = 16.dp, end = if (menu != null) 4.dp else 16.dp, top = 8.dp, bottom = 8.dp),
     verticalAlignment = Alignment.CenterVertically,
   ) {
@@ -232,7 +234,7 @@ private fun ResultRow(
       Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
     if (menu != null) Box {
-      IconButton(onClick = { open = true }) { Ico(Res.drawable.ic_more, tr("Ещё"), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+      IconButton(shapes = IconButtonDefaults.shapes(), onClick = { open = true }) { Ico(Res.drawable.ic_more, tr("Ещё"), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
       menu(open) { open = false }
     }
   }

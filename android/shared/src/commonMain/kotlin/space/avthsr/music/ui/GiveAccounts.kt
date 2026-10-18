@@ -1,7 +1,10 @@
 // "Помочь с загрузками": a friend gives a spare YouTube account (its cookies.txt) — every account adds
 // downloads at the same time, on each of the servers. Theirs to see and take back; kept only on the server.
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package space.avthsr.music.ui
 
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -66,7 +69,7 @@ fun GiveAccountsScreen() {
               style = MaterialTheme.typography.bodySmall, color = if (a.loggedIn) cs.onSurfaceVariant else cs.error,
             )
           }
-          TextButton(onClick = { act(tr("Аккаунт забран"), { loader.reload() }) { Api.takeAccount(a.id) } }) { Text(tr("Забрать")) }
+          TextButton(shapes = ButtonDefaults.shapes(), onClick = { act(tr("Аккаунт забран"), { loader.reload() }) { Api.takeAccount(a.id) } }) { Text(tr("Забрать")) }
         }
       }
       if (g != null) Text(tr("Можно дать до {} аккаунтов.", g.max), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)

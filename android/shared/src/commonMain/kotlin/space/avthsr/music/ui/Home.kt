@@ -2,6 +2,7 @@
 
 package space.avthsr.music.ui
 
+import androidx.compose.material3.ButtonDefaults
 import space.avthsr.music.api.Likes
 import space.avthsr.music.api.LikePrefs
 import space.avthsr.music.tr
@@ -122,7 +123,7 @@ fun HomeScreen() {
         val greeting = localGreeting()
         LiveMark(Modifier.padding(end = 10.dp).size(36.dp, 26.dp))
         FlowText(greeting, MaterialTheme.typography.headlineMedium, Modifier.weight(1f))
-        IconButton(onClick = { nav.route("recognize") }) { Ico(Res.drawable.ic_mic, tr("Распознать песню")) }
+        IconButton(shapes = IconButtonDefaults.shapes(), onClick = { nav.route("recognize") }) { Ico(Res.drawable.ic_mic, tr("Распознать песню")) }
         InboxButton()
       }
     }
@@ -138,7 +139,7 @@ fun HomeScreen() {
       is Load.Err -> item {
         Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
           Text(s.message, color = MaterialTheme.colorScheme.onSurfaceVariant)
-          TextButton(onClick = loader.reload) { Text(tr("Повторить")) }
+          TextButton(shapes = ButtonDefaults.shapes(), onClick = loader.reload) { Text(tr("Повторить")) }
         }
       }
       else -> item { Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { LoadingMark() } }
@@ -300,7 +301,7 @@ private fun LazyListScope.section(s: HomeSection) {
       val tracks = s.items.mapNotNull { it.decode(Track.serializer()) }
       if (tracks.isEmpty()) return
       item { SectionTitle(tr(s.title), s.subtitle?.let { tr(it) }) }
-      items(tracks.take(6)) { t -> TrackRow(t, onClick = { PlayerConn.play(tracks, tracks.indexOf(t), "home:${s.id}") }) }
+      items(tracks.take(6)) { t -> Glide { TrackRow(t, onClick = { PlayerConn.play(tracks, tracks.indexOf(t), "home:${s.id}") }) } }
     }
     "albums" -> item {
       val nav = LocalNav.current
@@ -332,7 +333,7 @@ private fun LazyListScope.section(s: HomeSection) {
 fun GenreRow(list: List<Genre>) {
   val nav = LocalNav.current
   LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-    items(list) { g -> GenreTile(g, Modifier.width(176.dp)) { nav.genre(g.slug) } }
+    items(list) { g -> Glide { GenreTile(g, Modifier.width(176.dp)) { nav.genre(g.slug) } } }
   }
 }
 

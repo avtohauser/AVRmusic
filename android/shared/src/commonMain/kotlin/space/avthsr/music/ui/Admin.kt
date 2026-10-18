@@ -2,6 +2,13 @@
 
 package space.avthsr.music.ui
 
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.ToggleButton
 import space.avthsr.music.Pick
 import space.avthsr.music.PickedFile
@@ -123,7 +130,17 @@ fun AdminScreen() {
       Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         adminTabs.forEachIndexed { i, label -> ToggleButton(checked = tab == i, onCheckedChange = { tab = i }) { Text(label) } }
       }
-      Box(Modifier.weight(1f)) {
+      // the sections slide along the row of tabs: the next one comes in from its side
+      AnimatedContent(
+        targetState = tab,
+        transitionSpec = {
+          val ahead = targetState > initialState
+          (slideInHorizontally(Motion.expressive.defaultSpatialSpec()) { w -> if (ahead) w / 5 else -w / 5 } + fadeIn(Motion.expressive.defaultEffectsSpec()))
+            .togetherWith(slideOutHorizontally(Motion.expressive.fastSpatialSpec()) { w -> if (ahead) -w / 5 else w / 5 } + fadeOut(Motion.expressive.fastEffectsSpec()))
+        },
+        modifier = Modifier.weight(1f),
+        label = "admin-tab",
+      ) { tab ->
         when (tab) {
           0 -> AdminOverview()
           1 -> AdminNews()
@@ -177,15 +194,15 @@ private fun AdminOverview() {
       }
       if (a.topTracks.isNotEmpty()) {
         item { SectionTitle(tr("Топ треков за месяц")) }
-        items(a.topTracks) { t -> SimpleRow(t.title, t.artist, "${t.plays}") }
+        items(a.topTracks) { t -> Glide { SimpleRow(t.title, t.artist, "${t.plays}") } }
       }
       if (a.topArtists.isNotEmpty()) {
         item { SectionTitle(tr("Топ исполнителей")) }
-        items(a.topArtists) { t -> SimpleRow(t.name, "", "${t.plays}") }
+        items(a.topArtists) { t -> Glide { SimpleRow(t.name, "", "${t.plays}") } }
       }
       if (a.sources.isNotEmpty()) {
         item { SectionTitle(tr("Откуда музыка")) }
-        items(a.sources) { s -> SimpleRow(s.source, tracksWord(s.tracks), fmtBytes(s.bytes)) }
+        items(a.sources) { s -> Glide { SimpleRow(s.source, tracksWord(s.tracks), fmtBytes(s.bytes)) } }
       }
     }
     if (stats.state is Load.Loading) item { Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { LoadingMark() } }
@@ -229,7 +246,7 @@ private fun AdminUsers() {
         else -> parseTime(it.lastSeenAt) ?: 0L
       }
     }
-    items(list) { u -> UserRow(u) { nav.route("admin/user/${u.id}") } }
+    items(list) { u -> Glide { UserRow(u) { nav.route("admin/user/${u.id}") } } }
     if (loader.state is Load.Loading) item { Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { LoadingMark() } }
   }
 }
@@ -321,25 +338,25 @@ fun AdminUserScreen(id: String) {
         }
         if (d.topArtists.isNotEmpty()) {
           item { SectionTitle(tr("Любимые исполнители")) }
-          items(d.topArtists) { a -> SimpleRow(a.name, "", "${a.plays}") { nav.artist(a.id) } }
+          items(d.topArtists) { a -> Glide { SimpleRow(a.name, "", "${a.plays}") { nav.artist(a.id) } } }
         }
         if (d.topTracks.isNotEmpty()) {
           item { SectionTitle(tr("Любимые треки")) }
-          items(d.topTracks) { t -> SimpleRow(t.title, t.artist, "${t.plays}") }
+          items(d.topTracks) { t -> Glide { SimpleRow(t.title, t.artist, "${t.plays}") } }
         }
         if (d.recentPlays.isNotEmpty()) {
           item { SectionTitle(tr("Недавно слушал")) }
-          items(d.recentPlays) { p -> SimpleRow(p.title, "${p.artist} · ${fmtAgo(p.playedAt)}", fmtTime(p.msPlayed)) }
+          items(d.recentPlays) { p -> Glide { SimpleRow(p.title, "${p.artist} · ${fmtAgo(p.playedAt)}", fmtTime(p.msPlayed)) } }
         }
         if (d.added.isNotEmpty()) {
           item { SectionTitle(tr("Добавил на сервер")) }
-          items(d.added) { a -> SimpleRow(a.title, "${a.artist} · ${fmtAgo(a.createdAt)}", "") }
+          items(d.added) { a -> Glide { SimpleRow(a.title, "${a.artist} · ${fmtAgo(a.createdAt)}", "") } }
         }
         if (d.downloads.isNotEmpty()) {
           item { SectionTitle(tr("Скачал")) }
-          items(d.downloads) { x ->
+          items(d.downloads) { x -> Glide {
             val kind = when (x.kind) { "album" -> tr("альбом"); "playlist" -> tr("плейлист"); "offline" -> tr("офлайн"); else -> tr("файл") }
-            SimpleRow(x.title ?: x.refId ?: "—", "$kind · ${fmtAgo(x.createdAt)}", x.bytes?.let { fmtBytes(it) } ?: "")
+            SimpleRow(x.title ?: x.refId ?: "—", "$kind · ${fmtAgo(x.createdAt)}", x.bytes?.let { fmtBytes(it) } ?: "") }
           }
         }
       }
@@ -352,12 +369,12 @@ fun AdminUserScreen(id: String) {
     }
   }
   password?.let { p ->
-    AlertDialog(
+    AlertDialog(modifier = Modifier.growIn(),
       onDismissRequest = { password = null },
       title = { Text(tr("Новый пароль")) },
       text = { SelectionContainer { Text(p, style = MaterialTheme.typography.headlineSmall) } },
-      confirmButton = { TextButton(onClick = { clipboard.setText(AnnotatedString(p)); App.say(tr("Скопировано")); password = null }) { Text(tr("Скопировать")) } },
-      dismissButton = { TextButton(onClick = { password = null }) { Text(tr("Закрыть")) } },
+      confirmButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = { clipboard.setText(AnnotatedString(p)); App.say(tr("Скопировано")); password = null }) { Text(tr("Скопировать")) } },
+      dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = { password = null }) { Text(tr("Закрыть")) } },
     )
   }
 }
@@ -383,7 +400,7 @@ private fun AdminInvites() {
       Spacer(Modifier.height(8.dp))
       Button(shapes = ButtonDefaults.shapes(), onClick = { create = true }) { Ico(Res.drawable.ic_add, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(tr("Создать код")) }
     }
-    items(loader.data.orEmpty()) { inv ->
+    items(loader.data.orEmpty()) { inv -> Glide {
       val expired = inv.expiresAt != null && (parseTime(inv.expiresAt) ?: Long.MAX_VALUE) < Platform.nowMs()
       val status = when {
         inv.usedAt != null -> tr("использован: {} · {}", (inv.usedBy?.displayName ?: inv.usedBy?.username ?: ""), (fmtAgo(inv.usedAt)))
@@ -400,23 +417,23 @@ private fun AdminInvites() {
           Text(listOfNotNull(inv.note, status).joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         if (inv.usedAt == null && !expired) {
-          IconButton(onClick = { clipboard.setText(AnnotatedString(inviteLink(inv.code))); App.say(tr("Ссылка скопирована")) }) { Ico(Res.drawable.ic_playlist_add, tr("Скопировать ссылку")) }
-          IconButton(onClick = { share(inv.code) }) { Ico(Res.drawable.ic_web, tr("Отправить")) }
+          IconButton(shapes = IconButtonDefaults.shapes(), onClick = { clipboard.setText(AnnotatedString(inviteLink(inv.code))); App.say(tr("Ссылка скопирована")) }) { Ico(Res.drawable.ic_playlist_add, tr("Скопировать ссылку")) }
+          IconButton(shapes = IconButtonDefaults.shapes(), onClick = { share(inv.code) }) { Ico(Res.drawable.ic_web, tr("Отправить")) }
         }
-        IconButton(onClick = { act(tr("Код удалён"), then = { version++ }) { Api.deleteInvite(inv.code) } }) { Ico(Res.drawable.ic_close, tr("Удалить")) }
-      }
+        IconButton(shapes = IconButtonDefaults.shapes(), onClick = { act(tr("Код удалён"), then = { version++ }) { Api.deleteInvite(inv.code) } }) { Ico(Res.drawable.ic_close, tr("Удалить")) }
+      } }
     }
   }
   if (create) FormDialog(tr("Новый код"), listOf(Field(tr("Для кого (необязательно)")), Field(tr("Срок, дней (пусто — бессрочно)"), number = true)), tr("Создать"), { create = false }) { v ->
     act(then = { version++ }) { created = Api.createInvite(v[0], v[1].trim().toIntOrNull()) }
   }
   created?.let { inv ->
-    AlertDialog(
+    AlertDialog(modifier = Modifier.growIn(),
       onDismissRequest = { created = null },
       title = { Text(tr("Код создан")) },
       text = { SelectionContainer { Text("${inv.code}\n\n${inviteLink(inv.code)}") } },
-      confirmButton = { TextButton(onClick = { share(inv.code); created = null }) { Text(tr("Отправить")) } },
-      dismissButton = { TextButton(onClick = { clipboard.setText(AnnotatedString(inviteLink(inv.code))); App.say(tr("Ссылка скопирована")); created = null }) { Text(tr("Скопировать")) } },
+      confirmButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = { share(inv.code); created = null }) { Text(tr("Отправить")) } },
+      dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = { clipboard.setText(AnnotatedString(inviteLink(inv.code))); App.say(tr("Ссылка скопирована")); created = null }) { Text(tr("Скопировать")) } },
     )
   }
 }
@@ -526,7 +543,7 @@ private fun ServerJobCard(j: ServerJob, expanded: Boolean, toggle: () -> Unit) {
         Text("$kind · $status", style = MaterialTheme.typography.bodySmall, color = if (j.status == "error") cs.error else cs.onSurfaceVariant, maxLines = 3)
       }
       if (j.status == "running" || j.status == "queued") {
-        IconButton(onClick = { act(tr("Задача отменена")) { Api.cancelJob(j.id) } }) { Ico(Res.drawable.ic_close, tr("Отменить")) }
+        IconButton(shapes = IconButtonDefaults.shapes(), onClick = { act(tr("Задача отменена")) { Api.cancelJob(j.id) } }) { Ico(Res.drawable.ic_close, tr("Отменить")) }
       }
     }
     if (j.status == "running") {
@@ -577,7 +594,7 @@ private fun AdminYoutube() {
     }
     val list = accounts
     if (list != null && list.isEmpty()) item { Text(tr("Аккаунтов нет: загрузки идут без входа, по 2 одновременно."), color = MaterialTheme.colorScheme.onSurfaceVariant) }
-    items(list.orEmpty()) { a ->
+    items(list.orEmpty()) { a -> Glide {
       val cs = MaterialTheme.colorScheme
       val state = when { a.busy -> tr("качает"); a.coolingUntil != null -> tr("отдыхает до {}", (fmtDateTime(a.coolingUntil).substringAfter(", "))); else -> tr("свободен") }
       Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(cs.surfaceContainer).padding(14.dp)) {
@@ -594,10 +611,10 @@ private fun AdminYoutube() {
         )
         a.lastError?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = cs.error, maxLines = 3, overflow = TextOverflow.Ellipsis) }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-          if (a.coolingUntil != null) TextButton(onClick = { act(tr("Снова в работе"), then = { tick++ }) { Api.wakeYtAccount(a.id) } }) { Text(tr("Вернуть в работу")) }
-          TextButton(onClick = { remove = a }) { Text(tr("Удалить"), color = cs.error) }
+          if (a.coolingUntil != null) TextButton(shapes = ButtonDefaults.shapes(), onClick = { act(tr("Снова в работе"), then = { tick++ }) { Api.wakeYtAccount(a.id) } }) { Text(tr("Вернуть в работу")) }
+          TextButton(shapes = ButtonDefaults.shapes(), onClick = { remove = a }) { Text(tr("Удалить"), color = cs.error) }
         }
-      }
+      } }
     }
   }
   remove?.let { a ->
@@ -621,8 +638,8 @@ private fun AdminTracks() {
       OutlinedTextField(q, { q = it }, Modifier.fillMaxWidth().padding(horizontal = 16.dp), label = { Text(tr("Название, исполнитель или альбом")) }, singleLine = true)
       loader.data?.let { Text(tr("Найдено: {}", it.total), Modifier.padding(horizontal = 20.dp, vertical = 6.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
-    items(loader.data?.items.orEmpty()) { t ->
-      TrackRow(t, onClick = { nav.route("admin/track/${t.id}") }, subtitle = listOfNotNull(t.artists, t.album?.title).joinToString(" · "))
+    items(loader.data?.items.orEmpty()) { t -> Glide {
+      TrackRow(t, onClick = { nav.route("admin/track/${t.id}") }, subtitle = listOfNotNull(t.artists, t.album?.title).joinToString(" · ")) }
     }
   }
 }
@@ -737,7 +754,7 @@ private fun AdminErrors() {
   LazyColumn(Modifier.fillMaxSize(), contentPadding = screenPadding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp, hero = true), verticalArrangement = Arrangement.spacedBy(8.dp)) {
     val list = loader.data.orEmpty()
     if (loader.data != null && list.isEmpty()) item { Text(tr("Ошибок нет 🎉"), color = MaterialTheme.colorScheme.onSurfaceVariant) }
-    items(list) { e ->
+    items(list) { e -> Glide {
       val cs = MaterialTheme.colorScheme
       Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(cs.surfaceContainer).clickable { open = if (open == e.id) null else e.id }.padding(14.dp)) {
         Text(e.message, style = MaterialTheme.typography.titleSmall, maxLines = 3, overflow = TextOverflow.Ellipsis)
@@ -749,7 +766,7 @@ private fun AdminErrors() {
           Spacer(Modifier.height(8.dp))
           SelectionContainer { Text(e.stack.lines().take(40).joinToString("\n"), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant) }
         }
-      }
+      } }
     }
   }
 }

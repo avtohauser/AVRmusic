@@ -1,7 +1,11 @@
 // Cards over everything: an invitation that just came (to play "guess the melody", to listen together)
 // and a newer version of the app, with the update dialog.
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package space.avthsr.music.ui
 
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
@@ -69,7 +73,7 @@ fun InviteBanner(s: Share, onOpen: () -> Unit, onClose: () -> Unit) {
       onOpen()
       if (game) nav.route("game/${s.refId}") else act(tr("Вы слушаете вместе")) { Jam.join(s.refId) }
     }, shapes = ButtonDefaults.shapes()) { Text(if (game) tr("Играть") else tr("Войти")) }
-    IconButton(onClick = onClose) { Ico(Res.drawable.ic_close, tr("Закрыть"), tint = cs.onTertiaryContainer) }
+    IconButton(shapes = IconButtonDefaults.shapes(), onClick = onClose) { Ico(Res.drawable.ic_close, tr("Закрыть"), tint = cs.onTertiaryContainer) }
   }
   Spacer(Modifier.height(8.dp))
 }
@@ -98,13 +102,13 @@ fun UpdateBanner() {
         )
         if (progress == null) {
           Button(onClick = { start() }, shapes = ButtonDefaults.shapes()) { Text(tr("Обновить")) }
-          IconButton(onClick = { Api.prefs.edit().putString("update.later", r.version).apply(); later = r.version }) { Ico(Res.drawable.ic_close, tr("Позже"), tint = cs.onPrimaryContainer) }
+          IconButton(shapes = IconButtonDefaults.shapes(), onClick = { Api.prefs.edit().putString("update.later", r.version).apply(); later = r.version }) { Ico(Res.drawable.ic_close, tr("Позже"), tint = cs.onPrimaryContainer) }
         }
       }
       progress?.let { p -> LinearWavyProgressIndicator(progress = { p }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp, end = 10.dp)) }
     }
   }
-  if (prompt) AlertDialog(
+  if (prompt) AlertDialog(modifier = Modifier.growIn(),
     onDismissRequest = { AppUpdate.prompt.value = false },
     title = { Text(tr("Обновление {}", r.version)) },
     text = {
@@ -113,7 +117,7 @@ fun UpdateBanner() {
           if (r.size > 0) "\n" + tr("Размер: {}", fmtBytes(r.size)) else "",
       )
     },
-    confirmButton = { TextButton(onClick = { AppUpdate.prompt.value = false; start() }) { Text(tr("Обновить")) } },
-    dismissButton = { TextButton(onClick = { AppUpdate.prompt.value = false }) { Text(tr("Позже")) } },
+    confirmButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = { AppUpdate.prompt.value = false; start() }) { Text(tr("Обновить")) } },
+    dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = { AppUpdate.prompt.value = false }) { Text(tr("Позже")) } },
   )
 }

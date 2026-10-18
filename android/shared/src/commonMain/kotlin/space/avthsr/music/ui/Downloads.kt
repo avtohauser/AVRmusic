@@ -2,6 +2,7 @@
 
 package space.avthsr.music.ui
 
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.scaleOut
@@ -143,7 +144,7 @@ fun DownloadsScreen() {
           Spacer(Modifier.height(12.dp))
           Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
             PlayButtons(tracks, "offline")
-            if (list.isNotEmpty()) TextButton(onClick = { clear = true }) { Text(tr("Удалить все")) }
+            if (list.isNotEmpty()) TextButton(shapes = ButtonDefaults.shapes(), onClick = { clear = true }) { Text(tr("Удалить все")) }
           }
         }
       }
@@ -175,7 +176,7 @@ fun OfflineBanner(onOpen: () -> Unit) {
     Row(Modifier.padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
       Ico(Res.drawable.ic_cloud_off, null, Modifier.size(18.dp))
       Text(tr("  Вы офлайн — доступны сохранённые треки"), style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f, fill = false))
-      TextButton(onClick = onOpen) { Text(tr("Открыть")) }
+      TextButton(shapes = ButtonDefaults.shapes(), onClick = onOpen) { Text(tr("Открыть")) }
     }
   }
 }

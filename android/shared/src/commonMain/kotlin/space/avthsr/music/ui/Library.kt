@@ -104,7 +104,7 @@ private fun ListRow(
   var open by remember { mutableStateOf(false) }
   val token = rememberSaveable { uniqueToken() }
   Row(
-    Modifier.fillMaxWidth().combinedClickable(onClick = { if (share != null) SharedCover.tap(token, share); onClick() }, onLongClick = menu?.let { { open = true } })
+    Modifier.fillMaxWidth().combinedClickable(onClick = { if (share != null) SharedCover.tap(token, share, cover, title, circle); onClick() }, onLongClick = menu?.let { { open = true } })
       .padding(start = 16.dp, end = if (menu != null) 4.dp else 16.dp, top = 8.dp, bottom = 8.dp),
     verticalAlignment = Alignment.CenterVertically,
   ) {
@@ -115,7 +115,7 @@ private fun ListRow(
       if (subtitle.isNotEmpty()) Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
     if (menu != null) Box {
-      IconButton(onClick = { open = true }) { Ico(Res.drawable.ic_more, tr("Ещё"), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+      IconButton(shapes = IconButtonDefaults.shapes(), onClick = { open = true }) { Ico(Res.drawable.ic_more, tr("Ещё"), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
       menu(open) { open = false }
     }
   }
@@ -146,8 +146,8 @@ fun LibraryScreen() {
     item {
       Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         FlowText(tr("Медиатека"), MaterialTheme.typography.headlineMedium, Modifier.weight(1f), maxLines = 1)
-        IconButton(onClick = { nav.route("transfer") }) { Ico(Res.drawable.ic_import, tr("Перенести музыку")) }
-        IconButton(onClick = { create = true }) { Ico(Res.drawable.ic_add, tr("Новый плейлист")) }
+        IconButton(shapes = IconButtonDefaults.shapes(), onClick = { nav.route("transfer") }) { Ico(Res.drawable.ic_import, tr("Перенести музыку")) }
+        IconButton(shapes = IconButtonDefaults.shapes(), onClick = { create = true }) { Ico(Res.drawable.ic_add, tr("Новый плейлист")) }
       }
     }
     item {
@@ -238,12 +238,12 @@ fun LibraryScreen() {
 
   if (create) {
     var title by remember { mutableStateOf("") }
-    AlertDialog(
+    AlertDialog(modifier = Modifier.growIn(),
       onDismissRequest = { create = false },
       title = { Text(tr("Новый плейлист")) },
       text = { OutlinedTextField(title, { title = it }, label = { Text(tr("Название")) }, singleLine = true) },
       confirmButton = {
-        TextButton(enabled = title.isNotBlank(), onClick = {
+        TextButton(shapes = ButtonDefaults.shapes(), enabled = title.isNotBlank(), onClick = {
           val name = title
           create = false
           App.scope.launch {
@@ -251,7 +251,7 @@ fun LibraryScreen() {
           }
         }) { Text(tr("Создать")) }
       },
-      dismissButton = { TextButton(onClick = { create = false }) { Text(tr("Отмена")) } },
+      dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = { create = false }) { Text(tr("Отмена")) } },
     )
   }
 }
@@ -398,7 +398,7 @@ private fun LikedControls(query: String, onQuery: (String) -> Unit, searching: B
             query, onQuery, grow.fillMaxWidth().focusRequester(focus),
             placeholder = { Text(tr("Найти в списке")) },
             leadingIcon = { Ico(Res.drawable.ic_search, null) },
-            trailingIcon = { IconButton(onClick = { onQuery(""); onSearching(false) }) { Ico(Res.drawable.ic_close, tr("Закрыть поиск")) } },
+            trailingIcon = { IconButton(shapes = IconButtonDefaults.shapes(), onClick = { onQuery(""); onSearching(false) }) { Ico(Res.drawable.ic_close, tr("Закрыть поиск")) } },
             singleLine = true, shape = RoundedCornerShape(28.dp),
           )
         } else {
@@ -421,7 +421,7 @@ fun AlbumScreen(id: String) {
   val nav = LocalNav.current
   val loader = rememberLoad(id) { Api.album(id) }
   Page {
-    Loaded(loader) { a ->
+    LoadedPage(loader, "album:$id") { a ->
       LazyColumn(Modifier.fillMaxSize(), contentPadding = screenPadding(bottom = 24.dp, hero = true)) {
         item {
           Header(
@@ -434,17 +434,17 @@ fun AlbumScreen(id: String) {
           Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
             LikeButton("album", a.id)
             OfflineButton(a.tracks)
-            IconButton(onClick = { downloadToDevice("/api/download/album/${a.id}", "${a.artist.name} - ${a.title}.zip") }) { Ico(Res.drawable.ic_folder, tr("Скачать на устройство (ZIP)")) }
-            IconButton(onClick = { share("/album/${a.id}", "${a.artist.name} — ${a.title}") }) { Ico(Res.drawable.ic_share, tr("Поделиться")) }
+            IconButton(shapes = IconButtonDefaults.shapes(), onClick = { downloadToDevice("/api/download/album/${a.id}", "${a.artist.name} - ${a.title}.zip") }) { Ico(Res.drawable.ic_folder, tr("Скачать на устройство (ZIP)")) }
+            IconButton(shapes = IconButtonDefaults.shapes(), onClick = { share("/album/${a.id}", "${a.artist.name} — ${a.title}") }) { Ico(Res.drawable.ic_share, tr("Поделиться")) }
             if (Api.user?.isAdmin == true) AlbumAdminMenu(a) { loader.reload() }
           }
           AlbumCheck(a.id) { loader.reload() }
         }
-        itemsIndexed(a.tracks) { i, t ->
+        itemsIndexed(a.tracks) { i, t -> Glide {
           TrackRow(
             t, onClick = { PlayerConn.play(a.tracks, i, "album:${a.id}") }, index = t.trackNo ?: (i + 1), showCover = false,
             subtitle = if (t.featuring.isEmpty() && t.artist.id == a.artist.id) fmtTime(t.durationMs) else t.artists,
-          )
+          ) }
         }
         if (a.label != null) item { Text("℗ ${a.label}", Modifier.padding(20.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
       }
@@ -460,7 +460,7 @@ fun ArtistScreen(id: String) {
   val discography = rememberLoad("tracks", id) { Api.artistTracks(id) }
   var showAll by rememberSaveable { mutableStateOf(false) }
   Page {
-    Loaded(loader) { a ->
+    LoadedPage(loader, "artist:$id") { a ->
       val all = discography.data ?: a.topTracks
       // the popular ones first, then everything else of the artist
       val fromTop = a.topTracks + all.filter { t -> a.topTracks.none { it.id == t.id } }
@@ -480,25 +480,25 @@ fun ArtistScreen(id: String) {
             LikeButton("artist", a.id)
             // what of the artist is not on the server yet (or failed before) is fetched; the rest is skipped
             a.deezerId?.let { did ->
-              if (Api.user?.canAcquire != false) IconButton(onClick = { acquire("artist", did, tr("Дискография {}", a.name)) }) { Ico(Res.drawable.ic_download, tr("Докачать дискографию")) }
-              IconButton(onClick = { nav.catalogArtist(did) }) { Ico(Res.drawable.ic_explore, tr("Всё в каталоге")) }
+              if (Api.user?.canAcquire != false) IconButton(shapes = IconButtonDefaults.shapes(), onClick = { acquire("artist", did, tr("Дискография {}", a.name)) }) { Ico(Res.drawable.ic_download, tr("Докачать дискографию")) }
+              IconButton(shapes = IconButtonDefaults.shapes(), onClick = { nav.catalogArtist(did) }) { Ico(Res.drawable.ic_explore, tr("Всё в каталоге")) }
             }
-            IconButton(onClick = { share("/artist/${a.id}", a.name) }) { Ico(Res.drawable.ic_share, tr("Поделиться")) }
+            IconButton(shapes = IconButtonDefaults.shapes(), onClick = { share("/artist/${a.id}", a.name) }) { Ico(Res.drawable.ic_share, tr("Поделиться")) }
             if (Api.user?.isAdmin == true) ArtistAdminMenu(a) { loader.reload() }
           }
         }
         if (a.topTracks.isNotEmpty()) {
           item { SectionTitle(tr("Популярные треки")) }
-          itemsIndexed(a.topTracks.take(10)) { i, t -> TrackRow(t, onClick = { PlayerConn.play(fromTop, i, "artist:${a.id}") }) }
+          itemsIndexed(a.topTracks.take(10)) { i, t -> Glide { TrackRow(t, onClick = { PlayerConn.play(fromTop, i, "artist:${a.id}") }) } }
         }
         if (all.size > a.topTracks.size) {
           item {
             SectionTitle(tr("Все треки"), tracksWord(all.size)) {
-              TextButton(onClick = { showAll = !showAll }) { Text(if (showAll) tr("Свернуть") else tr("Показать")) }
+              TextButton(shapes = ButtonDefaults.shapes(), onClick = { showAll = !showAll }) { Text(if (showAll) tr("Свернуть") else tr("Показать")) }
             }
           }
-          if (showAll) itemsIndexed(all, key = { _, t -> "all:" + t.id }) { i, t ->
-            TrackRow(t, onClick = { PlayerConn.play(all, i, "artist:${a.id}") }, subtitle = listOfNotNull(t.artists, t.album?.title).joinToString(" · "))
+          if (showAll) itemsIndexed(all, key = { _, t -> "all:" + t.id }) { i, t -> Glide {
+            TrackRow(t, onClick = { PlayerConn.play(all, i, "artist:${a.id}") }, subtitle = listOfNotNull(t.artists, t.album?.title).joinToString(" · ")) }
           }
         }
         if (a.albums.isNotEmpty()) item {
@@ -526,7 +526,7 @@ fun ArtistScreen(id: String) {
 fun PlaylistScreen(id: String) {
   val loader = rememberLoad(id) { Api.playlist(id) }
   Page {
-    Loaded(loader) { p ->
+    LoadedPage(loader, "playlist:$id") { p ->
       val own = p.isOwner == true || p.owner?.id == Api.user?.id
       val canEdit = p.canEdit ?: own
       val shared = p.members.isNotEmpty()
@@ -553,13 +553,13 @@ fun PlaylistScreen(id: String) {
           }
           Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
             if (!own) LikeButton("playlist", p.id) else PlaylistOwnerMenu(p) { loader.reload() }
-            if (p.autoKind == "smart" && canEdit) IconButton(onClick = { rules = true }) { Ico(Res.drawable.ic_tune, tr("Правила")) }
-            if (p.autoKind != null && canEdit) IconButton(onClick = { act(tr("Обновлено"), { loader.reload() }) { Api.refreshPlaylist(p.id) } }) { Ico(Res.drawable.ic_refresh, tr("Обновить подборку")) }
+            if (p.autoKind == "smart" && canEdit) IconButton(shapes = IconButtonDefaults.shapes(), onClick = { rules = true }) { Ico(Res.drawable.ic_tune, tr("Правила")) }
+            if (p.autoKind != null && canEdit) IconButton(shapes = IconButtonDefaults.shapes(), onClick = { act(tr("Обновлено"), { loader.reload() }) { Api.refreshPlaylist(p.id) } }) { Ico(Res.drawable.ic_refresh, tr("Обновить подборку")) }
             // a playlist kept together with friends: their faces, a tap shows / invites them
             if (own || shared) MemberFaces(p) { members = true }
             OfflineButton(p.tracks)
-            IconButton(onClick = { downloadToDevice("/api/download/playlist/${p.id}", "${p.title}.zip") }) { Ico(Res.drawable.ic_folder, tr("Скачать на устройство (ZIP)")) }
-            IconButton(onClick = { share("/playlist/${p.id}", p.title) }) { Ico(Res.drawable.ic_share, tr("Поделиться")) }
+            IconButton(shapes = IconButtonDefaults.shapes(), onClick = { downloadToDevice("/api/download/playlist/${p.id}", "${p.title}.zip") }) { Ico(Res.drawable.ic_folder, tr("Скачать на устройство (ZIP)")) }
+            IconButton(shapes = IconButtonDefaults.shapes(), onClick = { share("/playlist/${p.id}", p.title) }) { Ico(Res.drawable.ic_share, tr("Поделиться")) }
           }
         }
         if (p.tracks.isEmpty()) item { Hint(tr("Плейлист пуст. Добавляйте треки через меню ⋮ у любого трека.")) }
@@ -646,7 +646,7 @@ private fun AlbumCheck(albumId: String, onFetched: () -> Unit) {
   if (c == null || !c.checkable) return
   if (c.missing.isEmpty()) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-      TextButton(enabled = !busy, onClick = {
+      TextButton(shapes = ButtonDefaults.shapes(), enabled = !busy, onClick = {
         busy = true
         App.scope.launch {
           runCatching { Api.albumCompleteness(albumId) }

@@ -1,7 +1,11 @@
 // Reactions at a moment of a track: friends' emoji and words float up over the cover when the music
 // reaches the second they were left at, and sit as little marks along the seek bar.
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package space.avthsr.music.ui
 
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -152,7 +156,7 @@ fun ReactDialog(trackId: String, atMs: Long, onPosted: (Reaction) -> Unit, onDon
   var emoji by remember { mutableStateOf("🔥") }
   var text by remember { mutableStateOf("") }
   val cs = MaterialTheme.colorScheme
-  AlertDialog(
+  AlertDialog(modifier = Modifier.growIn(),
     onDismissRequest = onDone,
     title = { Text(tr("Реакция на {}", fmtTime(atMs))) },
     text = {
@@ -173,7 +177,7 @@ fun ReactDialog(trackId: String, atMs: Long, onPosted: (Reaction) -> Unit, onDon
       }
     },
     confirmButton = {
-      TextButton(enabled = emoji.isNotBlank() || text.isNotBlank(), onClick = {
+      TextButton(shapes = ButtonDefaults.shapes(), enabled = emoji.isNotBlank() || text.isNotBlank(), onClick = {
         val e = emoji
         val t = text
         onDone()
@@ -184,6 +188,6 @@ fun ReactDialog(trackId: String, atMs: Long, onPosted: (Reaction) -> Unit, onDon
         }
       }) { Text(tr("Оставить")) }
     },
-    dismissButton = { TextButton(onClick = onDone) { Text(tr("Отмена")) } },
+    dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = onDone) { Text(tr("Отмена")) } },
   )
 }

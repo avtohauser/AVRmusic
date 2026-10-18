@@ -1,8 +1,11 @@
 // Reports of wrong tracks ("не та версия", "плохой звук", "обрезан"): any listener sends one from the
 // track's menu, the admin sees them in the admin panel and fetches the track again in one tap. Also the
 // admin's Spotify app for moving libraries here.
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package space.avthsr.music.ui
 
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -57,7 +60,7 @@ fun reportReason(id: String) = reasons.firstOrNull { it.first == id }?.second ?:
 fun ReportDialog(t: Track, onDone: () -> Unit) {
   var reason by remember { mutableStateOf("wrong") }
   var note by remember { mutableStateOf("") }
-  AlertDialog(
+  AlertDialog(modifier = Modifier.growIn(),
     onDismissRequest = onDone,
     title = { Text(tr("Что не так с треком?")) },
     text = {
@@ -74,14 +77,14 @@ fun ReportDialog(t: Track, onDone: () -> Unit) {
       }
     },
     confirmButton = {
-      TextButton(onClick = {
+      TextButton(shapes = ButtonDefaults.shapes(), onClick = {
         val r = reason
         val n = note
         onDone()
         act(tr("Спасибо! Администратор посмотрит")) { Api.report(t.id, r, n) }
       }) { Text(tr("Отправить")) }
     },
-    dismissButton = { TextButton(onClick = onDone) { Text(tr("Отмена")) } },
+    dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = onDone) { Text(tr("Отмена")) } },
   )
 }
 
@@ -94,7 +97,7 @@ fun AdminReports() {
     item { SectionTitle(tr("Жалобы на треки")) }
     val list = loader.data.orEmpty()
     if (loader.data != null && list.isEmpty()) item { Text(tr("Жалоб нет — всё звучит как надо"), Modifier.padding(20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
-    items(list, key = { it.id }) { r ->
+    items(list, key = { it.id }) { r -> Glide {
       Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp).fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(MaterialTheme.colorScheme.surfaceContainer).padding(14.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
           Cover(r.track.coverUrl, Modifier.size(52.dp), RoundedCornerShape(14.dp))
@@ -114,7 +117,7 @@ fun AdminReports() {
           Button(onClick = { act(tr("Перекачиваю — смотрите «Загрузки»"), { loader.reload() }) { Api.refetchReport(r.id) } }, shapes = ButtonDefaults.shapes()) { Text(tr("Перекачать")) }
           OutlinedButton(onClick = { act(null, { loader.reload() }) { Api.dismissReport(r.id) } }, shapes = ButtonDefaults.shapes()) { Text(tr("Всё в порядке")) }
         }
-      }
+      } }
     }
   }
 }

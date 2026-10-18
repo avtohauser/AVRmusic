@@ -4,6 +4,7 @@
 // it — a track, an album or a whole discography.
 package space.avthsr.music.ui
 
+import androidx.compose.material3.IconButtonDefaults
 import space.avthsr.music.tr
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ButtonDefaults
@@ -98,14 +99,14 @@ fun CatalogTrackRow(t: CatalogTrack, index: Int? = null, cover: String? = t.albu
       )
     }
     // the full song, at once
-    IconButton(onClick = { (onPlay ?: { Instant.playOne(t) })() }) {
+    IconButton(shapes = IconButtonDefaults.shapes(), onClick = { (onPlay ?: { Instant.playOne(t) })() }) {
       Ico(Res.drawable.ic_play, tr("Слушать"), tint = if (have != null || current) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
     }
     when {
       have != null || !canAcquire -> {}
       state == 1 -> Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) { LoadingMark(Modifier.size(30.dp)) }
       state == 2 -> Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) { Ico(Res.drawable.ic_check, tr("Добавляется"), tint = MaterialTheme.colorScheme.primary) }
-      else -> IconButton(onClick = { state = 1; acquire("track", t.id, tr("Трек")) { ok -> state = if (ok) 2 else 0 } }) {
+      else -> IconButton(shapes = IconButtonDefaults.shapes(), onClick = { state = 1; acquire("track", t.id, tr("Трек")) { ok -> state = if (ok) 2 else 0 } }) {
         Ico(Res.drawable.ic_download, tr("Добавить на сервер"))
       }
     }
@@ -128,7 +129,7 @@ fun CatalogAlbumScreen(id: Long) {
   val nav = LocalNav.current
   val loader = rememberLoad(id) { Api.catalogAlbum(id) }
   val canAcquire by produceState(false) { value = Api.canAcquire() }
-  Page { Loaded(loader) { a ->
+  Page { LoadedPage(loader, "calbum:$id") { a ->
     var sent by remember(a.id) { mutableStateOf(false) }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = screenPadding(bottom = 24.dp, hero = true)) {
       item {
@@ -152,7 +153,7 @@ fun CatalogAlbumScreen(id: Long) {
           }
         }
       }
-      itemsIndexed(a.tracks) { i, t -> CatalogTrackRow(t, index = t.trackNo ?: (i + 1), onPlay = { Instant.play(a.tracks, i, "calbum:${a.id}") }) }
+      itemsIndexed(a.tracks) { i, t -> Glide { CatalogTrackRow(t, index = t.trackNo ?: (i + 1), onPlay = { Instant.play(a.tracks, i, "calbum:${a.id}") }) } }
     }
   }
   }
@@ -164,7 +165,7 @@ fun CatalogArtistScreen(id: Long) {
   val loader = rememberLoad(id) { Api.catalogArtist(id) }
   val canAcquire by produceState(false) { value = Api.canAcquire() }
   var confirm by remember { mutableStateOf(false) }
-  Page { Loaded(loader) { p ->
+  Page { LoadedPage(loader, "cartist:$id") { p ->
     val a = p.artist
     var following by remember(p) { mutableStateOf(p.following) }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = screenPadding(bottom = 24.dp, hero = true)) {
@@ -193,7 +194,7 @@ fun CatalogArtistScreen(id: Long) {
       }
       if (p.topTracks.isNotEmpty()) {
         item { SectionTitle(tr("Популярные треки")) }
-        itemsIndexed(p.topTracks.take(10)) { i, t -> CatalogTrackRow(t, onPlay = { Instant.play(p.topTracks, i, "cartist:$id") }) }
+        itemsIndexed(p.topTracks.take(10)) { i, t -> Glide { CatalogTrackRow(t, onPlay = { Instant.play(p.topTracks, i, "cartist:$id") }) } }
       }
       if (p.albums.isNotEmpty()) item { SectionTitle(tr("Альбомы")); CardRow(p.albums) { CatalogAlbumCard(it, it.year?.toString() ?: "") } }
       if (p.singles.isNotEmpty()) item { SectionTitle(tr("Синглы и EP")); CardRow(p.singles) { CatalogAlbumCard(it, it.year?.toString() ?: "") } }
@@ -202,7 +203,7 @@ fun CatalogArtistScreen(id: Long) {
         CardRow(p.related) { r -> MediaCard(r.name, "", r.imageUrl, { nav.catalogArtist(r.id) }, share = "cartist:${r.id}", circle = true, width = 124.dp) }
       }
     }
-    if (confirm) AlertDialog(
+    if (confirm) AlertDialog(modifier = Modifier.growIn(),
       onDismissRequest = { confirm = false },
       title = { Text(if (a.libraryArtistId != null) tr("Докачать дискографию?") else tr("Добавить дискографию?")) },
       text = {
@@ -211,8 +212,8 @@ fun CatalogArtistScreen(id: Long) {
           else tr("Сервер скачает все альбомы и синглы {}. Это может занять время.", a.name),
         )
       },
-      confirmButton = { TextButton(onClick = { confirm = false; acquire("artist", a.id, tr("Дискография")) }) { Text(tr("Добавить")) } },
-      dismissButton = { TextButton(onClick = { confirm = false }) { Text(tr("Отмена")) } },
+      confirmButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = { confirm = false; acquire("artist", a.id, tr("Дискография")) }) { Text(tr("Добавить")) } },
+      dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = { confirm = false }) { Text(tr("Отмена")) } },
     )
   }
   }
@@ -254,6 +255,21 @@ fun Header(
       ) { actions() }
     }
   }
+}
+
+/**
+ * [Loaded] for a page a card opens: while it loads, the header is drawn at once from what the tapped card
+ * showed (its cover and title), so both can fly into it; the rest of the page follows when it comes.
+ */
+@Composable
+fun <T> LoadedPage(loader: Loader<T>, share: String, content: @Composable (T) -> Unit) {
+  val peek = SharedCover.peek?.takeIf { it.key == share }
+  if (loader.state is Load.Loading && peek != null) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = screenPadding(bottom = 24.dp, hero = true)) {
+      item { Header(peek.cover, peek.title, circle = peek.circle, share = share) }
+      item { Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) { LoadingMark() } }
+    }
+  } else Loaded(loader, content)
 }
 
 @Composable

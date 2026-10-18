@@ -7,7 +7,7 @@ import type { DB } from '../lib/db.js';
 import type { Track } from '@avrmusic/shared';
 import { config } from '../config.js';
 import { hashFile, moveFile, nameKey, newId } from '../lib/util.js';
-import { findLibraryTrack, preferOriginal, rawAlbum, rawArtist, rawArtistAllAlbums, rawArtistFeatures, rawFeaturing, rawTrack, parseFeaturing } from './catalog.js';
+import { findLibraryTrack, freshPreview, preferOriginal, rawAlbum, rawArtist, rawArtistAllAlbums, rawArtistFeatures, rawFeaturing, rawTrack, parseFeaturing } from './catalog.js';
 import { saveCover } from './importer.js';
 import { indexAlbum, indexArtist, indexTrack } from './search.js';
 import { getTracksByIds } from './library.js';
@@ -16,7 +16,7 @@ import { queueCanvasesForImported } from './canvas.js';
 import { userJobWaiting, type Job } from './jobs.js';
 import { allSources, enabledSources, type CancelRef, type Source, type SourceCandidate, type Want } from './sources/index.js';
 import { judgeUpload, norm, titleCredits, titleMatch, uploadCredits, wantedGuests, type Verdict } from './matching.js';
-import { previewMismatch } from './fingerprint.js';
+import { fingerprintAvailable, previewMismatch } from './fingerprint.js';
 import { downloadSlots } from './youtubeAccounts.js';
 
 type JobApi = { log: (s: string) => void; progress: (p: number) => void; onCancel: (fn: () => void) => void };
@@ -35,6 +35,18 @@ const BAD = /\b(live|cover|karaoke|instrumental|remix|reaction|slowed|sped ?up|n
 
 /** Where a library file came from (`youtube:<id>`, `audius:<id>` …): one source per track. */
 export const sourceKey = (c: Pick<SourceCandidate, 'source' | 'id'>) => `${c.source}:${c.id}`;
+/** Uploads found to be another song for this track (by the sound check or a "wrong song" report). */
+export function badSources(db: DB, trackId: string | null | undefined): Set<string> {
+  if (!trackId) return new Set();
+  return new Set((db.prepare('SELECT source FROM bad_sources WHERE track_id = ?').all(trackId) as any[]).map((r) => r.source));
+}
+
+/** Never take this upload for this track again. */
+export function markBadSource(db: DB, trackId: string, source: string | null | undefined, why: string) {
+  if (!source) return;
+  db.prepare('INSERT OR IGNORE INTO bad_sources (track_id, source, why) VALUES (?,?,?)').run(trackId, source, why.slice(0, 300));
+}
+
 export function sourceUsedBy(db: DB, key: string, exceptTrackId = ''): string | null {
   return (db.prepare('SELECT id FROM tracks WHERE source = ? AND id <> ? LIMIT 1').get(key, exceptTrackId) as any)?.id ?? null;
 }
@@ -61,6 +73,7 @@ export function assessCandidate(c: Scorable, w: Want): { score: number; verdict:
   if (` ${t} `.includes(` ${artist} `) || ` ${ch} `.includes(` ${artist} `) || c.credits?.structured) s += 20;
   if (/ - topic$/i.test(c.channel ?? '') || c.credits?.structured) s += 15; // official audio
   if (verdict.exact) s += 60; // YouTube Music's own credits name exactly these artists
+  if (verdict.unsure) s -= 25; // nothing names the artist: last, and only with the sound confirmed
   if (c.credits?.album && w.album && norm(c.credits.album) === norm(w.album)) s += 15; // same release
   if (/official audio|official|официаль/i.test(c.title)) s += 6;
   if (c.duration && w.durationSec) {
@@ -144,8 +157,10 @@ export async function pickSources(db: DB, w: Want, log: (s: string) => void, exc
   for (const r of ranked) { const a = assessCandidate(r.c, w); r.s = a.score; r.why = a.verdict.why; }
   ranked.sort((a, b) => b.s - a.s);
   const reliable = ranked.filter((r) => r.s >= 25);
-  // a source already used by another track would give this one the other track's audio
-  const usable = reliable.filter((r) => sourceKey(r.c) !== except.source && !inFlight.has(sourceKey(r.c)) && !sourceUsedBy(db, sourceKey(r.c), except.trackId ?? '')).slice(0, 3);
+  // a source already used by another track would give this one the other track's audio; one found to be
+  // another song for this track is never taken again
+  const bad = badSources(db, except.trackId);
+  const usable = reliable.filter((r) => sourceKey(r.c) !== except.source && !bad.has(sourceKey(r.c)) && !inFlight.has(sourceKey(r.c)) && !sourceUsedBy(db, sourceKey(r.c), except.trackId ?? '')).slice(0, 3);
   return { ranked, reliable, usable };
 }
 
@@ -262,8 +277,8 @@ async function acquireTrackNow(db: DB, deezerTrackId: number, api: JobApi, cance
     try {
       const file = await src.download(c, dir, api.log, cancelRef, meta);
       if (await fileTakenBy(db, file)) { fs.rmSync(dir, { recursive: true, force: true }); api.log('   ✗ этот же файл уже у другого трека — ищу дальше'); continue; }
-      const match = await checkAudio(t.preview, file, api.log, judgeUpload(c, want).exact);
-      if (match === false) { fs.rmSync(dir, { recursive: true, force: true }); continue; }
+      const match = await checkAudio(await freshPreview(db, deezerTrackId, t.preview), file, api.log, judgeUpload(c, want));
+      if (match === false || match === 'unproven') { fs.rmSync(dir, { recursive: true, force: true }); continue; }
       const trackId = await importAcquired(db, file, t, album, c, typeof match === 'number' ? match : null, addedBy);
       fs.rmSync(dir, { recursive: true, force: true });
       applyPendingLikes(db, deezerTrackId, trackId);
@@ -306,15 +321,20 @@ function logDecision(ranked: Ranked[], log: (s: string) => void) {
 
 /**
  * Compare the downloaded audio with the catalogue's preview of this recording. Returns the match
- * (0…1), null when it can't be checked, or false when it is clearly another recording.
+ * (0…1), null when it can't be checked, false when it is another recording, 'unproven' when it can't be
+ * checked and nothing in the upload names the artist (it may well be someone else's song of that name).
  */
-async function checkAudio(previewUrl: string | null | undefined, file: string, log: (s: string) => void, verified = false): Promise<number | null | false> {
+async function checkAudio(previewUrl: string | null | undefined, file: string, log: (s: string) => void, verdict: Verdict): Promise<number | null | false | 'unproven'> {
   const mismatch = await previewMismatch(previewUrl, file);
-  if (mismatch == null) return null;
+  if (mismatch == null) {
+    if (!verdict.unsure) return null;
+    log('   ✗ звук не с чем сверить, а исполнитель в загрузке не назван — ищу дальше');
+    return 'unproven';
+  }
   const match = 1 - mismatch;
   // an upload whose YouTube Music credits name exactly these artists may be another master of it;
   // anything else has to contain the very audio of the catalogue's preview
-  const limit = verified ? config.previewMaxMismatchVerified : config.previewMaxMismatch;
+  const limit = verdict.exact ? config.previewMaxMismatchVerified : config.previewMaxMismatch;
   if (mismatch > limit) { log(`   ✗ звук не совпадает с превью этой записи в каталоге (${Math.round(match * 100)}%) — ищу дальше`); return false; }
   log(`   ♫ звук совпадает с превью каталога (${Math.round(match * 100)}%)`);
   return match;
@@ -340,12 +360,12 @@ async function importAcquired(db: DB, file: string, t: any, album: any, cand: So
   const genre = album?.genres?.data?.[0]?.name ?? null;
   const contributors: any[] = Array.isArray(t.contributors) ? t.contributors.filter((c: any) => c.id !== t.artist.id) : [];
 
-  db.prepare(`INSERT INTO tracks(id, album_id, artist_id, title, track_no, disc_no, duration_ms, file_path, file_size, file_hash, mime_type, bitrate, sample_rate, codec, explicit, genre, deezer_id, isrc, source, source_title, source_ok, audio_match, added_by)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?)`).run(
+  db.prepare(`INSERT INTO tracks(id, album_id, artist_id, title, track_no, disc_no, duration_ms, file_path, file_size, file_hash, mime_type, bitrate, sample_rate, codec, explicit, genre, deezer_id, isrc, source, source_title, source_ok, audio_match, audio_checked_at, added_by)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?,?)`).run(
     id, albumId, artistId, title, t.track_position ?? null, t.disk_number ?? null,
     Math.round((fmt?.duration ?? t.duration ?? 0) * 1000), dest, stat.size, hash, audioMime(dest),
     fmt?.bitrate ? Math.round(fmt.bitrate) : null, fmt?.sampleRate ?? null, fmt?.codec ?? fmt?.container ?? null,
-    t.explicit_lyrics ? 1 : 0, genre, t.id, t.isrc ?? null, sourceKey(cand), describeSource(cand), audioMatch, addedBy,
+    t.explicit_lyrics ? 1 : 0, genre, t.id, t.isrc ?? null, sourceKey(cand), describeSource(cand), audioMatch, audioMatch != null ? new Date().toISOString() : null, addedBy,
   );
   const feats = contributors.length ? contributors : featNames.map((n) => ({ id: null, name: n }));
   let pos = 0;
@@ -515,8 +535,9 @@ export async function refetchTrack(db: DB, trackId: string, api: JobApi, cancelR
     try {
       const file = await src.download(c, dir, api.log, cancelRef, meta);
       if (await fileTakenBy(db, file, trackId)) { fs.rmSync(dir, { recursive: true, force: true }); api.log('   ✗ этот же файл уже у другого трека — ищу дальше'); continue; }
-      const match = await checkAudio(want.preview, file, api.log, judgeUpload(c, want).exact);
-      if (match === false) { fs.rmSync(dir, { recursive: true, force: true }); continue; }
+      const match = await checkAudio(await freshPreview(db, row.deezer_id, want.preview), file, api.log, judgeUpload(c, want));
+      if (match === false) markBadSource(db, trackId, sourceKey(c), 'звук не совпадает с превью');
+      if (match === false || match === 'unproven') { fs.rmSync(dir, { recursive: true, force: true }); continue; }
       const ext = path.extname(file).toLowerCase() || '.m4a';
       const dest = path.join(config.tracksDir, `${newId()}${ext}`);
       fs.mkdirSync(config.tracksDir, { recursive: true });
@@ -525,10 +546,10 @@ export async function refetchTrack(db: DB, trackId: string, api: JobApi, cancelR
       let fmt: any = null;
       try { fmt = (await parseFile(dest, { duration: true })).format; } catch { /* keep the old length */ }
       const { audioMime } = await import('./importer.js');
-      db.prepare(`UPDATE tracks SET file_path = ?, file_size = ?, file_hash = ?, mime_type = ?, bitrate = ?, sample_rate = ?, codec = ?, duration_ms = ?, source = ?, source_title = ?, source_ok = 1, audio_match = ? WHERE id = ?`).run(
+      db.prepare(`UPDATE tracks SET file_path = ?, file_size = ?, file_hash = ?, mime_type = ?, bitrate = ?, sample_rate = ?, codec = ?, duration_ms = ?, source = ?, source_title = ?, source_ok = 1, audio_match = ?, audio_checked_at = ? WHERE id = ?`).run(
         dest, fs.statSync(dest).size, hash, audioMime(dest), fmt?.bitrate ? Math.round(fmt.bitrate) : null, fmt?.sampleRate ?? null,
         fmt?.codec ?? fmt?.container ?? null, Math.round((fmt?.duration ?? want.durationSec) * 1000) || row.duration_ms, sourceKey(c), describeSource(c),
-        typeof match === 'number' ? match : null, trackId,
+        typeof match === 'number' ? match : null, typeof match === 'number' ? new Date().toISOString() : null, trackId,
       );
       const stillUsed = db.prepare('SELECT 1 FROM tracks WHERE file_path = ?').get(row.file_path);
       if (!stillUsed && String(row.file_path).startsWith(config.tracksDir)) { try { fs.unlinkSync(row.file_path); } catch { /* already gone */ } }
@@ -574,6 +595,15 @@ function uncheckedSources(db: DB, limit: number): any[] {
     WHERE t.deezer_id IS NOT NULL AND t.source LIKE 'youtube:%' AND t.source_title IS NULL ORDER BY t.created_at LIMIT ?`).all(limit) as any[];
 }
 
+// without fpcalc the sound can't be compared: those tracks then don't keep the healing job coming back
+let soundCheckable = true;
+
+/** Fetched tracks whose sound was never compared with the catalogue's preview (its link had expired), newest first. */
+function unheardTracks(db: DB, limit: number): any[] {
+  return db.prepare(`SELECT t.*, a.name AS artist_name FROM tracks t JOIN artists a ON a.id = t.artist_id
+    WHERE t.deezer_id IS NOT NULL AND t.source IS NOT NULL AND t.audio_checked_at IS NULL ORDER BY t.created_at DESC LIMIT ?`).all(limit) as any[];
+}
+
 /** Tracks playing another track's audio or the wrong version, that weren't retried in the last days. */
 function healTargets(db: DB): string[] {
   const bad = new Set([...tracksWithSharedAudio(db), ...(db.prepare('SELECT id FROM tracks WHERE source_ok = 0').all() as any[]).map((r) => r.id)]);
@@ -584,7 +614,8 @@ function healTargets(db: DB): string[] {
 
 /** Whether the self-healing job has anything to do. */
 export function healPending(db: DB): { unchecked: number; targets: number } {
-  const unchecked = (db.prepare(`SELECT COUNT(*) AS n FROM tracks WHERE deezer_id IS NOT NULL AND source LIKE 'youtube:%' AND source_title IS NULL`).get() as any).n as number;
+  const unchecked = (db.prepare(`SELECT COUNT(*) AS n FROM tracks WHERE deezer_id IS NOT NULL AND source IS NOT NULL
+    AND ((source LIKE 'youtube:%' AND source_title IS NULL) OR (? AND audio_checked_at IS NULL))`).get(soundCheckable ? 1 : 0) as any).n as number;
   return { unchecked, targets: healTargets(db).length };
 }
 
@@ -604,7 +635,8 @@ async function youtubeInfo(id: string, deep: boolean): Promise<Pick<SourceCandid
  * Self-healing pass, run in the background (at start-up and every few hours):
  * 1. checks the source of tracks fetched before sources were recorded — a "feat." version whose
  *    upload doesn't credit the guest, or a solo version that got someone's feat. version, is marked;
- * 2. re-fetches marked tracks and tracks sharing audio with another track from their own recording.
+ * 2. compares the sound of tracks never compared with the catalogue's preview — another song is marked;
+ * 3. re-fetches marked tracks and tracks sharing audio with another track from their own recording.
  * Tracks that can't be fixed yet are retried after a few days.
  */
 export async function runHeal(db: DB, job: Job, api: JobApi) {
@@ -618,7 +650,7 @@ export async function runHeal(db: DB, job: Job, api: JobApi) {
   if (rows.length) api.log(`Проверка источников: ${rows.length}`);
   const mark = db.prepare('UPDATE tracks SET source_title = ?, source_ok = ? WHERE id = ?');
   const yieldToUsers = () => { if (!userJobWaiting()) return false; api.log('⏸ уступаю очередь загрузкам пользователей — продолжу позже'); return true; };
-  const setMatch = db.prepare('UPDATE tracks SET audio_match = ? WHERE id = ?');
+  const setMatch = db.prepare('UPDATE tracks SET audio_match = ?, audio_checked_at = ? WHERE id = ?');
   for (const row of rows) {
     if (cancelled) throw new Error('Отменено');
     if (yieldToUsers()) return;
@@ -629,8 +661,8 @@ export async function runHeal(db: DB, job: Job, api: JobApi) {
     await new Promise((r) => setTimeout(r, config.healPauseMs)); // gentle on YouTube: this runs through the whole library
     stats.checked++;
     // and the audio itself against the catalogue's preview of the recording
-    const mismatch = fs.existsSync(row.file_path) ? await previewMismatch(want.preview, row.file_path) : null;
-    if (mismatch != null) setMatch.run(1 - mismatch, row.id);
+    const mismatch = fs.existsSync(row.file_path) ? await previewMismatch(await freshPreview(db, row.deezer_id, want.preview), row.file_path) : null;
+    if (mismatch != null) setMatch.run(1 - mismatch, new Date().toISOString(), row.id);
     const verdict = info ? judgeUpload(info, want) : null;
     const soundOk = mismatch == null || mismatch <= (verdict?.exact ? config.previewMaxMismatchVerified : config.previewMaxMismatch);
     if (!info || !verdict) { mark.run('', soundOk ? null : 0, row.id); if (!soundOk) stats.wrong++; continue; } // upload gone: judge by the sound only
@@ -639,6 +671,28 @@ export async function runHeal(db: DB, job: Job, api: JobApi) {
     if (!ok) {
       stats.wrong++;
       api.log(`⚠ ${want.artist} — ${want.title}${wantedGuests(want).length ? ` (с ${wantedGuests(want).join(', ')})` : ''}: играл «${info.title}» — ${verdict.ok ? `звук не совпадает с превью (${Math.round((1 - (mismatch ?? 0)) * 100)}%)` : verdict.why}`);
+    }
+    job.stats = { ...stats };
+  }
+
+  // the sound of tracks fetched while the check was skipped: the preview is asked for anew each time
+  soundCheckable = await fingerprintAvailable();
+  const unheard = soundCheckable ? unheardTracks(db, HEAL_BATCH) : [];
+  if (unheard.length) api.log(`Сверка звука с превью каталога: ${unheard.length}`);
+  const heard = db.prepare('UPDATE tracks SET audio_match = COALESCE(?, audio_match), audio_checked_at = ? WHERE id = ?');
+  for (const row of unheard) {
+    if (cancelled) throw new Error('Отменено');
+    if (yieldToUsers()) return;
+    const mismatch = fs.existsSync(row.file_path) ? await previewMismatch(await freshPreview(db, row.deezer_id), row.file_path) : null;
+    heard.run(mismatch == null ? null : 1 - mismatch, new Date().toISOString(), row.id);
+    stats.checked++;
+    // only clearly another song is marked: another master or edit of the same one stays
+    if (mismatch != null && mismatch > config.previewMaxMismatchVerified) {
+      const pct = Math.round((1 - mismatch) * 100);
+      stats.wrong++;
+      db.prepare('UPDATE tracks SET source_ok = 0 WHERE id = ?').run(row.id);
+      markBadSource(db, row.id, row.source, `звук не совпадает с превью (${pct}%)`);
+      api.log(`⚠ ${row.artist_name} — ${row.title}: играла другая песня (совпадение с превью ${pct}%)`);
     }
     job.stats = { ...stats };
   }

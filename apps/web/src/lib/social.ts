@@ -54,7 +54,7 @@ export const useReports = () => useQuery({ queryKey: ['reports'], queryFn: () =>
 
 export const sendShare = (to: string[], kind: string, refId: string, message: string) => api.post('/api/shares', { to, kind, refId, message });
 export const react = (trackId: string, atMs: number, emoji: string, text: string) => api.post<Reaction>(`/api/tracks/${trackId}/reactions`, { atMs: Math.round(atMs), emoji, text });
-export const report = (trackId: string, reason: string, note: string) => api.post(`/api/tracks/${trackId}/report`, { reason, note });
+export const report = (trackId: string, reason: string, note: string) => api.post<{ ok: boolean; jobId?: string }>(`/api/tracks/${trackId}/report`, { reason, note });
 export const follow = (artistId: number, name: string, on: boolean) => (on ? api.put(`/api/catalog/artists/${artistId}/follow`, { name }) : api.del(`/api/catalog/artists/${artistId}/follow`));
 export const createBlend = (userIds: string[]) => api.post<Playlist>('/api/playlists/blend', { userIds });
 export const refreshPlaylist = (id: string) => api.post<Playlist>(`/api/playlists/${id}/refresh`, {});

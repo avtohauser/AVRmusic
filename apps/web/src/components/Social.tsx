@@ -90,7 +90,12 @@ export function ReportModal() {
   const go = async () => {
     if (!track) return;
     setBusy(true);
-    try { await report(track.id, reason, note.trim()); toast(tr('Спасибо! Администратор посмотрит и перекачает трек', 'Thanks! The admin will look and fetch it again'), 'success'); close(); }
+    try {
+      const r = await report(track.id, reason, note.trim());
+      // the admin's own "wrong song" is fetched again by the server right away
+      toast(r.jobId ? tr('Ищу правильную запись — трек скоро заменится', 'Looking for the right recording — the track will be replaced soon') : tr('Спасибо! Администратор посмотрит и перекачает трек', 'Thanks! The admin will look and fetch it again'), 'success');
+      close();
+    }
     catch (e: any) { toast(e.message, 'error'); } finally { setBusy(false); }
   };
   return (

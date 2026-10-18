@@ -81,7 +81,9 @@ fun ReportDialog(t: Track, onDone: () -> Unit) {
         val r = reason
         val n = note
         onDone()
-        act(tr("Спасибо! Администратор посмотрит")) { Api.report(t.id, r, n) }
+        // the admin's own "wrong song" is fetched again by the server right away
+        val fixing = Api.user?.isAdmin == true && r == "wrong"
+        act(if (fixing) tr("Ищу правильную запись — трек скоро заменится") else tr("Спасибо! Администратор посмотрит")) { Api.report(t.id, r, n) }
       }) { Text(tr("Отправить")) }
     },
     dismissButton = { TextButton(shapes = ButtonDefaults.shapes(), onClick = onDone) { Text(tr("Отмена")) } },

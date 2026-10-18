@@ -432,6 +432,20 @@ const MIGRATIONS: string[] = [
   CREATE INDEX idx_likes_super ON likes(user_id, entity_type, super_at) WHERE super_at IS NOT NULL;
   ALTER TABLE pending_likes ADD COLUMN super INTEGER NOT NULL DEFAULT 0;
   `,
+  // 19: wrong songs — the sound of every fetched track is checked against the catalogue's preview once
+  //     (audio_checked_at; before, a stale preview link let it through unchecked), and an upload found
+  //     to be another song (by that check or by a "wrong song" report) is never taken for the track again
+  `
+  ALTER TABLE tracks ADD COLUMN audio_checked_at TEXT;
+  UPDATE tracks SET audio_checked_at = datetime('now') WHERE audio_match IS NOT NULL;
+  CREATE TABLE bad_sources (
+    track_id TEXT NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
+    source TEXT NOT NULL,
+    why TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (track_id, source)
+  );
+  `,
 ];
 
 export function openDatabase(dbPath = config.dbPath): DB {

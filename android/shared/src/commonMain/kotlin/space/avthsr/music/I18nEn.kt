@@ -727,6 +727,7 @@ internal val EN: Map<String, String> = hashMapOf(
   "Что не так с треком?" to "What's wrong with the track?",
   "Подробнее (необязательно)" to "Details (optional)",
   "Спасибо! Администратор посмотрит" to "Thanks! The admin will take a look",
+  "Ищу правильную запись — трек скоро заменится" to "Looking for the right recording — the track will be replaced soon",
   "Жалобы на треки" to "Track reports",
   "Жалоб нет — всё звучит как надо" to "No reports — everything sounds right",
   "Перекачиваю — смотрите «Загрузки»" to "Fetching again — see \"Downloads\"",

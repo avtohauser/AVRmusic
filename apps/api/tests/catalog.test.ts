@@ -127,6 +127,24 @@ test('candidate scoring prefers official topic audio with matching duration', ()
   assert.ok(flac > yt, 'lossless file outranks a plain lossy match');
 });
 
+test('a song of a common title that names no artist is last, and taken only with its sound confirmed', async () => {
+  const { judgeUpload } = await import('../src/services/matching.js');
+  const want = { title: 'Веди меня', artist: 'the meto', durationSec: 200 };
+  const stranger = { id: 'x', title: 'Веди меня', duration: 200, channel: 'Музыка 2024' };
+  assert.equal(judgeUpload(stranger, want).unsure, true, 'nothing in it names the artist');
+  // named in the title, in the channel (spaces or not), or in another script
+  for (const named of [
+    { id: 'a', title: 'THE METO - Веди меня', duration: 200, channel: 'Музыка 2024' },
+    { id: 'b', title: 'Веди меня', duration: 200, channel: 'THEMETO' },
+    { id: 'c', title: 'Веди меня', duration: 200, channel: 'The Meto Official' },
+    { id: 'd', title: 'ЗЕ МЕТО - Веди меня', duration: 200, channel: 'Музыка 2024' },
+  ]) {
+    const v = judgeUpload(named, want);
+    assert.ok(v.ok && !v.unsure, `${named.title} / ${named.channel}: ${v.why}`);
+    assert.ok(scoreCandidate(named, want) > scoreCandidate(stranger, want), `${named.channel} outranks an upload that names nobody`);
+  }
+});
+
 test('candidate scoring tells a "feat." recording from the solo one', () => {
   const solo = { title: 'Second Song', artist: 'Fake Artist', durationSec: 181 };
   const feat = { ...solo, featuring: ['Guest Star'] };
@@ -462,6 +480,24 @@ test('a feat. version that plays the solo recording is found out and re-fetched 
   assert.equal(after.source_ok, 1);
   // likes, playlists etc. hang off the same track id — it is still there, with a new file
   assert.notEqual(after.file_path, feat.file_path);
+});
+
+test('the admin\'s "wrong song" report fetches the track again and never takes that upload back', async () => {
+  const t = app.db.prepare('SELECT id, source FROM tracks WHERE deezer_id = 1001').get() as any;
+  const r = await app.inject({ method: 'POST', url: `/api/tracks/${t.id}/report`, headers: { authorization: `Bearer ${access}` }, payload: { reason: 'wrong' } });
+  assert.equal(r.statusCode, 200, r.body);
+  assert.ok(r.json().jobId, 'no second tap needed');
+  assert.ok(app.db.prepare('SELECT 1 FROM bad_sources WHERE track_id = ? AND source = ?').get(t.id, t.source), 'the upload is remembered as another song');
+  const job = await waitJob(r.json().jobId);
+  const after = app.db.prepare('SELECT source FROM tracks WHERE id = ?').get(t.id) as any;
+  if (job.status === 'done') assert.notEqual(after.source, t.source, JSON.stringify(job.log));
+  else assert.equal(after.source, t.source, 'nothing else fits: the track keeps its file until something does');
+  // the bad upload is left out even when another track's refetch looks again
+  const { pickSources } = await import('../src/services/acquire.js');
+  const { usable } = await pickSources(app.db, { title: 'Fake Song', artist: 'Fake Artist', durationSec: 181 }, () => {}, { trackId: t.id });
+  assert.ok(!usable.some((u) => `${u.c.source}:${u.c.id}` === t.source));
+  const open = (await app.inject({ method: 'GET', url: '/api/admin/reports', headers: { authorization: `Bearer ${access}` } })).json();
+  assert.ok(!open.some((x: any) => x.track.id === t.id), 'the report is closed');
 });
 
 test('My Wave: personal batches with reasons, dislikes stay out; admin sees users and activity', async () => {

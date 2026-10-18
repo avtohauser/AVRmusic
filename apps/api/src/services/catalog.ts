@@ -279,6 +279,14 @@ export async function rawArtistFeatures(db: DB, artist: { id: number | string; n
   return out;
 }
 export const rawTrack = (db: DB, id: number) => dz(db, `/track/${id}`);
+/**
+ * The catalogue's 30-second preview of a recording, asked for right now: its address is signed and soon
+ * expires, so the cached one (kept for a day) often no longer opens.
+ */
+export async function freshPreview(db: DB, id: number | null | undefined, fallback?: string | null): Promise<string | null> {
+  if (!id) return fallback ?? null;
+  try { return (await dz(db, `/track/${id}`, 0)).preview || fallback || null; } catch { return fallback ?? null; }
+}
 /** The catalogue's recording with this ISRC (null when there is none). */
 export const rawTrackByIsrc = async (db: DB, isrc: string): Promise<any | null> => {
   const r = await dz(db, `/track/isrc:${encodeURIComponent(isrc)}`).catch(() => null);

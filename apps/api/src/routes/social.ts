@@ -7,6 +7,7 @@ import { resolveDigest } from '../services/digest.js';
 import { badRequest, forbidden, notFound } from '../lib/errors.js';
 import { newId } from '../lib/util.js';
 import { enqueue } from '../services/jobs.js';
+import { markBadSource } from '../services/acquire.js';
 import { ALBUM_FROM, ALBUM_SELECT, avatarUrl, getTrack, mapAlbumSummary, mapArtistSummary } from '../services/library.js';
 import { PLAYLIST_FROM, PLAYLIST_SELECT, mapPlaylistSummary } from '../services/playlists.js';
 import { applyJam, friendRef, getJam, jamOf, jamView, joinJam, leaveJam, listJams, nowPlaying, nowVersionOf, setNowPlaying, startJam, waitJam, waitNow, type JamOp } from '../services/social.js';
@@ -205,11 +206,29 @@ export default async function socialRoutes(app: FastifyInstance) {
     return db.prepare('SELECT 1 FROM tracks WHERE id = ?').get(id) ? id : null;
   };
 
+  /**
+   * Fetch a track again from another upload; when it played another song, the upload it came from is never
+   * taken for it again.
+   */
+  const refetchReported = (trackId: string, reason: string, by: string) => {
+    const t = db.prepare('SELECT t.title, t.source, a.name artist FROM tracks t JOIN artists a ON a.id = t.artist_id WHERE t.id = ?').get(trackId) as any;
+    if (reason === 'wrong') markBadSource(db, trackId, t?.source, 'жалоба: не та песня');
+    const job = enqueue({ kind: 'acquire', title: `Перекачать: ${t?.artist ?? ''} — ${t?.title ?? ''}`, requestedBy: by }, { kind: 'refetch', trackIds: [trackId] });
+    db.prepare("UPDATE track_reports SET status = 'fixed', resolved_at = ? WHERE track_id = ? AND status = 'open'").run(new Date().toISOString(), trackId);
+    return job;
+  };
+
   /** "Не та версия", "плохой звук", "обрезан": the admin sees it and fetches the track again in one tap. */
   app.post('/api/tracks/:id/report', auth, async (req) => {
     const trackId = resolveTrack((req.params as any).id);
     if (!trackId) throw notFound('Трек не найден');
     const b = z.object({ reason: z.enum(REASONS), note: z.string().trim().max(500).default('') }).parse(req.body ?? {});
+    // the admin's own "wrong song" needs no second tap: it is fetched again right away
+    const me = db.prepare('SELECT role FROM users WHERE id = ?').get(req.userId!) as any;
+    if (me?.role === 'admin' && b.reason === 'wrong') {
+      db.prepare('INSERT INTO track_reports (id, track_id, user_id, reason, note) VALUES (?,?,?,?,?)').run(newId(), trackId, req.userId!, b.reason, b.note);
+      return { ok: true, jobId: refetchReported(trackId, b.reason, req.userId!).id };
+    }
     const open = db.prepare("SELECT id FROM track_reports WHERE track_id = ? AND user_id = ? AND status = 'open'").get(trackId, req.userId!) as any;
     if (open) { db.prepare('UPDATE track_reports SET reason = ?, note = ? WHERE id = ?').run(b.reason, b.note, open.id); return { ok: true }; }
     db.prepare('INSERT INTO track_reports (id, track_id, user_id, reason, note) VALUES (?,?,?,?,?)').run(newId(), trackId, req.userId!, b.reason, b.note);
@@ -230,10 +249,7 @@ export default async function socialRoutes(app: FastifyInstance) {
   app.post('/api/admin/reports/:id/refetch', { preHandler: app.requireAdmin }, async (req) => {
     const r = db.prepare('SELECT * FROM track_reports WHERE id = ?').get((req.params as any).id) as any;
     if (!r) throw notFound('Жалоба не найдена');
-    const t = db.prepare('SELECT t.title, a.name artist FROM tracks t JOIN artists a ON a.id = t.artist_id WHERE t.id = ?').get(r.track_id) as any;
-    const job = enqueue({ kind: 'acquire', title: `Перекачать: ${t?.artist ?? ''} — ${t?.title ?? ''}`, requestedBy: req.userId }, { kind: 'refetch', trackIds: [r.track_id] });
-    db.prepare("UPDATE track_reports SET status = 'fixed', resolved_at = ? WHERE track_id = ? AND status = 'open'").run(new Date().toISOString(), r.track_id);
-    return { jobId: job.id };
+    return { jobId: refetchReported(r.track_id, r.reason, req.userId!).id };
   });
 
   app.post('/api/admin/reports/:id/dismiss', { preHandler: app.requireAdmin }, async (req) => {

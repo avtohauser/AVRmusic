@@ -80,7 +80,11 @@ export function titleMatch(upload: string, want: string): 'exact' | 'close' | 'n
   return 'no';
 }
 
-export interface Verdict { ok: boolean; exact: boolean; why: string }
+/**
+ * `unsure`: the upload is the same song by its title, but nothing in it names the artist (a common title
+ * like "Веди меня" is sung by many) — it is taken only when its sound matches the catalogue's preview.
+ */
+export interface Verdict { ok: boolean; exact: boolean; why: string; unsure?: boolean }
 
 /** Everyone credited on the wanted recording besides the main artist. */
 export const wantedGuests = (w: Want) => uniqBy([...(w.featuring ?? []), ...(w.credits ?? [])]).filter((g) => !sameArtist(g, w.artist));
@@ -123,5 +127,11 @@ export function judgeUpload(c: Pick<SourceCandidate, 'title' | 'channel' | 'uplo
   missing = missing.filter((g) => !namedIn(g, hay));
   if (missing.length) return { ok: false, exact: false, why: `без ${missing.join(', ')} — это другая версия` };
   if (extras.length) return { ok: false, exact: false, why: `с ${extras.join(', ')} — это другая версия` };
+  // the artist named somewhere: in the title, the channel ("THEMETO", "The Meto Official"), the tags or the description
+  const key = artistKey(w.artist);
+  const channelKey = artistKey(`${c.channel ?? ''} ${c.uploader ?? ''}`);
+  if (!hasMain && !namedIn(w.artist, hay) && !(key.length >= 4 && channelKey.includes(key))) {
+    return { ok: true, exact: false, unsure: true, why: 'исполнитель в загрузке не назван — только если звук совпадёт с превью' };
+  }
   return { ok: true, exact: false, why: 'название и исполнители в заголовке совпадают' };
 }

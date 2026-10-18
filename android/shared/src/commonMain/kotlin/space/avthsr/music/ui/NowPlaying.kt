@@ -221,7 +221,7 @@ private fun NowPlayingContent(deck: Deck, onClose: () -> Unit) {
           }
         }
         IconButton(onClick = { jamOpen = true }) {
-          Ico(Res.drawable.ic_headphones, tr("Слушать вместе"), tint = if (jam != null) cs.tertiary else LocalContentColor.current)
+          MorphIco(Res.drawable.ic_headphones, tr("Слушать вместе"), tint = if (jam != null) cs.tertiary else LocalContentColor.current)
         }
         CastButton(LocalContentColor.current)
         DevicesButton { devicesOpen = true }
@@ -312,7 +312,7 @@ private fun NowPlayingContent(deck: Deck, onClose: () -> Unit) {
       Spacer(Modifier.height(10.dp))
       Row(margins.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = { PlayerConn.toggleShuffle() }, shapes = IconButtonDefaults.shapes()) {
-          Ico(Res.drawable.ic_shuffle, tr("Вперемешку"), tint = if (s.shuffle) cs.primary else cs.onSurfaceVariant)
+          MorphIco(Res.drawable.ic_shuffle, tr("Вперемешку"), tint = if (s.shuffle) cs.primary else cs.onSurfaceVariant)
         }
         FilledTonalIconButton(onClick = { PlayerConn.prev() }, modifier = Modifier.size(64.dp), shapes = IconButtonDefaults.shapes()) {
           Ico(Res.drawable.ic_skip_prev, tr("Предыдущий"), Modifier.size(32.dp))
@@ -322,7 +322,7 @@ private fun NowPlayingContent(deck: Deck, onClose: () -> Unit) {
           Ico(Res.drawable.ic_skip_next, tr("Следующий"), Modifier.size(32.dp))
         }
         IconButton(onClick = { PlayerConn.cycleRepeat() }, shapes = IconButtonDefaults.shapes()) {
-          Ico(
+          MorphIco(
             if (s.repeat == Repeat.ONE) Res.drawable.ic_repeat_one else Res.drawable.ic_repeat, tr("Повтор"),
             tint = if (s.repeat == Repeat.OFF) cs.onSurfaceVariant else cs.primary,
           )
@@ -336,7 +336,7 @@ private fun NowPlayingContent(deck: Deck, onClose: () -> Unit) {
         }
         if (t != null) LikeButton("track", t.id)
         IconButton(onClick = { lyricsMode = !lyricsShown }, enabled = t?.hasLyrics == true, shapes = IconButtonDefaults.shapes()) {
-          Ico(Res.drawable.ic_lyrics, tr("Текст"), tint = if (lyricsShown) cs.primary else LocalContentColor.current)
+          MorphIco(Res.drawable.ic_lyrics, tr("Текст"), tint = if (lyricsShown) cs.primary else LocalContentColor.current)
         }
         IconButton(onClick = { queueOpen = true }, shapes = IconButtonDefaults.shapes()) { Ico(Res.drawable.ic_queue, tr("Очередь")) }
         IconButton(onClick = { reactAt = PlayerConn.position() }, enabled = t != null, shapes = IconButtonDefaults.shapes()) {
@@ -344,7 +344,7 @@ private fun NowPlayingContent(deck: Deck, onClose: () -> Unit) {
         }
         Box {
           IconButton(onClick = { sleepMenu = true }, shapes = IconButtonDefaults.shapes()) {
-            Ico(Res.drawable.ic_bedtime, tr("Таймер сна"), tint = if (sleepAt != null || sleepEnd) cs.primary else LocalContentColor.current)
+            MorphIco(Res.drawable.ic_bedtime, tr("Таймер сна"), tint = if (sleepAt != null || sleepEnd) cs.primary else LocalContentColor.current)
           }
           DropdownMenu(expanded = sleepMenu, onDismissRequest = { sleepMenu = false }) {
             sleepAt?.let { at ->
@@ -412,7 +412,7 @@ private fun QueueSheet(s: PlayerUi, onDismiss: () -> Unit) {
   var offset by remember { mutableFloatStateOf(0f) }
   ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
     Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-      Text(tr("Очередь · {}", s.queue.size), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+      RollText(tr("Очередь · {}", s.queue.size), Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
       TextButton(onClick = { PlayerConn.clearQueue() }, enabled = s.queue.size > 1) { Ico(Res.drawable.ic_clear_all, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(tr("Очистить")) }
     }
     Text(

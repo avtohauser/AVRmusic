@@ -2,6 +2,7 @@
 
 package space.avthsr.music.ui
 
+import androidx.compose.material3.ToggleButton
 import space.avthsr.music.Pick
 import space.avthsr.music.PickedFile
 import space.avthsr.music.Platform
@@ -120,7 +121,7 @@ fun AdminScreen() {
     Column(Modifier.fillMaxSize()) {
       FlowText(tr("Админ-панель"), MaterialTheme.typography.headlineMedium, Modifier.padding(start = 60.dp, top = 10.dp + LocalEdges.current.top, bottom = 6.dp), maxLines = 1)
       Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        adminTabs.forEachIndexed { i, label -> FilterChip(selected = tab == i, onClick = { tab = i }, label = { Text(label) }) }
+        adminTabs.forEachIndexed { i, label -> ToggleButton(checked = tab == i, onCheckedChange = { tab = i }) { Text(label) } }
       }
       Box(Modifier.weight(1f)) {
         when (tab) {
@@ -217,7 +218,7 @@ private fun AdminUsers() {
   LazyColumn(Modifier.fillMaxSize(), contentPadding = screenPadding(top = 8.dp, bottom = 24.dp, hero = true)) {
     item {
       Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        userSorts.forEachIndexed { i, l -> FilterChip(selected = sort == i, onClick = { sort = i }, label = { Text(l) }) }
+        userSorts.forEachIndexed { i, l -> ToggleButton(checked = sort == i, onCheckedChange = { sort = i }) { Text(l) } }
       }
     }
     val list = loader.data.orEmpty().sortedByDescending {

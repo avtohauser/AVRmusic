@@ -1,8 +1,12 @@
 // "Guess the melody": a few friends hear the same 15 seconds of a song and pick its title out of four —
 // the faster a right answer, the more points. The server runs the game; every phone follows it with a
 // long poll and plays each round's piece at the same moment (the music pauses meanwhile).
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package space.avthsr.music.ui
 
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ToggleButton
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -199,14 +203,14 @@ private fun NewGame() {
   Text(tr("Какая музыка"), style = MaterialTheme.typography.titleSmall)
   Spacer(Modifier.height(6.dp))
   Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-    FilterChip(source == "ours", { source = "ours" }, { Text(tr("Что мы слушаем")) })
-    FilterChip(source == "library", { source = "library" }, { Text(tr("Вся библиотека")) })
+    ToggleButton(source == "ours", { source = "ours" }) { Text(tr("Что мы слушаем")) }
+    ToggleButton(source == "library", { source = "library" }) { Text(tr("Вся библиотека")) }
   }
   Spacer(Modifier.height(14.dp))
   Text(tr("Раундов"), style = MaterialTheme.typography.titleSmall)
   Spacer(Modifier.height(6.dp))
   Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-    listOf(5, 10, 15, 20).forEach { n -> FilterChip(rounds == n, { rounds = n }, { Text(n.toString()) }) }
+    listOf(5, 10, 15, 20).forEach { n -> ToggleButton(rounds == n, { rounds = n }) { Text(n.toString()) } }
   }
   Spacer(Modifier.height(22.dp))
   Button(onClick = { act { GameRoom.create(source, rounds) } }, shapes = ButtonDefaults.shapes(), modifier = Modifier.fillMaxWidth().height(56.dp)) {
@@ -229,7 +233,7 @@ private fun Players(v: GameView, showPoints: Boolean) {
         Text(if (p.correct == true) "+${p.points}" else "✕", color = if (p.correct == true) cs.tertiary else cs.error, style = MaterialTheme.typography.labelLarge)
         Spacer(Modifier.width(10.dp))
       } else if (v.state == "round") {
-        Ico(if (p.answered) Res.drawable.ic_check else Res.drawable.ic_more, null, Modifier.size(18.dp), if (p.answered) cs.tertiary else cs.outline)
+        MorphIco(if (p.answered) Res.drawable.ic_check else Res.drawable.ic_more, null, Modifier.size(18.dp), if (p.answered) cs.tertiary else cs.outline)
         Spacer(Modifier.width(10.dp))
       }
       Text(p.score.toString(), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)

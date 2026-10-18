@@ -1,6 +1,10 @@
 // Editing in place: the owner's playlist menu, and the admin's album / artist menus.
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package space.avthsr.music.ui
 
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ToggleButton
 import space.avthsr.music.Pick
 import space.avthsr.music.rememberPicker
 
@@ -132,7 +136,7 @@ fun AlbumAdminMenu(a: Album, reload: () -> Unit) {
           OutlinedTextField(year, { year = it }, Modifier.fillMaxWidth(), label = { Text(tr("Год")) }, singleLine = true)
           OutlinedTextField(label, { label = it }, Modifier.fillMaxWidth(), label = { Text(tr("Лейбл")) }, singleLine = true)
           Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            albumTypes.forEach { (id, name) -> FilterChip(selected = type == id, onClick = { type = id }, label = { Text(name) }) }
+            albumTypes.forEach { (id, name) -> ToggleButton(checked = type == id, onCheckedChange = { type = id }) { Text(name) } }
           }
         }
       },

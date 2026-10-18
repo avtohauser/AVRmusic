@@ -86,6 +86,12 @@ import space.avthsr.music.App
 import space.avthsr.music.res.*
 import space.avthsr.music.api.Api
 import space.avthsr.music.api.Likes
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.AnimatedVisibility
@@ -130,6 +136,39 @@ val LocalNav = staticCompositionLocalOf<Nav> { error("Nav is not provided") }
 @Composable
 fun Ico(res: DrawableResource, desc: String? = null, modifier: Modifier = Modifier, tint: Color = LocalContentColor.current) {
   Icon(painterResource(res), desc, modifier, tint)
+}
+
+/** A line (a count, mostly) that rolls to its new value: the old one slides up and away, the new one rises in. */
+@Composable
+fun RollText(text: String, modifier: Modifier = Modifier, style: TextStyle = LocalTextStyle.current, color: Color = Color.Unspecified) {
+  AnimatedContent(
+    targetState = text,
+    transitionSpec = {
+      (slideInVertically(Motion.expressive.defaultSpatialSpec()) { it / 2 } + fadeIn(Motion.expressive.defaultEffectsSpec()))
+        .togetherWith(slideOutVertically(Motion.expressive.fastSpatialSpec()) { -it / 2 } + fadeOut(Motion.expressive.fastEffectsSpec()))
+        .using(SizeTransform(clip = false))
+    },
+    modifier = modifier,
+    label = "roll",
+  ) { t -> Text(t, style = style, color = color, maxLines = 1) }
+}
+
+/**
+ * An icon that turns into the next one when it changes — the old one shrinks away as the new one grows in
+ * on the expressive spring — and slides its colour instead of switching it.
+ */
+@Composable
+fun MorphIco(res: DrawableResource, desc: String? = null, modifier: Modifier = Modifier, tint: Color = LocalContentColor.current) {
+  val color by animateColorAsState(tint, Motion.expressive.defaultEffectsSpec(), label = "ico-tint")
+  AnimatedContent(
+    targetState = res,
+    transitionSpec = {
+      (scaleIn(Motion.expressive.fastSpatialSpec(), initialScale = 0.3f) + fadeIn(Motion.expressive.fastEffectsSpec()))
+        .togetherWith(scaleOut(Motion.expressive.fastSpatialSpec(), targetScale = 0.3f) + fadeOut(Motion.expressive.fastEffectsSpec()))
+        .using(SizeTransform(clip = false))
+    },
+    label = "ico",
+  ) { r -> Icon(painterResource(r), desc, modifier, color) }
 }
 
 @Composable

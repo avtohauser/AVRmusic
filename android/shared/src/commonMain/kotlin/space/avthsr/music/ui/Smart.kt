@@ -1,9 +1,11 @@
-@file:OptIn(ExperimentalLayoutApi::class)
+@file:OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3ExpressiveApi::class)
 
 // A smart playlist's rules: genres, years, liked only, not played for a while, played often … — the
 // server keeps the playlist matching them and refills it every few hours.
 package space.avthsr.music.ui
 
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ToggleButton
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -72,7 +74,7 @@ fun SmartEditor(playlistId: String?, initial: SmartRules?, onDismiss: () -> Unit
       FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         list.take(40).forEach { g ->
           val on = g.name in r.genres
-          FilterChip(selected = on, onClick = { r = r.copy(genres = if (on) r.genres - g.name else r.genres + g.name) }, label = { Text(g.name) })
+          ToggleButton(checked = on, onCheckedChange = { r = r.copy(genres = if (on) r.genres - g.name else r.genres + g.name) }) { Text(g.name) }
         }
         if (list.isEmpty()) Text(tr("Загрузка…"), color = cs.onSurfaceVariant)
       }
@@ -132,7 +134,7 @@ private fun Label(text: String, hint: String? = null) {
 @Composable
 private fun <T> Choice(options: List<Pair<T, String>>, value: T, onPick: (T) -> Unit) {
   FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-    options.forEach { (v, label) -> FilterChip(selected = v == value, onClick = { onPick(v) }, label = { Text(label) }) }
+    options.forEach { (v, label) -> ToggleButton(checked = v == value, onCheckedChange = { onPick(v) }) { Text(label) } }
   }
 }
 

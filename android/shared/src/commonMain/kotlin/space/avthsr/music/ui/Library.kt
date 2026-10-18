@@ -182,19 +182,19 @@ fun LibraryScreen() {
     item {
       Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         listOf(tr("Плейлисты"), tr("Альбомы"), tr("Исполнители"), tr("Сообщество")).forEachIndexed { i, label ->
-          FilterChip(selected = tab == i, onClick = { tab = i }, label = { Text(label) })
+          ToggleButton(checked = tab == i, onCheckedChange = { tab = i }) { Text(label) }
         }
       }
     }
     if (tab == 1 || tab == 2) item {
       Row(Modifier.horizontalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        listOf(tr("Любимые"), tr("Все на сервере")).forEachIndexed { i, l -> FilterChip(selected = scope == i, onClick = { scope = i }, label = { Text(l) }) }
+        listOf(tr("Любимые"), tr("Все на сервере")).forEachIndexed { i, l -> ToggleButton(checked = scope == i, onCheckedChange = { scope = i }) { Text(l) } }
         if (scope == 1) {
           val sorts = if (tab == 1) listOf("recent" to tr("Новые"), "popular" to tr("Популярные"), "title" to tr("По названию"), "year" to tr("По году"))
           else listOf("popular" to tr("Популярные"), "name" to tr("По имени"), "new" to tr("Новые"))
           sorts.forEach { (id, l) ->
             val on = if (tab == 1) albumSort == id else artistSort == id
-            FilterChip(selected = on, onClick = { if (tab == 1) albumSort = id else artistSort = id }, label = { Text(l) }, leadingIcon = { if (on) Ico(Res.drawable.ic_sort, null, Modifier.size(16.dp)) })
+            ToggleButton(checked = on, onCheckedChange = { if (tab == 1) albumSort = id else artistSort = id }) { Text(l) }
           }
         }
       }
@@ -288,7 +288,7 @@ private fun LikeTile(title: String, subtitle: String, starred: Boolean, modifier
     }
     Spacer(Modifier.weight(1f))
     Text(title, Modifier.sharedBox(likesKey(starred, "title"), RoundedCornerShape(4.dp)), style = MaterialTheme.typography.titleMedium, color = fg, maxLines = 1, overflow = TextOverflow.Ellipsis)
-    Text(subtitle, style = MaterialTheme.typography.bodySmall, color = fg.copy(alpha = 0.8f), maxLines = 1)
+    RollText(subtitle, style = MaterialTheme.typography.bodySmall, color = fg.copy(alpha = 0.8f))
   }
 }
 
@@ -342,7 +342,7 @@ fun LikedScreen(starred: Boolean = false) {
           }
           Spacer(Modifier.height(16.dp))
           FlowText(if (starred) tr("Суперлайки") else tr("Любимые треки"), MaterialTheme.typography.headlineMedium, Modifier.sharedBox(likesKey(starred, "title"), RoundedCornerShape(4.dp)), maxLines = 1)
-          Text(tracksWord(count), color = cs.onSurfaceVariant)
+          RollText(tracksWord(count), color = cs.onSurfaceVariant)
           Spacer(Modifier.height(14.dp))
           Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) { PlayButtons(tracks, ctx); OfflineButton(all) }
         }

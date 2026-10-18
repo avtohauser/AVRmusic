@@ -94,7 +94,7 @@ fun MorphPlayButton(
       .clickable(interactionSource = interaction, indication = LocalIndication.current, onClick = onClick),
     contentAlignment = Alignment.Center,
   ) {
-    Ico(if (playing) Res.drawable.ic_pause else Res.drawable.ic_play, if (playing) tr("Пауза") else tr("Играть"), Modifier.size(iconSize), content)
+    MorphIco(if (playing) Res.drawable.ic_pause else Res.drawable.ic_play, if (playing) tr("Пауза") else tr("Играть"), Modifier.size(iconSize), content)
   }
 }
 

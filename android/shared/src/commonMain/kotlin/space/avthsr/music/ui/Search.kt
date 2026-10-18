@@ -2,6 +2,7 @@
 
 package space.avthsr.music.ui
 
+import androidx.compose.material3.ToggleButton
 import androidx.compose.foundation.combinedClickable
 import space.avthsr.music.tr
 import androidx.compose.foundation.background
@@ -116,7 +117,7 @@ fun SearchScreen() {
     )
     if (query.isNotEmpty()) {
       Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        types.forEach { (id, label) -> FilterChip(selected = type == id, onClick = { type = id }, label = { Text(label) }) }
+        types.forEach { (id, label) -> ToggleButton(checked = type == id, onCheckedChange = { type = id }) { Text(label) } }
       }
     }
     LazyColumn(Modifier.weight(1f).imePadding(), contentPadding = screenPadding(bottom = 24.dp, hero = true)) {

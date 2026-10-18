@@ -179,7 +179,7 @@ fun CatalogArtistScreen(id: Long) {
             following = on
             act(if (on) tr("Новинки {} будут приходить вам", a.name) else tr("Вы больше не следите за {}", a.name)) { Api.follow(a.id, a.name, on) }
           }) {
-            Ico(if (following) Res.drawable.ic_check else Res.drawable.ic_campaign, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp))
+            MorphIco(if (following) Res.drawable.ic_check else Res.drawable.ic_campaign, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp))
             Text(if (following) tr("Новинки придут") else tr("Следить за новинками"), maxLines = 1)
           }
           if (a.libraryArtistId != null) FilledTonalButton(shapes = ButtonDefaults.shapes(), onClick = { nav.artist(a.libraryArtistId) }) {

@@ -2,6 +2,12 @@
 
 package space.avthsr.music.ui
 
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Surface
@@ -92,13 +98,24 @@ fun OfflineButton(tracks: List<Track>) {
   val all = tracks.all { it.id in saved }
   val busy = tracks.filter { it.id in progress }
   IconButton(onClick = { if (all) confirm = true else Offline.save(tracks) }, shapes = IconButtonDefaults.shapes()) {
-    when {
-      busy.isNotEmpty() -> {
-        val done = tracks.count { it.id in saved } + busy.sumOf { (progress[it.id] ?: 0f).toDouble() }.toFloat()
-        CircularWavyProgressIndicator(progress = { (done / tracks.size).coerceIn(0f, 1f) }, modifier = Modifier.size(28.dp))
+    // the arrow, the progress ring and the saved mark turn into one another
+    val state = if (busy.isNotEmpty()) 0 else if (all) 1 else 2
+    AnimatedContent(
+      targetState = state,
+      transitionSpec = {
+        (scaleIn(Motion.expressive.fastSpatialSpec(), initialScale = 0.3f) + fadeIn(Motion.expressive.fastEffectsSpec()))
+          .togetherWith(scaleOut(Motion.expressive.fastSpatialSpec(), targetScale = 0.3f) + fadeOut(Motion.expressive.fastEffectsSpec()))
+      },
+      label = "offline",
+    ) { st ->
+      when (st) {
+        0 -> {
+          val done = tracks.count { it.id in saved } + busy.sumOf { (progress[it.id] ?: 0f).toDouble() }.toFloat()
+          CircularWavyProgressIndicator(progress = { (done / tracks.size).coerceIn(0f, 1f) }, modifier = Modifier.size(28.dp))
+        }
+        1 -> Ico(Res.drawable.ic_offline, tr("Сохранено офлайн"), tint = MaterialTheme.colorScheme.primary)
+        else -> Ico(Res.drawable.ic_download, tr("Сохранить офлайн"), tint = LocalContentColor.current)
       }
-      all -> Ico(Res.drawable.ic_offline, tr("Сохранено офлайн"), tint = MaterialTheme.colorScheme.primary)
-      else -> Ico(Res.drawable.ic_download, tr("Сохранить офлайн"), tint = LocalContentColor.current)
     }
   }
   if (confirm) ConfirmDialog(tr("Удалить из офлайн?"), tr("Файлы удалятся с телефона, на сервере всё останется."), tr("Удалить"), { confirm = false }) {

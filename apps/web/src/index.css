@@ -530,6 +530,14 @@ input.slim-range::-moz-range-thumb { width: 4px; height: 18px; border: 0; border
 ::view-transition-old(likes-box), ::view-transition-new(likes-box), ::view-transition-old(super-box), ::view-transition-new(super-box) { height: 100%; width: 100%; object-fit: cover; }
 @media (prefers-reduced-motion: reduce) { ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; } }
 
+/* a header that gave its names up for a moment (the page it opens takes them) */
+.vt-off { view-transition-name: none !important; }
+::view-transition-old(vt-cover), ::view-transition-new(vt-cover), ::view-transition-old(np-cover), ::view-transition-new(np-cover) { height: 100%; width: 100%; object-fit: cover; }
+::view-transition-group(np-cover), ::view-transition-group(np-title), ::view-transition-group(np-play) { animation-duration: .55s; }
+
+/* icons slide their colour instead of switching it */
+m3e-icon { transition: color .3s cubic-bezier(.2, 0, 0, 1); }
+
 /* a search that grows out of its button */
 .search-pill { display: flex; align-items: center; gap: .5rem; height: 44px; width: 44px; padding: 0 10px; border-radius: 22px; overflow: hidden; cursor: pointer;
   background: var(--md-sys-color-surface-container-high); transition: width .55s cubic-bezier(.34, 1.25, .64, 1), background-color .3s; }

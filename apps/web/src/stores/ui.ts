@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { withTransition } from '@/lib/viewTransition';
 import type { AlbumSummary, PlaylistSummary, Track } from '@avrmusic/shared';
 import { M3eSnackbar } from '@/md';
 
@@ -41,7 +42,7 @@ export const useUI = create<UIState>((set, get) => ({
   theme: initialTheme,
   setTheme(theme) { set({ theme }); },
   nowPlayingOpen: false,
-  setNowPlayingOpen: (v) => set({ nowPlayingOpen: v }),
+  setNowPlayingOpen: (v) => withTransition(() => set({ nowPlayingOpen: v })),
   queueOpen: false,
   setQueueOpen: (v) => set({ queueOpen: v }),
   sidebarCollapsed: false,

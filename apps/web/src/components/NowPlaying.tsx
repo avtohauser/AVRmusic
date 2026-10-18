@@ -19,6 +19,7 @@ import { notificationsSupported, setShadeLike, shadeLikeSetting } from '@/lib/sh
 import { M3eAssistChip } from '@/md';
 import { useLikes } from '@/stores/likes';
 import { FlowText } from '@/components/FlowText';
+import { canTransition } from '@/lib/viewTransition';
 import { WAVE_CONTEXT, dislikeInWave, useWave } from '@/lib/wave';
 import { ReactButton, ReactionBubbles, ReactionMarks } from './Reactions';
 import { listenTogether, useJam } from '@/lib/jam';
@@ -81,7 +82,7 @@ export function NowPlaying() {
   const showCanvas = track.hasCanvas && tab === 'cover';
 
   return (
-    <div className="fixed inset-0 z-[70] slide-up overflow-hidden text-on-surface bg-background">
+    <div className={`fixed inset-0 z-[70] ${canTransition() ? '' : 'slide-up'} overflow-hidden text-on-surface bg-background`}>
       {showCanvas && (
         <div className="absolute inset-0">
           <CanvasView track={track} className="w-full h-full opacity-90" />
@@ -129,7 +130,7 @@ export function NowPlaying() {
                 <div className="np-aura" data-playing={playing} />
                 {prevCover && <div className="deck-card deck-prev"><img src={prevCover} alt="" /></div>}
                 {nextCover && <div className="deck-card deck-next"><img src={nextCover} alt="" /></div>}
-                <Cover src={track.coverUrl} alt={track.title} className="cover-box elev-3 !rounded-[28px] relative" />
+                <div className="relative" style={{ viewTransitionName: 'np-cover' }}><Cover src={track.coverUrl} alt={track.title} className="cover-box elev-3 !rounded-[28px] relative" /></div>
                 <ReactionBubbles track={track} />
               </div>
             )}
@@ -145,7 +146,7 @@ export function NowPlaying() {
 
         <div className="mt-4 md:mt-6 md:max-w-2xl md:mx-auto w-full">
           <div className="min-w-0">
-            <FlowText as="div" text={track.title} className="md-headline-sm line-1" />
+            <div style={{ viewTransitionName: 'np-title', width: 'fit-content', maxWidth: '100%' }}><FlowText as="div" text={track.title} className="md-headline-sm line-1" /></div>
             <div className="md-title-md text-primary line-1">
               <Link to={artistHref(track.artist)} onClick={() => setOpen(false)} className="hover:underline">{track.artist.name}</Link>
               {track.featuring.map((f) => <span key={f.id || f.name}>, <Link to={artistHref(f)} onClick={() => setOpen(false)} className="hover:underline">{f.name}</Link></span>)}
@@ -167,7 +168,7 @@ export function NowPlaying() {
           <div className="flex items-center justify-between mt-2">
             <M3eIconButton toggle selected={shuffle || undefined} aria-label={t('shuffle')} onClick={p.toggleShuffle}><m3e-icon variant="rounded" name="shuffle" /><m3e-icon variant="rounded" slot="selected" name="shuffle" filled style={{ color: 'var(--md-sys-color-primary)' }} /></M3eIconButton>
             <M3eIconButton variant="tonal" size="large" aria-label={t('prev')} onClick={p.prev}><m3e-icon variant="rounded" name="skip_previous" filled /></M3eIconButton>
-            <MorphPlay playing={playing} onClick={() => p.toggle()} size={96} label={playing ? t('pause') : t('play')} />
+            <span className="flex" style={{ viewTransitionName: 'np-play' }}><MorphPlay playing={playing} onClick={() => p.toggle()} size={96} label={playing ? t('pause') : t('play')} /></span>
             <M3eIconButton variant="tonal" size="large" aria-label={t('next')} onClick={() => p.next()}><m3e-icon variant="rounded" name="skip_next" filled /></M3eIconButton>
             <M3eIconButton toggle selected={repeat !== 'off' || undefined} aria-label={t('repeat')} onClick={p.cycleRepeat}><m3e-icon variant="rounded" name="repeat" /><m3e-icon variant="rounded" slot="selected" name={repeat === 'one' ? 'repeat_one' : 'repeat'} filled style={{ color: 'var(--md-sys-color-primary)' }} /></M3eIconButton>
           </div>

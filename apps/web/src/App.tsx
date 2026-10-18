@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { ViewTransitionLinks } from '@/lib/viewTransition';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Layout } from '@/components/Layout';
 import { BootSplash } from '@/components/BootSplash';
@@ -180,6 +181,7 @@ export default function App() {
   return (
     <QueryClientProvider client={qc}>
       <BrowserRouter>
+        <ViewTransitionLinks />
         <CoverColorSync />
         <NativeHooks />
         <Boot />

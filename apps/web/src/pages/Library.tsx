@@ -71,13 +71,13 @@ function Playlists() {
         <>
           <div className={grid}>
             {likeTiles.map((tile) => tile === 'liked' ? (
-              <Link key="liked" to="/liked" viewTransition className="media-tile !w-full">
+              <Link key="liked" to="/liked" className="media-tile !w-full">
                 <div className="w-full aspect-square rounded-[16px] text-on-primary flex items-center justify-center" style={{ background: 'linear-gradient(135deg, var(--md-sys-color-primary), var(--md-sys-color-tertiary))', viewTransitionName: 'likes-box' }}><span className="flex" style={{ viewTransitionName: 'likes-mark' }}><m3e-icon variant="rounded" name="favorite" filled style={{ ['--m3e-icon-size' as any]: '48px' }} /></span></div>
                 <div className="mt-2 md-title-sm" style={{ viewTransitionName: 'likes-title', width: 'fit-content' }}>{t('likedSongs')}</div>
                 <div className="md-body-sm muted">{t('playlist')}</div>
               </Link>
             ) : (
-              <Link key="super" to="/superliked" viewTransition className="media-tile !w-full">
+              <Link key="super" to="/superliked" className="media-tile !w-full">
                 <div className="w-full aspect-square rounded-[16px] flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #0B4248, #1d5d63)', viewTransitionName: 'super-box' }}><span className="flex" style={{ viewTransitionName: 'super-mark' }}><SuperStar className="w-14 h-14" /></span></div>
                 <div className="mt-2 md-title-sm" style={{ viewTransitionName: 'super-title', width: 'fit-content' }}>{tr('Суперлайки', 'Superlikes')}</div>
                 <div className="md-body-sm muted">{tr(`Треков: ${supers}`, `Tracks: ${supers}`)}</div>

@@ -30,10 +30,10 @@ export function AlbumCard({ album }: { album: AlbumSummary }) {
   return (
     <MediaCard to={`/album/${album.id}`} onContextMenu={(e) => { e.preventDefault(); openMenu(e.clientX, e.clientY, { kind: 'album', album }); }}>
       <div className="relative">
-        <Cover src={album.coverUrl} alt={album.title} className="w-full aspect-square !rounded-[16px]" />
+        <div data-vt="cover"><Cover src={album.coverUrl} alt={album.title} className="w-full aspect-square !rounded-[16px]" /></div>
         <span className="tile-play"><MorphPlay playing={false} onClick={play} size={48} /></span>
       </div>
-      <div className="mt-2 md-title-sm line-1">{album.title}</div>
+      <div className="mt-2 md-title-sm line-1" data-vt="title">{album.title}</div>
       <div className="md-body-sm muted line-1">{sub} · {album.artist.name}</div>
     </MediaCard>
   );
@@ -48,10 +48,10 @@ export function ArtistCard({ artist }: { artist: ArtistSummary }) {
   return (
     <MediaCard to={`/artist/${artist.id}`} center>
       <div className="relative">
-        <Cover src={artist.imageUrl} alt={artist.name} shape="cookie" kind="artist" className="w-full aspect-square spring group-hover:rotate-[20deg]" />
+        <div data-vt="cover"><Cover src={artist.imageUrl} alt={artist.name} shape="cookie" kind="artist" className="w-full aspect-square spring group-hover:rotate-[20deg]" /></div>
         <span className="tile-play"><MorphPlay playing={false} onClick={play} size={48} /></span>
       </div>
-      <div className="mt-2 md-title-sm line-1 text-center">{artist.name}</div>
+      <div className="mt-2 md-title-sm line-1 text-center" data-vt="title">{artist.name}</div>
       <div className="md-body-sm muted text-center">{t('artist')}</div>
     </MediaCard>
   );
@@ -67,10 +67,10 @@ export function PlaylistCard({ playlist }: { playlist: PlaylistSummary & { mosai
   return (
     <MediaCard to={`/playlist/${playlist.id}`} onContextMenu={(e) => { e.preventDefault(); openMenu(e.clientX, e.clientY, { kind: 'playlist', playlist }); }}>
       <div className="relative">
-        <Cover src={playlist.coverUrl} mosaic={playlist.mosaic} alt={playlist.title} className="w-full aspect-square !rounded-[16px]" />
+        <div data-vt="cover"><Cover src={playlist.coverUrl} mosaic={playlist.mosaic} alt={playlist.title} className="w-full aspect-square !rounded-[16px]" /></div>
         <span className="tile-play"><MorphPlay playing={false} onClick={play} size={48} /></span>
       </div>
-      <div className="mt-2 md-title-sm line-1">{playlist.title}</div>
+      <div className="mt-2 md-title-sm line-1" data-vt="title">{playlist.title}</div>
       <div className="md-body-sm muted line-1">{playlist.description || `${t('playlist')} · ${playlist.owner.displayName}`}</div>
     </MediaCard>
   );
@@ -89,7 +89,7 @@ export function TrackCard({ track, list, index }: { track: Track; list?: Track[]
   return (
     <MediaCard to={track.album ? `/album/${track.album.id}` : `/artist/${track.artist.id}`} onContextMenu={(e) => { e.preventDefault(); openMenu(e.clientX, e.clientY, { kind: 'track', track }); }}>
       <div className="relative">
-        <Cover src={track.coverUrl} alt={track.title} className="w-full aspect-square !rounded-[16px]" />
+        <div data-vt="cover"><Cover src={track.coverUrl} alt={track.title} className="w-full aspect-square !rounded-[16px]" /></div>
         <span className="tile-play" data-on={isCur || undefined}><MorphPlay playing={isCur && playing} onClick={play} size={48} /></span>
         <M3eIconButton size="small" variant="tonal" className="absolute left-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity" aria-label="menu" onClick={(e: any) => { e.preventDefault(); e.stopPropagation(); openMenu(e.clientX, e.clientY, { kind: 'track', track }); }}><m3e-icon variant="rounded" name="more_horiz" /></M3eIconButton>
       </div>
@@ -120,7 +120,7 @@ export function GenreCard({ genre, wide = false }: { genre: Genre; wide?: boolea
 
 export function QuickPick({ title, cover, mosaic, to, onPlay, liked, starred }: { title: string; cover?: string | null; mosaic?: string[]; to: string; onPlay: () => void; liked?: boolean; starred?: boolean }) {
   return (
-    <Link to={to} viewTransition={starred || liked || undefined} className="group surface-high rounded-[16px] press flex items-center gap-3 pr-2 overflow-hidden h-[60px] state-layer">
+    <Link to={to} className="group surface-high rounded-[16px] press flex items-center gap-3 pr-2 overflow-hidden h-[60px] state-layer">
       {starred ? (
         <div className="w-[60px] h-full flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg, #0B4248, #1d5d63)', viewTransitionName: 'super-box' }}><span className="flex" style={{ viewTransitionName: 'super-mark' }}><SuperStar className="w-8 h-8" /></span></div>
       ) : liked ? (

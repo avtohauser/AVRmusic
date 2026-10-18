@@ -25,6 +25,8 @@ export function PlayerBar() {
   const repeat = usePlayer((s) => s.repeat);
   const p = usePlayer.getState();
   const setOpen = useUI((s) => s.setNowPlayingOpen);
+  // while the full player is open it carries the shared names; the bar under it gives them up
+  const npOpen = useUI((s) => s.nowPlayingOpen);
   const queueOpen = useUI((s) => s.queueOpen);
   const setQueueOpen = useUI((s) => s.setQueueOpen);
   const t = useT();
@@ -37,13 +39,13 @@ export function PlayerBar() {
       {/* Phone: the app's mini player — a floating card above the navigation island */}
       <div className="md:hidden mini-player press" data-playerbar onClick={() => setOpen(true)}>
         <div className="flex items-center gap-3 pl-2 pr-1.5 pt-2 pb-1.5">
-          <Cover src={track.coverUrl} className="w-12 h-12 !rounded-[16px]" />
+          <div style={{ viewTransitionName: npOpen ? 'none' : 'np-cover' }}><Cover src={track.coverUrl} className="w-12 h-12 !rounded-[16px]" /></div>
           <div className="min-w-0 flex-1">
-            <div className="md-title-sm line-1">{track.title}</div>
+            <div className="md-title-sm line-1" style={{ viewTransitionName: npOpen ? 'none' : 'np-title', width: 'fit-content', maxWidth: '100%' }}>{track.title}</div>
             <div className="md-body-sm muted line-1">{[track.artist.name, ...track.featuring.map((f) => f.name)].join(', ')}</div>
           </div>
           <LikeButton type="track" id={track.id} alwaysVisible />
-          <MorphPlay playing={playing} loading={loading} onClick={() => p.toggle()} size={44} label={playing ? t('pause') : t('play')} />
+          <span className="flex" style={{ viewTransitionName: npOpen ? 'none' : 'np-play' }}><MorphPlay playing={playing} loading={loading} onClick={() => p.toggle()} size={44} label={playing ? t('pause') : t('play')} /></span>
         </div>
         <WavyProgress className="mini" moving={playing} value={duration ? (pos / duration) * 100 : 0} />
       </div>
@@ -52,11 +54,11 @@ export function PlayerBar() {
       <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_minmax(0,1fr)] items-center gap-4 surface-high rounded-[32px] px-4 h-[84px] elev-3">
         <div className="flex items-center gap-3 min-w-0">
           <button className="relative group shrink-0" onClick={() => setOpen(true)} aria-label={t('fullscreen')}>
-            <Cover src={track.coverUrl} className="w-14 h-14 !rounded-[16px]" />
+            <div style={{ viewTransitionName: npOpen ? 'none' : 'np-cover' }}><Cover src={track.coverUrl} className="w-14 h-14 !rounded-[16px]" /></div>
             <span className="absolute inset-0 rounded-[16px] bg-black/50 text-white opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"><m3e-icon variant="rounded" name="fullscreen" /></span>
           </button>
           <div className="min-w-0">
-            <div className="md-title-sm line-1"><button className="hover:underline text-left" onClick={() => setOpen(true)}>{track.title}</button></div>
+            <div className="md-title-sm line-1"><button className="hover:underline text-left" onClick={() => setOpen(true)} style={{ viewTransitionName: npOpen ? 'none' : 'np-title' }}>{track.title}</button></div>
             <div className="md-body-sm muted line-1">
               <Link to={artistHref(track.artist)} className="hover:underline">{track.artist.name}</Link>
               {track.featuring.map((f) => <span key={f.id || f.name}>, <Link to={artistHref(f)} className="hover:underline">{f.name}</Link></span>)}

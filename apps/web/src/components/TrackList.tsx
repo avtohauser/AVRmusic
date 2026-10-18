@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import type { Track } from '@avrmusic/shared';
 import { M3eIconButton } from '@/md';
@@ -18,7 +18,7 @@ interface Props {
   showAlbum?: boolean;
   showCover?: boolean;
   showAddedAt?: boolean;
-  /** each track once (liked songs): re-sorting and searching move the rows instead of redrawing them */
+  /** rows glide to their new places when the list changes (re-sorting, searching, removing) instead of redrawing */
   flip?: boolean;
   /** shared playlists: who put each track in (a blend: whose taste it came from) */
   showAddedBy?: boolean;
@@ -30,9 +30,10 @@ interface Props {
   header?: boolean;
 }
 
-export function TrackList({ tracks, context, showAlbum = true, showCover = true, showAddedAt = false, showAddedBy = false, addedByTaste = false, numbered = true, playlistId, canRemove, compact = false, header = true, flip = false }: Props) {
+export function TrackList({ tracks, context, showAlbum = true, showCover = true, showAddedAt = false, showAddedBy = false, addedByTaste = false, numbered = true, playlistId, canRemove, compact = false, header = true, flip = true }: Props) {
   const listRef = useRef<HTMLDivElement>(null);
   useFlip(listRef, [flip ? tracks : null]);
+  const keys = useMemo(() => { const seen = new Map<string, number>(); return tracks.map((t) => { const n = seen.get(t.id) ?? 0; seen.set(t.id, n + 1); return `${t.id}#${n}`; }); }, [tracks]);
   const currentId = usePlayer((s) => s.queue[s.index]?.id);
   const playing = usePlayer((s) => s.playing);
   const openMenu = useUI((s) => s.openMenu);
@@ -62,8 +63,8 @@ export function TrackList({ tracks, context, showAlbum = true, showCover = true,
         const isCur = track.id === currentId;
         return (
           <div
-            key={flip ? track.id : `${track.id}-${i}`}
-            data-flip={flip ? track.id : undefined}
+            key={keys[i]}
+            data-flip={flip ? keys[i] : undefined}
             className={`track-row ${showAlbum ? '' : 'no-album'} ${showCover ? 'has-cover' : ''} cursor-pointer select-none`}
             data-current={isCur}
             data-menu={menuTrack === track.id}

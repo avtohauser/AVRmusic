@@ -5,11 +5,13 @@ import '@/md';
 import App from './App';
 import './index.css';
 import { initNativeApp } from '@/lib/native';
+import { startIconMorphs } from '@/lib/iconMorph';
 
 registerSW({ immediate: true });
 // the Android app: safe areas + messages from its player, before anything renders
 initNativeApp();
 
+startIconMorphs();
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />

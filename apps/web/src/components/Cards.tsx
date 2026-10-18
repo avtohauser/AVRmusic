@@ -120,15 +120,15 @@ export function GenreCard({ genre, wide = false }: { genre: Genre; wide?: boolea
 
 export function QuickPick({ title, cover, mosaic, to, onPlay, liked, starred }: { title: string; cover?: string | null; mosaic?: string[]; to: string; onPlay: () => void; liked?: boolean; starred?: boolean }) {
   return (
-    <Link to={to} className="group surface-high rounded-[16px] press flex items-center gap-3 pr-2 overflow-hidden h-[60px] state-layer">
+    <Link to={to} viewTransition={starred || liked || undefined} className="group surface-high rounded-[16px] press flex items-center gap-3 pr-2 overflow-hidden h-[60px] state-layer">
       {starred ? (
-        <div className="w-[60px] h-full flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg, #0B4248, #1d5d63)' }}><SuperStar className="w-8 h-8" /></div>
+        <div className="w-[60px] h-full flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg, #0B4248, #1d5d63)', viewTransitionName: 'super-box' }}><span className="flex" style={{ viewTransitionName: 'super-mark' }}><SuperStar className="w-8 h-8" /></span></div>
       ) : liked ? (
-        <div className="w-[60px] h-full bg-primary text-on-primary flex items-center justify-center shrink-0"><m3e-icon variant="rounded" name="favorite" filled /></div>
+        <div className="w-[60px] h-full bg-primary text-on-primary flex items-center justify-center shrink-0" style={{ viewTransitionName: 'likes-box' }}><span className="flex" style={{ viewTransitionName: 'likes-mark' }}><m3e-icon variant="rounded" name="favorite" filled /></span></div>
       ) : (
         <Cover src={cover} mosaic={mosaic} alt={title} className="w-[60px] h-full !rounded-none" />
       )}
-      <span className="md-title-sm line-2 text-xs sm:text-sm flex-1 min-w-0 pr-2">{title}</span>
+      <span className="md-title-sm line-2 text-xs sm:text-sm flex-1 min-w-0 pr-2" style={starred || liked ? { viewTransitionName: starred ? 'super-title' : 'likes-title' } : undefined}>{title}</span>
       <PlayButton onClick={onPlay} size="sm" className="!hidden md:!flex opacity-0 group-hover:opacity-100 transition-opacity mr-1" />
     </Link>
   );

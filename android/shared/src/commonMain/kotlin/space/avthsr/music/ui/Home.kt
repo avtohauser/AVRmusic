@@ -274,14 +274,18 @@ private fun QuickPicks(picks: List<JsonObject>) {
               },
             verticalAlignment = Alignment.CenterVertically,
           ) {
+            // the liked tile turns into the page's header (box, mark and title fly over)
             if (kind == "liked" && starTile) {
-              Box(Modifier.size(60.dp).background(Brand.Teal), contentAlignment = Alignment.Center) { SuperStar(Modifier.size(30.dp)) }
+              Box(Modifier.size(60.dp).sharedBox(likesKey(true, "box"), RoundedCornerShape(0.dp)).background(Brand.Teal), contentAlignment = Alignment.Center) {
+                SuperStar(Modifier.size(30.dp).sharedCover(likesKey(true, "mark")))
+              }
             } else if (kind == "liked") {
-              Box(Modifier.size(60.dp).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) {
-                Ico(Res.drawable.ic_heart_filled, null, tint = MaterialTheme.colorScheme.onPrimary)
+              Box(Modifier.size(60.dp).sharedBox(likesKey(false, "box"), RoundedCornerShape(0.dp)).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) {
+                Ico(Res.drawable.ic_heart_filled, null, Modifier.sharedCover(likesKey(false, "mark")), tint = MaterialTheme.colorScheme.onPrimary)
               }
             } else Cover(cover, Modifier.size(60.dp), RoundedCornerShape(0.dp))
-            Text(title, Modifier.padding(horizontal = 10.dp), style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            val titleMod = if (kind == "liked") Modifier.sharedBox(likesKey(starTile, "title"), RoundedCornerShape(4.dp)) else Modifier
+            Text(title, Modifier.padding(horizontal = 10.dp).then(titleMod), style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
           }
         }
         if (row.size == 1) Spacer(Modifier.weight(1f))

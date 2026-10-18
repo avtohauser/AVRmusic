@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { Link } from 'react-router-dom';
 import type { Track } from '@avrmusic/shared';
 import { M3eIconButton } from '@/md';
@@ -8,7 +9,7 @@ import { useUI } from '@/stores/ui';
 import { useAuth } from '@/stores/auth';
 import { fmtMs, fmtDate } from '@/lib/format';
 import { useI18n } from '@/lib/i18n';
-import { useOfflineIds } from '@/lib/hooks';
+import { useFlip, useOfflineIds } from '@/lib/hooks';
 import { downloadUrl } from '@/lib/api';
 
 interface Props {
@@ -17,6 +18,8 @@ interface Props {
   showAlbum?: boolean;
   showCover?: boolean;
   showAddedAt?: boolean;
+  /** each track once (liked songs): re-sorting and searching move the rows instead of redrawing them */
+  flip?: boolean;
   /** shared playlists: who put each track in (a blend: whose taste it came from) */
   showAddedBy?: boolean;
   addedByTaste?: boolean;
@@ -27,7 +30,9 @@ interface Props {
   header?: boolean;
 }
 
-export function TrackList({ tracks, context, showAlbum = true, showCover = true, showAddedAt = false, showAddedBy = false, addedByTaste = false, numbered = true, playlistId, canRemove, compact = false, header = true }: Props) {
+export function TrackList({ tracks, context, showAlbum = true, showCover = true, showAddedAt = false, showAddedBy = false, addedByTaste = false, numbered = true, playlistId, canRemove, compact = false, header = true, flip = false }: Props) {
+  const listRef = useRef<HTMLDivElement>(null);
+  useFlip(listRef, [flip ? tracks : null]);
   const currentId = usePlayer((s) => s.queue[s.index]?.id);
   const playing = usePlayer((s) => s.playing);
   const openMenu = useUI((s) => s.openMenu);
@@ -43,7 +48,7 @@ export function TrackList({ tracks, context, showAlbum = true, showCover = true,
   };
 
   return (
-    <div className="fade-in">
+    <div className="fade-in" ref={listRef}>
       {header && !compact && (
         <div className={`track-row ${showAlbum ? '' : 'no-album'} md-label-md muted uppercase tracking-wide border-b border-outline-variant mb-2 !rounded-none hidden md:grid`}>
           <span className="text-center">#</span>
@@ -57,7 +62,8 @@ export function TrackList({ tracks, context, showAlbum = true, showCover = true,
         const isCur = track.id === currentId;
         return (
           <div
-            key={`${track.id}-${i}`}
+            key={flip ? track.id : `${track.id}-${i}`}
+            data-flip={flip ? track.id : undefined}
             className={`track-row ${showAlbum ? '' : 'no-album'} ${showCover ? 'has-cover' : ''} cursor-pointer select-none`}
             data-current={isCur}
             data-menu={menuTrack === track.id}

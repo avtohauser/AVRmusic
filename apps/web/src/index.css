@@ -524,7 +524,16 @@ input.slim-range::-webkit-slider-thumb { -webkit-appearance: none; width: 4px; h
 input.slim-range::-moz-range-thumb { width: 4px; height: 18px; border: 0; border-radius: 2px; background: var(--md-sys-color-primary); }
 }
 
-/* a superlike: the star pops in with a turn */
-.super-pop { animation: super-pop .55s cubic-bezier(.34, 1.56, .64, 1); }
-@keyframes super-pop { 0% { transform: scale(.3) rotate(-90deg); opacity: .4; } 60% { transform: scale(1.35) rotate(12deg); opacity: 1; } 100% { transform: none; } }
-@media (prefers-reduced-motion: reduce) { .super-pop { animation: none; } }
+/* a tile turns into the page it opens (Liked, Superlikes): its box, mark and title fly over, the rest cross-fades */
+::view-transition-group(*) { animation-duration: .5s; animation-timing-function: cubic-bezier(.2, .9, .25, 1.04); }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: .28s; }
+::view-transition-old(likes-box), ::view-transition-new(likes-box), ::view-transition-old(super-box), ::view-transition-new(super-box) { height: 100%; width: 100%; object-fit: cover; }
+@media (prefers-reduced-motion: reduce) { ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; } }
+
+/* a search that grows out of its button */
+.search-pill { display: flex; align-items: center; gap: .5rem; height: 44px; width: 44px; padding: 0 10px; border-radius: 22px; overflow: hidden; cursor: pointer;
+  background: var(--md-sys-color-surface-container-high); transition: width .55s cubic-bezier(.34, 1.25, .64, 1), background-color .3s; }
+.search-pill input { flex: 1; min-width: 0; width: 0; background: transparent; outline: none; opacity: 0; transition: opacity .25s .1s; font: inherit; }
+.search-pill.open { width: min(100%, 440px); cursor: text; background: var(--md-sys-color-surface-container-highest); }
+.search-pill.open input { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .search-pill, .search-pill input { transition: none; } }

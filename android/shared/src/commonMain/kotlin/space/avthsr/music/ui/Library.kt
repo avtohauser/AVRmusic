@@ -61,6 +61,20 @@ import space.avthsr.music.api.refreshPlaylist
 import space.avthsr.music.api.radar
 import space.avthsr.music.api.albumCompleteness
 import space.avthsr.music.api.Likes
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.material3.ToggleButton
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import space.avthsr.music.api.LikePrefs
 import space.avthsr.music.api.Track
 import space.avthsr.music.player.Offline
@@ -258,16 +272,22 @@ fun Hint(text: String) {
   Text(text, Modifier.fillMaxWidth().padding(24.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
+/** The keys a liked tile shares with the page it opens: the tile turns into the header, its mark and title fly over. */
+fun likesKey(starred: Boolean, part: String) = "likes:${if (starred) "super" else "all"}:$part"
+
 /** Liked songs, or Superlikes; a teal tile with the star for the superliked ones. */
 @Composable
 private fun LikeTile(title: String, subtitle: String, starred: Boolean, modifier: Modifier, onClick: () -> Unit) {
   val cs = MaterialTheme.colorScheme
   val bg = if (starred) Brush.linearGradient(listOf(Brand.Teal, Color(0xFF1D5D63))) else Brush.linearGradient(listOf(cs.primary, cs.tertiary))
   val fg = if (starred) Brand.Mist else cs.onPrimary
-  Column(modifier.height(112.dp).clip(RoundedCornerShape(28.dp)).background(bg).clickable(onClick = onClick).padding(18.dp)) {
-    if (starred) SuperStar(Modifier.size(32.dp)) else Ico(Res.drawable.ic_heart_filled, null, Modifier.size(32.dp), fg)
+  val shape = RoundedCornerShape(28.dp)
+  Column(modifier.height(112.dp).sharedBox(likesKey(starred, "box"), shape).clip(shape).background(bg).clickable(onClick = onClick).padding(18.dp)) {
+    Box(Modifier.size(32.dp).sharedCover(likesKey(starred, "mark"))) {
+      if (starred) SuperStar(Modifier.fillMaxSize()) else Ico(Res.drawable.ic_heart_filled, null, Modifier.fillMaxSize(), fg)
+    }
     Spacer(Modifier.weight(1f))
-    Text(title, style = MaterialTheme.typography.titleMedium, color = fg, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    Text(title, Modifier.sharedBox(likesKey(starred, "title"), RoundedCornerShape(4.dp)), style = MaterialTheme.typography.titleMedium, color = fg, maxLines = 1, overflow = TextOverflow.Ellipsis)
     Text(subtitle, style = MaterialTheme.typography.bodySmall, color = fg.copy(alpha = 0.8f), maxLines = 1)
   }
 }
@@ -287,7 +307,11 @@ private fun arrange(list: List<Track>, query: String, sort: String): List<Track>
   }
 }
 
-/** Liked songs, or only the superliked ones ([starred]); a long list is searched and sorted right here. */
+/**
+ * Liked songs, or only the superliked ones ([starred]). The header is there at once (it grew out of the
+ * tile that opened the page); a long list is searched — the search grows out of its button — and sorted,
+ * and the rows glide into the new order.
+ */
 @Composable
 fun LikedScreen(starred: Boolean = false) {
   val liked by Likes.tracks.collectAsStateWithLifecycle()
@@ -295,51 +319,99 @@ fun LikedScreen(starred: Boolean = false) {
   val loader = rememberLoad(starred, if (starred) supers.size else liked.size) { if (starred) Api.superTracks() else Api.likedTracks() }
   val sortKey = if (starred) "liked.sort.super" else "liked.sort.all"
   var query by rememberSaveable { mutableStateOf("") }
+  var searching by rememberSaveable { mutableStateOf(false) }
   var sort by remember { mutableStateOf(runCatching { Api.prefs.getString(sortKey, null) }.getOrNull()?.takeIf { it in LIKED_SORTS } ?: "recent") }
   val ctx = if (starred) "superliked" else "liked"
   val cs = MaterialTheme.colorScheme
+  val all = loader.data.orEmpty()
+  val tracks = remember(all, query, sort) { arrange(all, query, sort) }
+  val count = if (starred) supers.size else liked.size
   Page {
-    Loaded(loader) { all ->
-      val tracks = remember(all, query, sort) { arrange(all, query, sort) }
-      LazyColumn(Modifier.fillMaxSize(), contentPadding = screenPadding(bottom = 24.dp, hero = true)) {
-        item {
-          Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 64.dp + LocalEdges.current.top, bottom = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(
-              Modifier.size(180.dp).clip(RoundedCornerShape(36.dp))
-                .background(if (starred) Brush.linearGradient(listOf(Brand.Teal, Color(0xFF1D5D63))) else Brush.linearGradient(listOf(cs.primary, cs.tertiary))),
-              contentAlignment = Alignment.Center,
-            ) { if (starred) SuperStar(Modifier.size(96.dp)) else Ico(Res.drawable.ic_heart_filled, null, Modifier.size(72.dp), cs.onPrimary) }
-            Spacer(Modifier.height(16.dp))
-            FlowText(if (starred) tr("Суперлайки") else tr("Любимые треки"), MaterialTheme.typography.headlineMedium, maxLines = 1)
-            Text(tracksWord(all.size), color = cs.onSurfaceVariant)
-            Spacer(Modifier.height(14.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) { PlayButtons(tracks, ctx); OfflineButton(all) }
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = screenPadding(bottom = 24.dp, hero = true)) {
+      item {
+        Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 64.dp + LocalEdges.current.top, bottom = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+          val shape = RoundedCornerShape(36.dp)
+          Box(
+            Modifier.size(180.dp).sharedBox(likesKey(starred, "box"), shape).clip(shape)
+              .background(if (starred) Brush.linearGradient(listOf(Brand.Teal, Color(0xFF1D5D63))) else Brush.linearGradient(listOf(cs.primary, cs.tertiary))),
+            contentAlignment = Alignment.Center,
+          ) {
+            Box(Modifier.size(if (starred) 96.dp else 72.dp).sharedCover(likesKey(starred, "mark"))) {
+              if (starred) SuperStar(Modifier.fillMaxSize()) else Ico(Res.drawable.ic_heart_filled, null, Modifier.fillMaxSize(), cs.onPrimary)
+            }
           }
+          Spacer(Modifier.height(16.dp))
+          FlowText(if (starred) tr("Суперлайки") else tr("Любимые треки"), MaterialTheme.typography.headlineMedium, Modifier.sharedBox(likesKey(starred, "title"), RoundedCornerShape(4.dp)), maxLines = 1)
+          Text(tracksWord(count), color = cs.onSurfaceVariant)
+          Spacer(Modifier.height(14.dp))
+          Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) { PlayButtons(tracks, ctx); OfflineButton(all) }
         }
-        if (all.size > 8) item {
-          Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-            OutlinedTextField(
-              query, { query = it }, Modifier.fillMaxWidth(),
-              placeholder = { Text(tr("Найти в списке")) },
-              leadingIcon = { Ico(Res.drawable.ic_search, null) },
-              trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Ico(Res.drawable.ic_close, tr("Очистить")) } },
-              singleLine = true, shape = RoundedCornerShape(28.dp),
-            )
-            Row(Modifier.horizontalScroll(rememberScrollState()).padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-              val names = mapOf("recent" to tr("Сначала новые"), "oldest" to tr("Сначала старые"), "title" to tr("По названию"), "artist" to tr("По исполнителю"), "album" to tr("По альбому"))
-              LIKED_SORTS.forEach { id ->
-                val on = sort == id
-                FilterChip(selected = on, onClick = { sort = id; runCatching { Api.prefs.edit().putString(sortKey, id).apply() } }, label = { Text(names.getValue(id)) }, leadingIcon = { if (on) Ico(Res.drawable.ic_sort, null, Modifier.size(16.dp)) })
-              }
+      }
+      if (all.size > 8) item {
+        LikedControls(query, { query = it }, searching, { searching = it }, sort) { id ->
+          sort = id
+          runCatching { Api.prefs.edit().putString(sortKey, id).apply() }
+        }
+      }
+      when (val st = loader.state) {
+        is Load.Loading -> item { Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) { LoadingMark() } }
+        is Load.Err -> item { Hint(st.message) }
+        is Load.Ok -> when {
+          all.isEmpty() -> item { Hint(if (starred) tr("Суперлайков пока нет. Зажмите сердце у трека — он получит звезду и попадёт сюда, а в «Любимых» останется.") else tr("Лайкните трек — он появится здесь")) }
+          tracks.isEmpty() -> item { Hint(tr("Ничего не нашлось")) }
+          else -> itemsIndexed(tracks, key = { _, t -> t.id }) { i, t ->
+            Box(Modifier.animateItem(Motion.expressive.defaultEffectsSpec(), Motion.expressive.defaultSpatialSpec(), Motion.expressive.fastEffectsSpec())) {
+              TrackRow(t, onClick = { PlayerConn.play(tracks, i, ctx) })
             }
           }
         }
-        when {
-          all.isEmpty() -> item { Hint(if (starred) tr("Суперлайков пока нет. Зажмите сердце у трека — он получит звезду и попадёт сюда, а в «Любимых» останется.") else tr("Лайкните трек — он появится здесь")) }
-          tracks.isEmpty() -> item { Hint(tr("Ничего не нашлось")) }
-          else -> itemsIndexed(tracks, key = { _, t -> t.id }) { i, t -> TrackRow(t, onClick = { PlayerConn.play(tracks, i, ctx) }) }
+      }
+    }
+  }
+}
+
+/**
+ * Search and order of a long liked list. The search button grows into the field (and shrinks back), the
+ * order is a row of expressive toggle buttons whose shape changes as they are chosen.
+ */
+@Composable
+private fun LikedControls(query: String, onQuery: (String) -> Unit, searching: Boolean, onSearching: (Boolean) -> Unit, sort: String, onSort: (String) -> Unit) {
+  val open = searching || query.isNotEmpty()
+  val names = mapOf("recent" to tr("Сначала новые"), "oldest" to tr("Сначала старые"), "title" to tr("По названию"), "artist" to tr("По исполнителю"), "album" to tr("По альбому"))
+  val sorts: @Composable () -> Unit = {
+    LIKED_SORTS.forEach { id ->
+      ToggleButton(checked = sort == id, onCheckedChange = { onSort(id) }) { Text(names.getValue(id)) }
+    }
+  }
+  Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+    SharedTransitionLayout {
+      AnimatedContent(
+        targetState = open,
+        transitionSpec = { fadeIn(Motion.expressive.defaultEffectsSpec()).togetherWith(fadeOut(Motion.expressive.fastEffectsSpec())).using(SizeTransform(clip = false)) },
+        label = "search",
+      ) { isOpen ->
+        val grow = Modifier.sharedBounds(rememberSharedContentState("liked-search"), this@AnimatedContent, boundsTransform = Motion.coverBounds, clipInOverlayDuringTransition = OverlayClip(RoundedCornerShape(28.dp)))
+        if (isOpen) {
+          val focus = remember { FocusRequester() }
+          LaunchedEffect(Unit) { if (query.isEmpty()) runCatching { focus.requestFocus() } }
+          OutlinedTextField(
+            query, onQuery, grow.fillMaxWidth().focusRequester(focus),
+            placeholder = { Text(tr("Найти в списке")) },
+            leadingIcon = { Ico(Res.drawable.ic_search, null) },
+            trailingIcon = { IconButton(onClick = { onQuery(""); onSearching(false) }) { Ico(Res.drawable.ic_close, tr("Закрыть поиск")) } },
+            singleLine = true, shape = RoundedCornerShape(28.dp),
+          )
+        } else {
+          Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            FilledTonalIconButton(onClick = { onSearching(true) }, shapes = IconButtonDefaults.shapes(), modifier = grow) { Ico(Res.drawable.ic_search, tr("Найти в списке")) }
+            sorts()
+          }
         }
       }
+    }
+    // while searching the order stays at hand, under the field
+    AnimatedVisibility(open, enter = expandVertically(Motion.expressive.defaultSpatialSpec()) + fadeIn(), exit = shrinkVertically(Motion.expressive.defaultSpatialSpec()) + fadeOut()) {
+      Row(Modifier.horizontalScroll(rememberScrollState()).padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) { sorts() }
     }
   }
 }

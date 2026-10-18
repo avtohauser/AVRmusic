@@ -3,6 +3,11 @@
 package space.avthsr.music.ui
 
 import space.avthsr.music.api.LikePrefs
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Row
@@ -118,7 +123,7 @@ fun SettingsScreen() {
       Text(tr("Лайки и суперлайки"), style = MaterialTheme.typography.headlineSmall)
       val superOn by LikePrefs.superOn.collectAsStateWithLifecycle()
       SwitchRow(tr("Суперлайки"), tr("Лучшее из любимого — отдельным плейлистом. Трек со звездой остаётся и в «Любимых», а «Моя волна» слушает суперлайки внимательнее."), superOn) { LikePrefs.setSuperOn(it) }
-      if (superOn) {
+      AnimatedVisibility(superOn, enter = expandVertically(Motion.expressive.defaultSpatialSpec()) + fadeIn(Motion.expressive.defaultEffectsSpec()), exit = shrinkVertically(Motion.expressive.defaultSpatialSpec()) + fadeOut(Motion.expressive.fastEffectsSpec())) { Column {
         val tapSuper by LikePrefs.tapSuper.collectAsStateWithLifecycle()
         Group(tr("Нажатие на сердце")) {
           Choices(listOf(Choice("like", tr("Лайк")), Choice("super", tr("Суперлайк"))), if (tapSuper) "super" else "like") { LikePrefs.setTapSuper(it == "super") }
@@ -131,7 +136,7 @@ fun SettingsScreen() {
         Group(tr("Первым в медиатеке и на главной")) {
           Choices(listOf(Choice("liked", tr("Любимые")), Choice("super", tr("Суперлайки"))), if (superFirst) "super" else "liked") { LikePrefs.setSuperFirst(it == "super") }
         }
-      }
+      } }
 
       Spacer(Modifier.height(24.dp))
       Text(tr("Друзья и офлайн"), style = MaterialTheme.typography.headlineSmall)

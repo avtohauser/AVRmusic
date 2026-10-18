@@ -26,6 +26,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Shape
 import androidx.navigation.NavBackStackEntry
 
 object Motion {
@@ -95,4 +96,17 @@ fun Modifier.sharedCover(key: String?, token: String? = null): Modifier {
   if (key == null) return this
   if (token != null && (SharedCover.token != token || SharedCover.key != key)) return this
   return with(shared) { this@sharedCover.sharedElement(rememberSharedContentState(key), anim, Motion.coverBounds) }
+}
+
+/**
+ * A container that turns into another one on the next screen (a tile into the page's header): its bounds
+ * flow on the expressive spring, clipped to [shape], while what is inside cross-fades.
+ */
+@Composable
+fun Modifier.sharedBox(key: String, shape: Shape): Modifier {
+  val shared = LocalShared.current ?: return this
+  val anim = LocalAnimScope.current ?: return this
+  return with(shared) {
+    this@sharedBox.sharedBounds(rememberSharedContentState(key), anim, boundsTransform = Motion.coverBounds, clipInOverlayDuringTransition = OverlayClip(shape))
+  }
 }

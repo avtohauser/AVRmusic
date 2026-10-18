@@ -7,8 +7,6 @@ import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.fadeIn
@@ -88,6 +86,9 @@ import space.avthsr.music.App
 import space.avthsr.music.res.*
 import space.avthsr.music.api.Api
 import space.avthsr.music.api.Likes
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -425,8 +426,9 @@ fun TrackRow(
         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
     }
-    if (t.id in liked && superOn && t.id in supers) SuperStar(Modifier.size(16.dp))
-    else if (t.id in liked) Ico(Res.drawable.ic_heart_filled, tr("В избранном"), Modifier.size(16.dp), MaterialTheme.colorScheme.primary)
+    AnimatedVisibility(t.id in liked, enter = scaleIn(Motion.expressive.fastSpatialSpec()) + fadeIn(), exit = scaleOut(Motion.expressive.fastSpatialSpec()) + fadeOut()) {
+      HeartStar(filled = true, star = superOn && t.id in supers, modifier = Modifier.size(16.dp).semantics { contentDescription = tr("В избранном") })
+    }
     Box {
       IconButton(onClick = { menu = true }) { Ico(Res.drawable.ic_more, tr("Ещё"), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
       TrackMenu(t, menu, { menu = false }, menuExtra)
@@ -519,7 +521,7 @@ fun toggleSuperLike(id: String) {
 fun SuperStar(modifier: Modifier = Modifier) = BrandMark(modifier, waves = false)
 
 /**
- * The heart. On a track a long press gives a superlike — the heart turns into the avr star and the track
+ * The heart. On a track a long press gives a superlike — the heart flows into the avr star and the track
  * goes to Superlikes as well (the settings can swap what the tap and the long press do).
  */
 @Composable
@@ -531,46 +533,31 @@ fun LikeButton(type: String, id: String) {
   val on = id in liked
   val canStar = type == "track" && superOn
   val starred = canStar && id in supers
-  // the heart (or the star) pops on the expressive spring when it changes, and its colour slides
-  val pop = remember { Animatable(1f) }
-  var was by remember { mutableStateOf(on to starred) }
-  LaunchedEffect(on, starred) {
-    if (was != (on to starred)) {
-      val grew = (starred && !was.second) || (on && !was.first)
-      was = on to starred
-      pop.snapTo(if (starred && grew) 0.3f else if (grew) 0.6f else 0.85f)
-      pop.animateTo(1f, Motion.expressive.fastSpatialSpec())
-    }
-  }
-  val tint by animateColorAsState(if (on) MaterialTheme.colorScheme.primary else LocalContentColor.current, Motion.expressive.defaultEffectsSpec(), label = "heart")
   val label = if (starred) tr("Убрать суперлайк") else if (on) tr("Убрать из избранного") else tr("В избранное")
-  val icon: @Composable () -> Unit = {
-    if (starred) SuperStar(Modifier.size(24.dp).graphicsLayer { scaleX = pop.value; scaleY = pop.value; rotationZ = (1f - pop.value) * -90f })
-    else Ico(
-      if (on) Res.drawable.ic_heart_filled else Res.drawable.ic_heart_outline, label,
-      Modifier.graphicsLayer { scaleX = pop.value; scaleY = pop.value },
-      tint = tint,
-    )
-  }
   if (!canStar) {
-    IconButton(onClick = { toggleLike(type, id) }, shapes = IconButtonDefaults.shapes()) { icon() }
+    IconButton(onClick = { toggleLike(type, id) }, shapes = IconButtonDefaults.shapes()) {
+      HeartStar(filled = on, star = false, modifier = Modifier.size(24.dp).semantics { contentDescription = label })
+    }
     return
   }
   val tap = { if (tapSuper) toggleSuperLike(id) else toggleLike(type, id) }
   // the long press buzzes by itself (combinedClickable's haptics)
   val long = { if (tapSuper) toggleLike(type, id) else toggleSuperLike(id) }
-  Box(
-    Modifier.minimumInteractiveComponentSize().size(40.dp).clip(CircleShape)
-      .combinedClickable(
-        role = Role.Button,
-        onClickLabel = label,
-        onLongClickLabel = if (tapSuper) tr("Обычный лайк") else tr("Суперлайк"),
-        onLongClick = long,
-        onClick = tap,
-      )
-      .semantics { contentDescription = label },
-    contentAlignment = Alignment.Center,
-  ) { icon() }
+  Box(Modifier.minimumInteractiveComponentSize().size(40.dp), contentAlignment = Alignment.Center) {
+    // the touch and its ripple in the circle; the heart above it, unclipped, so the star's burst flies out
+    Box(
+      Modifier.matchParentSize().clip(CircleShape)
+        .combinedClickable(
+          role = Role.Button,
+          onClickLabel = label,
+          onLongClickLabel = if (tapSuper) tr("Обычный лайк") else tr("Суперлайк"),
+          onLongClick = long,
+          onClick = tap,
+        )
+        .semantics { contentDescription = label },
+    )
+    HeartStar(filled = on, star = starred, modifier = Modifier.size(24.dp))
+  }
 }
 
 /** Adds tracks to one of the user's playlists (or a new one). */

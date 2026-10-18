@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { M3eIconButton } from '@/md';
+import { useMemo, useRef, useState } from 'react';
+import { M3eFilterChip, M3eFilterChipSet, M3eIconButton } from '@/md';
 import type { Track } from '@avrmusic/shared';
 import { useLikedTracks, useSuperTracks } from '@/lib/queries';
 import { usePlayer } from '@/stores/player';
@@ -34,8 +34,13 @@ export default function Liked({ starred = false }: { starred?: boolean }) {
   const playing = usePlayer((s) => s.playing);
   const p = usePlayer.getState();
   const [query, setQuery] = useState('');
+  const [searching, setSearching] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   const [sort, setSortState] = useState<Sort>(() => savedSort(starred));
-  const setSort = (s: Sort) => { setSortState(s); try { localStorage.setItem(sortKey(starred), s); } catch { /* ignore */ } };
+  const setSort = (s: Sort) => {
+    try { localStorage.setItem(sortKey(starred), s); } catch { /* ignore */ }
+    setSortState(s);
+  };
   const all = data ?? [];
   const tracks = useMemo(() => arrange(all, query, sort, lang), [all, query, sort, lang]);
   const ctx = starred ? 'superliked' : 'liked';
@@ -50,12 +55,12 @@ export default function Liked({ starred = false }: { starred?: boolean }) {
       <div className="relative -mt-16 pt-16 mb-6">
         <div className="hero-bg" />
         <div className="page pt-6 md:pt-10 flex flex-col sm:flex-row sm:items-end gap-6">
-          <div className="w-44 h-44 md:w-56 md:h-56 rounded-[28px] bg-primary text-on-primary flex items-center justify-center elev-3 mx-auto sm:mx-0" style={starred ? { background: 'linear-gradient(135deg, #0B4248, #1d5d63)' } : undefined}>
-            {starred ? <SuperStar className="w-28 h-28" /> : <m3e-icon variant="rounded" name="favorite" filled style={{ ['--m3e-icon-size' as any]: '96px' }} />}
+          <div className="w-44 h-44 md:w-56 md:h-56 rounded-[28px] bg-primary text-on-primary flex items-center justify-center elev-3 mx-auto sm:mx-0" style={{ ...(starred ? { background: 'linear-gradient(135deg, #0B4248, #1d5d63)' } : {}), viewTransitionName: starred ? 'super-box' : 'likes-box' }}>
+            <span className="flex" style={{ viewTransitionName: starred ? 'super-mark' : 'likes-mark' }}>{starred ? <SuperStar className="w-28 h-28" /> : <m3e-icon variant="rounded" name="favorite" filled style={{ ['--m3e-icon-size' as any]: '96px' }} />}</span>
           </div>
           <div className="text-center sm:text-left">
             <div className="md-label-lg muted uppercase tracking-wider">{t('playlist')}</div>
-            <FlowText as="h1" text={title} className="md-display-md emph mt-1" />
+            <div style={{ viewTransitionName: starred ? 'super-title' : 'likes-title', width: 'fit-content' }} className="mx-auto sm:mx-0"><FlowText as="h1" text={title} className="md-display-md emph mt-1" /></div>
             <div className="md-body-md mt-3"><span className="md-title-sm">{user?.displayName}</span> · {tracksWord(all.length, lang)}{all.length ? `, ${fmtDurationLong(all.reduce((s, x) => s + x.durationMs, 0), lang)}` : ''}</div>
           </div>
         </div>
@@ -70,17 +75,14 @@ export default function Liked({ starred = false }: { starred?: boolean }) {
       <div className="page">
         {all.length > 8 && (
           <div className="flex flex-wrap items-center gap-2 mb-4">
-            <label className="flex items-center gap-2 flex-1 min-w-[200px] h-11 px-4 rounded-full surface-high">
+            <label className={`search-pill ${searching || query ? 'open' : ''}`} onClick={() => { setSearching(true); inputRef.current?.focus(); }}>
               <m3e-icon variant="rounded" name="search" />
-              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={tr('Найти в списке', 'Find in the list')} className="flex-1 min-w-0 bg-transparent outline-none md-body-lg" />
-              {query && <button onClick={() => setQuery('')} aria-label={tr('Очистить', 'Clear')} className="flex"><m3e-icon variant="rounded" name="close" /></button>}
+              <input ref={inputRef} value={query} onChange={(e) => setQuery(e.target.value)} onBlur={() => setSearching(false)} placeholder={tr('Найти в списке', 'Find in the list')} aria-label={tr('Найти в списке', 'Find in the list')} />
+              {query && <button onClick={(e) => { e.preventDefault(); setQuery(''); inputRef.current?.focus(); }} aria-label={tr('Очистить', 'Clear')} className="flex shrink-0"><m3e-icon variant="rounded" name="close" /></button>}
             </label>
-            <label className="flex items-center gap-2 h-11 px-4 rounded-full surface-high md-label-lg">
-              <m3e-icon variant="rounded" name="sort" />
-              <select value={sort} onChange={(e) => setSort(e.target.value as Sort)} className="bg-transparent outline-none" aria-label={tr('Сортировка', 'Sort')}>
-                {SORTS.map((s) => <option key={s} value={s}>{sortNames[s]}</option>)}
-              </select>
-            </label>
+            <M3eFilterChipSet aria-label={tr('Сортировка', 'Sort')} onChange={(e: Event) => { const v = (e.target as any)?.value as Sort | undefined; if (v && v !== sort) setSort(v); }}>
+              {SORTS.map((s) => <M3eFilterChip key={s} value={s} selected={sort === s || undefined}>{sortNames[s]}</M3eFilterChip>)}
+            </M3eFilterChipSet>
           </div>
         )}
         {isLoading ? <TrackListSkeleton />
@@ -88,7 +90,7 @@ export default function Liked({ starred = false }: { starred?: boolean }) {
             ? <EmptyState icon="star" title={tr('Суперлайков пока нет', 'No superlikes yet')} hint={tr('Зажмите сердце у трека — он получит звезду и попадёт сюда, а в «Любимых» останется.', 'Press and hold the heart on a track — it gets the star and lands here, and stays in Liked too.')} />
             : <EmptyState icon="favorite" title={t('emptyLiked')} hint={t('emptyLikedHint')} />)
           : !tracks.length ? <EmptyState icon="search_off" title={t('nothingFound')} />
-          : <TrackList tracks={tracks} context={ctx} showAddedAt />}
+          : <TrackList tracks={tracks} context={ctx} showAddedAt flip />}
       </div>
     </div>
   );

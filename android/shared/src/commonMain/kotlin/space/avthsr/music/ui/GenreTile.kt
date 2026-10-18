@@ -55,8 +55,16 @@ private val leaves = listOf(
   Leaf((-18).dp, (-7).dp, -11f, (-3).dp, 0.dp, -3f),
 )
 
+/** Genres the listener has seen as tiles: their page draws its header from here at once, before it loads. */
+object GenresSeen {
+  private val map = mutableMapOf<String, Genre>()
+  operator fun get(slug: String): Genre? = map[slug]
+  fun put(g: Genre) { map[g.slug] = g }
+}
+
 @Composable
 fun GenreTile(g: Genre, modifier: Modifier = Modifier, onClick: () -> Unit) {
+  GenresSeen.put(g)
   val cs = MaterialTheme.colorScheme
   // the genre's own colour, pulled a little toward the theme so the tiles sit in the palette
   val base = lerp(parseColor(g.color, cs.primaryContainer), cs.primary, 0.15f)
@@ -66,7 +74,7 @@ fun GenreTile(g: Genre, modifier: Modifier = Modifier, onClick: () -> Unit) {
   val fan by animateFloatAsState(if (pressed) 1f else 0f, Motion.expressive.fastSpatialSpec(), label = "fan")
   val covers = g.covers.ifEmpty { listOfNotNull(g.coverUrl) }.take(leaves.size)
   Box(
-    modifier.height(124.dp).pressSquash(interaction, 0.95f).clip(RoundedCornerShape(28.dp))
+    modifier.height(124.dp).pressSquash(interaction, 0.95f).sharedBox("genre:${g.slug}", RoundedCornerShape(28.dp)).clip(RoundedCornerShape(28.dp))
       .background(Brush.linearGradient(listOf(base, deep)))
       .clickable(interactionSource = interaction, indication = LocalIndication.current, onClick = onClick),
   ) {
@@ -76,7 +84,7 @@ fun GenreTile(g: Genre, modifier: Modifier = Modifier, onClick: () -> Unit) {
     // bottom of the pile first, so the most played cover lies on top
     for (i in covers.indices.reversed()) PileCard(covers[i], leaves[i], i, fan)
     Text(
-      g.name, Modifier.padding(start = 16.dp, top = 14.dp, end = 70.dp),
+      g.name, Modifier.padding(start = 16.dp, top = 14.dp, end = 70.dp).sharedBox("genre:${g.slug}:name", RoundedCornerShape(4.dp)),
       style = MaterialTheme.typography.titleLarge, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis,
     )
     Text(

@@ -111,7 +111,7 @@ private fun ListRow(
     Cover(cover, Modifier.size(56.dp).sharedCover(share, token), if (circle) ArtistShape else RoundedCornerShape(14.dp), if (circle) Res.drawable.ic_person else Res.drawable.ic_album)
     Spacer(Modifier.width(14.dp))
     Column(Modifier.weight(1f)) {
-      Text(title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+      Text(title, Modifier.sharedTitle(share, token), style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
       if (subtitle.isNotEmpty()) Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
     if (menu != null) Box {
@@ -563,7 +563,8 @@ fun PlaylistScreen(id: String) {
           }
         }
         if (p.tracks.isEmpty()) item { Hint(tr("Плейлист пуст. Добавляйте треки через меню ⋮ у любого трека.")) }
-        itemsIndexed(p.tracks) { i, t ->
+        val keys = p.tracks.rowKeys()
+        itemsIndexed(p.tracks, key = { i, _ -> keys[i] }) { i, t -> Glide {
           TrackRow(t, onClick = { PlayerConn.play(p.tracks, i, "playlist:${p.id}") },
             subtitle = t.addedBy?.takeIf { shared }?.let { if (p.autoKind == "blend") tr("{} · вкус: {}", t.artists, it.displayName) else tr("{} · добавил(а) {}", t.artists, it.displayName) },
             menuExtra = { close ->
@@ -571,7 +572,7 @@ fun PlaylistScreen(id: String) {
               close()
               App.scope.launch { runCatching { Api.removeFromPlaylist(p.id, t.id) }.onSuccess { loader.reload() }.onFailure { App.say(it.message ?: tr("Не получилось")) } }
             })
-          })
+          }) }
         }
       }
     }
@@ -582,31 +583,44 @@ fun PlaylistScreen(id: String) {
 fun GenreScreen(slug: String) {
   val nav = LocalNav.current
   val loader = rememberLoad(slug) { Api.genre(slug) }
+  // the header is there at once (it grew out of the genre's tile), the rest follows when it loads
+  val genre = loader.data?.genre ?: GenresSeen[slug]
+  val color = parseColor(genre?.color ?: "", MaterialTheme.colorScheme.primaryContainer)
   Page {
-    Loaded(loader) { g ->
-      val color = parseColor(g.genre.color, MaterialTheme.colorScheme.primaryContainer)
-      LazyColumn(Modifier.fillMaxSize(), contentPadding = screenPadding(bottom = 24.dp, hero = true)) {
-        item {
-          Column(
-            Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(color, Color.Transparent))).padding(start = 20.dp, end = 20.dp, top = 72.dp + LocalEdges.current.top, bottom = 16.dp),
-          ) {
-            Text(g.genre.name, style = MaterialTheme.typography.displaySmall)
-            Text(tracksWord(g.genre.trackCount), color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(14.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) { PlayButtons(g.tracks, "genre:${g.genre.slug}") }
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = screenPadding(bottom = 24.dp, hero = true)) {
+      item {
+        Column(
+          Modifier.fillMaxWidth().sharedBox("genre:$slug", RoundedCornerShape(28.dp)).background(Brush.verticalGradient(listOf(color, Color.Transparent)))
+            .padding(start = 20.dp, end = 20.dp, top = 72.dp + LocalEdges.current.top, bottom = 16.dp),
+        ) {
+          Text(genre?.name ?: "", Modifier.sharedBox("genre:$slug:name", RoundedCornerShape(4.dp)), style = MaterialTheme.typography.displaySmall)
+          Text(tracksWord(genre?.trackCount ?: 0), color = MaterialTheme.colorScheme.onSurfaceVariant)
+          Spacer(Modifier.height(14.dp))
+          val g = loader.data
+          Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) { PlayButtons(g?.tracks.orEmpty(), "genre:$slug") }
+        }
+      }
+      when (val st = loader.state) {
+        is Load.Loading -> item { Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) { LoadingMark() } }
+        is Load.Err -> item { Hint(st.message) }
+        is Load.Ok -> {
+          val g = st.data
+          if (g.artists.isNotEmpty()) item {
+            SectionTitle(tr("Исполнители"))
+            CardRow(g.artists) { a -> MediaCard(a.name, "", a.imageUrl, { nav.artist(a.id) }, share = "artist:${a.id}", circle = true, width = 124.dp) }
           }
-        }
-        if (g.artists.isNotEmpty()) item {
-          SectionTitle(tr("Исполнители"))
-          CardRow(g.artists) { a -> MediaCard(a.name, "", a.imageUrl, { nav.artist(a.id) }, share = "artist:${a.id}", circle = true, width = 124.dp) }
-        }
-        if (g.albums.isNotEmpty()) item {
-          SectionTitle(tr("Альбомы"))
-          CardRow(g.albums) { a -> MediaCard(a.title, a.artist.name, a.coverUrl, { nav.album(a.id) }, share = "album:${a.id}", menu = { e, c -> AlbumMenu(a.id, a.title, a.artist.id, a.artist.name, e, c) }) }
-        }
-        if (g.tracks.isNotEmpty()) {
-          item { SectionTitle(tr("Треки")) }
-          itemsIndexed(g.tracks) { i, t -> TrackRow(t, onClick = { PlayerConn.play(g.tracks, i, "genre:${g.genre.slug}") }) }
+          if (g.albums.isNotEmpty()) item {
+            SectionTitle(tr("Альбомы"))
+            CardRow(g.albums) { a -> MediaCard(a.title, a.artist.name, a.coverUrl, { nav.album(a.id) }, share = "album:${a.id}", menu = { e, c -> AlbumMenu(a.id, a.title, a.artist.id, a.artist.name, e, c) }) }
+          }
+          if (g.tracks.isNotEmpty()) {
+            item { SectionTitle(tr("Треки")) }
+            itemsIndexed(g.tracks, key = { i, t -> "$i:${t.id}" }) { i, t ->
+              Box(Modifier.animateItem(Motion.expressive.defaultEffectsSpec(), Motion.expressive.defaultSpatialSpec(), Motion.expressive.fastEffectsSpec())) {
+                TrackRow(t, onClick = { PlayerConn.play(g.tracks, i, "genre:$slug") })
+              }
+            }
+          }
         }
       }
     }

@@ -26,6 +26,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.ui.graphics.Shape
 import androidx.navigation.NavBackStackEntry
 
@@ -99,6 +101,19 @@ fun Modifier.sharedCover(key: String?, token: String? = null): Modifier {
 }
 
 /**
+ * Like [sharedCover] for a title: the tapped card's (or row's) title flows into the title of the page it
+ * opens, growing on the way, while the two texts cross-fade.
+ */
+@Composable
+fun Modifier.sharedTitle(share: String?, token: String? = null): Modifier {
+  val shared = LocalShared.current ?: return this
+  val anim = LocalAnimScope.current ?: return this
+  if (share == null) return this
+  if (token != null && (SharedCover.token != token || SharedCover.key != share)) return this
+  return with(shared) { this@sharedTitle.sharedBounds(rememberSharedContentState("$share:title"), anim, boundsTransform = Motion.coverBounds) }
+}
+
+/**
  * A container that turns into another one on the next screen (a tile into the page's header): its bounds
  * flow on the expressive spring, clipped to [shape], while what is inside cross-fades.
  */
@@ -109,4 +124,16 @@ fun Modifier.sharedBox(key: String, shape: Shape): Modifier {
   return with(shared) {
     this@sharedBox.sharedBounds(rememberSharedContentState(key), anim, boundsTransform = Motion.coverBounds, clipInOverlayDuringTransition = OverlayClip(shape))
   }
+}
+
+/** A list row that fades in, fades out and glides to its new place when the list changes (search, removals). */
+@Composable
+fun LazyItemScope.Glide(content: @Composable () -> Unit) {
+  Box(Modifier.animateItem(Motion.expressive.defaultEffectsSpec(), Motion.expressive.defaultSpatialSpec(), Motion.expressive.fastEffectsSpec())) { content() }
+}
+
+/** Keys for a track list that may hold one track twice: its id and which time it comes. */
+fun List<space.avthsr.music.api.Track>.rowKeys(): List<String> {
+  val seen = HashMap<String, Int>()
+  return map { t -> val n = seen[t.id] ?: 0; seen[t.id] = n + 1; "${t.id}#$n" }
 }

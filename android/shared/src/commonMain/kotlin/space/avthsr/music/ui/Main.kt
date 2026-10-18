@@ -382,6 +382,10 @@ private fun MiniPlayer(playerOpen: Boolean, onOpen: () -> Unit) {
   }
   val dur = s.durationMs
   val interaction = remember { MutableInteractionSource() }
+  // the mini player is the player closed: as it opens, the title, the artist and the play button fly into
+  // their places in the full player (the cover too), and back when it closes
+  AnimatedVisibility(!playerOpen, enter = fadeIn(Motion.standard.defaultEffectsSpec()), exit = fadeOut(Motion.standard.fastEffectsSpec())) {
+  CompositionLocalProvider(LocalAnimScope provides this) {
   Column(
     Modifier.fillMaxWidth().padding(horizontal = 12.dp).pressSquash(interaction, 0.97f)
       .shadow(6.dp, RoundedCornerShape(28.dp)).clip(RoundedCornerShape(28.dp))
@@ -416,18 +420,20 @@ private fun MiniPlayer(playerOpen: Boolean, onOpen: () -> Unit) {
         label = "mini-track",
       ) { (x, _) ->
         Column {
-          Text(x.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, modifier = Modifier.basicMarquee())
-          Text(x.artists, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+          Text(x.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, modifier = Modifier.sharedBox("np-title:${x.id}", RoundedCornerShape(4.dp)).basicMarquee())
+          Text(x.artists, Modifier.sharedBox("np-artist:${x.id}", RoundedCornerShape(4.dp)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
       }
       }
       LikeButton("track", t.id)
-      MorphPlayButton(s.playing, { PlayerConn.toggle() }, 44.dp)
+      MorphPlayButton(s.playing, { PlayerConn.toggle() }, 44.dp, Modifier.sharedBox("np-play", CircleShape))
     }
     LinearWavyProgressIndicator(
       progress = { if (dur > 0) (pos.longValue.toFloat() / dur).coerceIn(0f, 1f) else 0f },
       modifier = Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, bottom = 8.dp),
       amplitude = { if (s.playing) 1f else 0f },
     )
+  }
+  }
   }
 }

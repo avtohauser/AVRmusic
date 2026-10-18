@@ -28,6 +28,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.fadeIn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.material3.DropdownMenu
@@ -286,10 +287,11 @@ private fun NowPlayingContent(deck: Deck, onClose: () -> Unit) {
           label = "title",
         ) { x ->
         Column {
-          Text(x?.title ?: tr("Ничего не играет"), style = MaterialTheme.typography.headlineSmall, maxLines = 1, modifier = Modifier.basicMarquee())
+          // the mini player's title and artist fly here as the player opens
+          Text(x?.title ?: tr("Ничего не играет"), style = MaterialTheme.typography.headlineSmall, maxLines = 1, modifier = (if (x != null) Modifier.sharedBox("np-title:${x.id}", RoundedCornerShape(4.dp)) else Modifier).basicMarquee())
           Text(
             x?.artists ?: "", style = MaterialTheme.typography.titleMedium, color = cs.primary, maxLines = 1, overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable(enabled = !x?.artist?.id.isNullOrEmpty()) {
+            modifier = (if (x != null) Modifier.sharedBox("np-artist:${x.id}", RoundedCornerShape(4.dp)) else Modifier).clip(RoundedCornerShape(6.dp)).clickable(enabled = !x?.artist?.id.isNullOrEmpty()) {
               x?.let { onClose(); nav.artist(it.artist.id) }
             },
           )
@@ -315,7 +317,7 @@ private fun NowPlayingContent(deck: Deck, onClose: () -> Unit) {
         FilledTonalIconButton(onClick = { PlayerConn.prev() }, modifier = Modifier.size(64.dp), shapes = IconButtonDefaults.shapes()) {
           Ico(Res.drawable.ic_skip_prev, tr("Предыдущий"), Modifier.size(32.dp))
         }
-        MorphPlayButton(s.playing, { PlayerConn.toggle() }, 96.dp)
+        MorphPlayButton(s.playing, { PlayerConn.toggle() }, 96.dp, Modifier.sharedBox("np-play", CircleShape))
         FilledTonalIconButton(onClick = { PlayerConn.next() }, modifier = Modifier.size(64.dp), shapes = IconButtonDefaults.shapes()) {
           Ico(Res.drawable.ic_skip_next, tr("Следующий"), Modifier.size(32.dp))
         }

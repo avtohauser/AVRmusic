@@ -157,34 +157,34 @@ fun SearchScreen() {
             if (type == "all") r.top?.let { top -> item { TopResult(top) { keep() } } }
             if (r.tracks.isNotEmpty()) {
               item { SectionTitle(tr("Треки")) }
-              items(if (type == "all") r.tracks.take(8) else r.tracks) { t ->
-                TrackRow(t, onClick = { keep(); PlayerConn.play(r.tracks, r.tracks.indexOf(t), "search") })
+              items(if (type == "all") r.tracks.take(8) else r.tracks, key = { "t:" + it.id }) { t ->
+                Glide { TrackRow(t, onClick = { keep(); PlayerConn.play(r.tracks, r.tracks.indexOf(t), "search") }) }
               }
             }
             // a line of a song typed in: the songs that have it
             if (r.lyrics.isNotEmpty()) {
               item { SectionTitle(tr("По строчке из песни")) }
-              items(r.lyrics) { h ->
-                TrackRow(h.track, onClick = { keep(); PlayerConn.play(r.lyrics.map { it.track }, r.lyrics.indexOf(h), "search") }, subtitle = "«${h.line}» · ${h.track.artists}")
+              items(r.lyrics, key = { "l:" + it.track.id }) { h ->
+                Glide { TrackRow(h.track, onClick = { keep(); PlayerConn.play(r.lyrics.map { it.track }, r.lyrics.indexOf(h), "search") }, subtitle = "«${h.line}» · ${h.track.artists}") }
               }
             }
             if (r.artists.isNotEmpty()) {
               if (type == "all") item {
                 SectionTitle(tr("Исполнители"))
                 CardRow(r.artists) { a -> MediaCard(a.name, "", a.imageUrl, { keep(); nav.artist(a.id) }, share = "artist:${a.id}", circle = true, width = 124.dp) }
-              } else items(r.artists) { a -> ResultRow(a.imageUrl, a.name, tr("Исполнитель"), circle = true, share = "artist:${a.id}") { keep(); nav.artist(a.id) } }
+              } else items(r.artists, key = { "r:" + it.id }) { a -> Glide { ResultRow(a.imageUrl, a.name, tr("Исполнитель"), circle = true, share = "artist:${a.id}") { keep(); nav.artist(a.id) } } }
             }
             if (r.albums.isNotEmpty()) {
               if (type == "all") item {
                 SectionTitle(tr("Альбомы"))
                 CardRow(r.albums) { a -> MediaCard(a.title, a.artist.name, a.coverUrl, { keep(); nav.album(a.id) }, share = "album:${a.id}", menu = { e, c -> AlbumMenu(a.id, a.title, a.artist.id, a.artist.name, e, c) }) }
-              } else items(r.albums) { a -> ResultRow(a.coverUrl, a.title, listOfNotNull(albumType(a.type), a.artist.name, a.year?.toString()).joinToString(" · "), menu = { e, c -> AlbumMenu(a.id, a.title, a.artist.id, a.artist.name, e, c) }, share = "album:${a.id}") { keep(); nav.album(a.id) } }
+              } else items(r.albums, key = { "a:" + it.id }) { a -> Glide { ResultRow(a.coverUrl, a.title, listOfNotNull(albumType(a.type), a.artist.name, a.year?.toString()).joinToString(" · "), menu = { e, c -> AlbumMenu(a.id, a.title, a.artist.id, a.artist.name, e, c) }, share = "album:${a.id}") { keep(); nav.album(a.id) } } }
             }
             if (r.playlists.isNotEmpty()) {
               if (type == "all") item {
                 SectionTitle(tr("Плейлисты"))
                 CardRow(r.playlists) { p -> MediaCard(p.title, p.owner?.displayName ?: "", p.coverUrl ?: p.mosaic.firstOrNull(), { keep(); nav.playlist(p.id) }, share = "playlist:${p.id}", menu = { e, c -> PlaylistMenu(p, e, c) }) }
-              } else items(r.playlists) { p -> ResultRow(p.coverUrl ?: p.mosaic.firstOrNull(), p.title, listOfNotNull(p.owner?.displayName, tracksWord(p.trackCount)).joinToString(" · "), menu = { e, c -> PlaylistMenu(p, e, c) }, share = "playlist:${p.id}") { keep(); nav.playlist(p.id) } }
+              } else items(r.playlists, key = { "p:" + it.id }) { p -> Glide { ResultRow(p.coverUrl ?: p.mosaic.firstOrNull(), p.title, listOfNotNull(p.owner?.displayName, tracksWord(p.trackCount)).joinToString(" · "), menu = { e, c -> PlaylistMenu(p, e, c) }, share = "playlist:${p.id}") { keep(); nav.playlist(p.id) } } }
             }
           }
         }
@@ -227,7 +227,7 @@ private fun ResultRow(
     Cover(cover, Modifier.size(56.dp).sharedCover(share, token), if (circle) ArtistShape else RoundedCornerShape(14.dp), if (circle) Res.drawable.ic_person else Res.drawable.ic_album)
     Spacer(Modifier.width(14.dp))
     Column(Modifier.weight(1f)) {
-      Text(title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+      Text(title, Modifier.sharedTitle(share, token), style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
       Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
     if (menu != null) Box {

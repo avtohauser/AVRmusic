@@ -236,7 +236,7 @@ fun Header(
     Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 56.dp + LocalEdges.current.top, bottom = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
       Cover(cover, Modifier.size(224.dp).sharedCover(share), if (circle) ArtistShape else RoundedCornerShape(28.dp), if (circle) Res.drawable.ic_person else Res.drawable.ic_album)
       Spacer(Modifier.height(18.dp))
-      FlowText(title, MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center, maxLines = 3)
+      FlowText(title, MaterialTheme.typography.headlineMedium, Modifier.sharedTitle(share), textAlign = TextAlign.Center, maxLines = 3)
       if (subtitle != null) {
         Text(
           subtitle, style = MaterialTheme.typography.titleMedium, color = cs.primary, textAlign = TextAlign.Center,

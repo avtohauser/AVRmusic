@@ -306,7 +306,7 @@ fun MediaCard(
   ) {
     Cover(cover, Modifier.size(width - 12.dp).sharedCover(share, token), if (circle) ArtistShape else RoundedCornerShape(16.dp), if (circle) Res.drawable.ic_person else Res.drawable.ic_album)
     Spacer(Modifier.height(8.dp))
-    Text(title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = if (circle) TextAlign.Center else TextAlign.Start)
+    Text(title, Modifier.sharedTitle(share, token), style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = if (circle) TextAlign.Center else TextAlign.Start)
     if (subtitle.isNotEmpty()) {
       Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }

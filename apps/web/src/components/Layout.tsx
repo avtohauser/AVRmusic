@@ -81,7 +81,7 @@ export function Layout() {
           <Outlet />
         </main>
         {queueOpen && isDesktop && (
-          <aside className="hidden lg:block w-[340px] shrink-0 p-3 pl-0" style={{ paddingBottom: 'calc(var(--player-h) + 12px)' }}>
+          <aside className="hidden lg:block w-[340px] shrink-0 p-3 pl-0" style={{ paddingBottom: 'calc(var(--player-h) + 12px)', viewTransitionName: 'queue-side' }}>
             <div className="h-full surface-low rounded-[28px] overflow-hidden"><QueuePanel onClose={() => setQueueOpen(false)} /></div>
           </aside>
         )}

@@ -90,8 +90,8 @@ export function TrackList({ tracks, context, showAlbum = true, showCover = true,
                   {offline.has(track.id) && <m3e-icon variant="rounded" name="offline_pin" filled className="inline align-[-3px] mr-1" style={{ color: 'var(--md-sys-color-tertiary)', ['--m3e-icon-size' as any]: '14px' }} />}
                   {track.hasSyncedLyrics && <m3e-icon variant="rounded" name="lyrics" className="inline align-[-3px] mr-1 opacity-70" style={{ ['--m3e-icon-size' as any]: '14px' }} />}
                   {track.hasCanvas && <m3e-icon variant="rounded" name="movie" className="inline align-[-3px] mr-1 opacity-70" style={{ ['--m3e-icon-size' as any]: '14px' }} />}
-                  <Link to={`/artist/${track.artist.id}`} className="hover:underline hover:text-on-surface" onClick={(e) => e.stopPropagation()}>{track.artist.name}</Link>
-                  {track.featuring.map((f) => (<span key={f.id}>, <Link to={`/artist/${f.id}`} className="hover:underline hover:text-on-surface" onClick={(e) => e.stopPropagation()}>{f.name}</Link></span>))}
+                  <Link to={`/artist/${track.artist.id}`} data-vt="title" className="hover:underline hover:text-on-surface" onClick={(e) => e.stopPropagation()}>{track.artist.name}</Link>
+                  {track.featuring.map((f) => (<span key={f.id}>, <Link to={`/artist/${f.id}`} data-vt="title" className="hover:underline hover:text-on-surface" onClick={(e) => e.stopPropagation()}>{f.name}</Link></span>))}
                   {!showAlbum && track.album && <span className="md:hidden"> · {track.album.title}</span>}
                   {showAddedBy && track.addedBy && <span className="md:hidden"> · {addedByTaste ? (lang === 'en' ? 'taste: ' : 'вкус: ') : ''}{track.addedBy.displayName}</span>}
                 </div>
@@ -99,7 +99,7 @@ export function TrackList({ tracks, context, showAlbum = true, showCover = true,
             </div>
             {showAlbum && (
               <div className="hidden md:block md-body-md muted line-1">
-                {showAddedAt && track.addedAt ? <>{fmtDate(track.addedAt, lang)}{showAddedBy && track.addedBy ? <span> · {addedByTaste ? (lang === 'en' ? 'taste: ' : 'вкус: ') : ''}{track.addedBy.displayName}</span> : null}</> : track.album ? <Link to={`/album/${track.album.id}`} className="hover:underline hover:text-on-surface" onClick={(e) => e.stopPropagation()}>{track.album.title}</Link> : '—'}
+                {showAddedAt && track.addedAt ? <>{fmtDate(track.addedAt, lang)}{showAddedBy && track.addedBy ? <span> · {addedByTaste ? (lang === 'en' ? 'taste: ' : 'вкус: ') : ''}{track.addedBy.displayName}</span> : null}</> : track.album ? <Link to={`/album/${track.album.id}`} data-vt="title" className="hover:underline hover:text-on-surface" onClick={(e) => e.stopPropagation()}>{track.album.title}</Link> : '—'}
               </div>
             )}
             <div className="hidden md:block md-body-md muted tabular-nums text-right pr-2">{fmtMs(track.durationMs)}</div>

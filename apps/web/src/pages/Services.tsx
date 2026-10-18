@@ -42,7 +42,7 @@ export default function Services() {
   };
   return (
     <div className="page pt-4 max-w-3xl">
-      <h1 className="md-headline-lg emph mb-5">{tr('Сервисы', 'Services')}</h1>
+      <h1 data-vt-dest="title" style={{ viewTransitionName: 'vt-title' }} className="w-fit md-headline-lg emph mb-5">{tr('Сервисы', 'Services')}</h1>
       <Block icon="send" title="Telegram">
         <p className="md-body-md text-on-surface-variant mb-3">
           {!s?.telegram.available ? tr('Администратор ещё не подключил бота', "The admin hasn't connected the bot yet")

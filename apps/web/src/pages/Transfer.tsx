@@ -20,7 +20,7 @@ export default function Transfer() {
   const tr = useTr();
   return (
     <div className="page pt-4 max-w-3xl">
-      <h1 className="md-headline-lg emph">{tr('Перенести музыку', 'Move your music')}</h1>
+      <h1 data-vt-dest="title" style={{ viewTransitionName: 'vt-title' }} className="w-fit md-headline-lg emph">{tr('Перенести музыку', 'Move your music')}</h1>
       <p className="md-body-lg muted mt-1 mb-5">{tr('Любимые треки станут лайками, плейлисты — плейлистами, исполнители — подписками на новинки. Чего нет на сервере — скачается само.', 'Liked songs become likes, playlists stay playlists, artists become release follows. What is missing gets fetched by itself.')}</p>
       <SpotifyCard />
       <YandexCard />

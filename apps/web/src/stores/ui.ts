@@ -42,9 +42,10 @@ export const useUI = create<UIState>((set, get) => ({
   theme: initialTheme,
   setTheme(theme) { set({ theme }); },
   nowPlayingOpen: false,
-  setNowPlayingOpen: (v) => withTransition(() => set({ nowPlayingOpen: v })),
+  // the page under the player keeps its names out of that move (data-vt-kind="np" in index.css)
+  setNowPlayingOpen: (v) => void withTransition(() => set({ nowPlayingOpen: v }), { kind: 'np' }),
   queueOpen: false,
-  setQueueOpen: (v) => set({ queueOpen: v }),
+  setQueueOpen: (v) => void withTransition(() => set({ queueOpen: v })),
   sidebarCollapsed: false,
   toggleSidebar: () => set({ sidebarCollapsed: !get().sidebarCollapsed }),
   menu: null,

@@ -22,10 +22,10 @@ export default function Genre() {
   return (
     <div>
       <div className="relative -mt-16 pt-16 mb-6">
-        <div className="hero-bg" style={{ ['--hero' as any]: genre.color }} />
+        <div className="hero-bg" data-vt-dest="genre" style={{ ['--hero' as any]: genre.color, viewTransitionName: 'vt-genre' }} />
         <div className="page pt-10 md:pt-16">
           <div className="md-label-lg uppercase tracking-wider muted">{t('genre')}</div>
-          <FlowText as="h1" text={genre.name} className="md-display-md emph mt-1" />
+          <div data-vt-dest="title" className="w-fit mt-1" style={{ viewTransitionName: 'vt-title' }}><FlowText as="h1" text={genre.name} className="md-display-md emph" /></div>
           <div className="md-body-md mt-2">{tracksWord(genre.trackCount, lang)}</div>
           <div className="flex items-center gap-3 mt-6">
             <PlayButton size="lg" onClick={() => p.playTracks(tracks, 0, `genre:${genre.slug}`)} />

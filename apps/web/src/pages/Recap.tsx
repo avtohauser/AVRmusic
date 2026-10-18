@@ -33,7 +33,7 @@ export default function Recap() {
   return (
     <div className="page pt-4">
       <div className="flex items-center gap-3 flex-wrap mb-6">
-        <h1 className="md-headline-lg emph mr-auto">{tr('Итоги', 'Recap')}</h1>
+        <h1 data-vt-dest="title" style={{ viewTransitionName: 'vt-title' }} className="w-fit md-headline-lg emph mr-auto">{tr('Итоги', 'Recap')}</h1>
         <M3eSegmentedButton onChange={(e: Event) => { const v = (e.target as any)?.value; if (v) { setPeriod(v); setOffset(0); } }}>
           <M3eButtonSegment value="month" checked={period === 'month' || undefined}>{tr('Месяц', 'Month')}</M3eButtonSegment>
           <M3eButtonSegment value="year" checked={period === 'year' || undefined}>{tr('Год', 'Year')}</M3eButtonSegment>

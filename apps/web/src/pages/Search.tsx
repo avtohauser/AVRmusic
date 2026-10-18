@@ -4,13 +4,14 @@ import { M3eAssistChip, M3eButton, M3eButtonSegment, M3eIconButton, M3eFilterChi
 import { useCatalogSearch, useGenres, useSearch } from '@/lib/queries';
 import { useDebounced } from '@/lib/hooks';
 import { useT } from '@/lib/i18n';
+import { withTab } from '@/lib/viewTransition';
 import { useAuth } from '@/stores/auth';
 import { usePlayer } from '@/stores/player';
 import { api } from '@/lib/api';
 import { TrackList } from '@/components/TrackList';
 import { AlbumCard, ArtistCard, GenreCard, PlaylistCard } from '@/components/Cards';
 import { CatalogAlbumCard, CatalogArtistCard, CatalogTrackRow, AcquireButton } from '@/components/Catalog';
-import { Shelf } from '@/components/Shelf';
+import { FlipGrid, Shelf } from '@/components/Shelf';
 import { Cover } from '@/components/Cover';
 import { PlayButton } from '@/components/PlayButton';
 import { EmptyState } from '@/components/EmptyState';
@@ -73,68 +74,70 @@ export default function Search() {
         </M3eSearchBar>
         {info?.catalog && (
           <div className="mt-3">
-            <M3eSegmentedButton onChange={(e: Event) => { const v = (e.target as any)?.value; if (v) setScope(v); }}>
+            <M3eSegmentedButton className="vt-tab" style={{ ['--vt' as any]: 'search-scope' }} onChange={(e: Event) => { const v = (e.target as any)?.value; if (v) withTab(() => setScope(v)); }}>
               <M3eButtonSegment value="library" checked={scope === 'library' || undefined}><m3e-icon variant="rounded" slot="icon" name="library_music" />{t('myLibrary')}</M3eButtonSegment>
               <M3eButtonSegment value="catalog" checked={scope === 'catalog' || undefined}><m3e-icon variant="rounded" slot="icon" name="public" />{t('catalog')}</M3eButtonSegment>
             </M3eSegmentedButton>
           </div>
         )}
         {dq.trim() && scope === 'library' && (
-          <M3eFilterChipSet className="mt-3 flex-wrap" onChange={(e: Event) => { const v = (e.target as any)?.value as Type | undefined; if (v) setType(v); }}>
+          <M3eFilterChipSet className="mt-3 flex-wrap vt-tab" style={{ ['--vt' as any]: 'search-type' }} onChange={(e: Event) => { const v = (e.target as any)?.value as Type | undefined; if (v) withTab(() => setType(v)); }}>
             {tabs.map(([k, label]) => <M3eFilterChip key={k} value={k} selected={type === k || undefined}>{label}</M3eFilterChip>)}
           </M3eFilterChipSet>
         )}
       </div>
 
-      {!dq.trim() && scope === 'library' && (
-        <div className="fade-in">
-          {recent.length > 0 && (
-            <div className="mb-6">
-              <h2 className="md-title-md emph mb-2">{t('recentSearches')}</h2>
-              <div className="flex flex-wrap gap-2">
-                {recent.map((r) => <M3eAssistChip key={r} onClick={() => setQ(r)}><m3e-icon variant="rounded" slot="icon" name="history" />{r}</M3eAssistChip>)}
-                <M3eAssistChip onClick={() => { localStorage.removeItem(RECENT_KEY); setRecent([]); }}><m3e-icon variant="rounded" slot="icon" name="close" />{t('clearHistory')}</M3eAssistChip>
-              </div>
-            </div>
-          )}
-          <h2 className="md-title-md emph mb-3">{t('browseAll')}</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-            {(genres ?? []).map((g) => <GenreCard key={g.slug} genre={g} wide />)}
-          </div>
-        </div>
-      )}
-      {scope === 'catalog' && !dq.trim() && <p className="muted md-body-md mb-6">{t('catalogHint')}</p>}
-      {scope === 'catalog' && dq.trim() && <CatalogResults q={dq} data={catData} fetching={catFetching} />}
-      {scope === 'library' && dq.trim() && !data && isFetching && <TrackListSkeleton />}
-      {scope === 'library' && dq.trim() && data && !hasResults && <EmptyState icon="search_off" title={`${t('nothingFound')} «${dq}»`} hint={t('tryAnother')} />}
-
-      {data && hasResults && type === 'all' && (
-        <div className="fade-in">
-          <div className="grid md:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] gap-6 mb-6">
-            {data.top && <TopResult top={data.top} />}
-            {data.tracks.length > 0 && (
-              <div>
-                <h2 className="md-title-lg emph mb-2">{t('tracks')}</h2>
-                <TrackList tracks={data.tracks.slice(0, 5)} context={`search:${dq}`} showAlbum={false} numbered={false} header={false} compact />
-                {data.tracks.length > 5 && <M3eButton variant="text" onClick={() => setType('track')}>{t('showAll')}</M3eButton>}
+      <div className="vt-tab" style={{ ['--vt' as any]: 'tab-body' }}>
+        {!dq.trim() && scope === 'library' && (
+          <div className="fade-in">
+            {recent.length > 0 && (
+              <div className="mb-6">
+                <h2 className="md-title-md emph mb-2">{t('recentSearches')}</h2>
+                <div className="flex flex-wrap gap-2">
+                  {recent.map((r) => <M3eAssistChip key={r} onClick={() => setQ(r)}><m3e-icon variant="rounded" slot="icon" name="history" />{r}</M3eAssistChip>)}
+                  <M3eAssistChip onClick={() => { localStorage.removeItem(RECENT_KEY); setRecent([]); }}><m3e-icon variant="rounded" slot="icon" name="close" />{t('clearHistory')}</M3eAssistChip>
+                </div>
               </div>
             )}
+            <h2 className="md-title-md emph mb-3">{t('browseAll')}</h2>
+            <FlipGrid className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+              {(genres ?? []).map((g) => <GenreCard key={g.slug} genre={g} wide />)}
+            </FlipGrid>
           </div>
-          {data.artists.length > 0 && <Shelf title={t('artists')}>{data.artists.map((a) => <ArtistCard key={a.id} artist={a} />)}</Shelf>}
-          {data.albums.length > 0 && <Shelf title={t('albums')}>{data.albums.map((a) => <AlbumCard key={a.id} album={a} />)}</Shelf>}
-          {data.playlists.length > 0 && <Shelf title={t('playlists')}>{data.playlists.map((p) => <PlaylistCard key={p.id} playlist={p} />)}</Shelf>}
-          {!!data.lyrics?.length && <LyricsHits hits={data.lyrics.slice(0, 5)} q={dq} />}
-        </div>
-      )}
-      {data && type === 'lyrics' && (data.lyrics?.length ? <LyricsHits hits={data.lyrics} q={dq} /> : <EmptyState icon="lyrics" title={tr('Ни в одной песне нет такой строчки', 'No song has that line')} hint={tr('Попробуйте пару слов из припева', 'Try a couple of words from the chorus')} />)}
-      {data && type === 'track' && <TrackList tracks={data.tracks} context={`search:${dq}`} />}
-      {data && type !== 'all' && type !== 'track' && type !== 'lyrics' && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2 fade-in [&>*]:w-full">
-          {type === 'artist' && data.artists.map((a) => <ArtistCard key={a.id} artist={a} />)}
-          {type === 'album' && data.albums.map((a) => <AlbumCard key={a.id} album={a} />)}
-          {type === 'playlist' && data.playlists.map((p) => <PlaylistCard key={p.id} playlist={p} />)}
-        </div>
-      )}
+        )}
+        {scope === 'catalog' && !dq.trim() && <p className="muted md-body-md mb-6">{t('catalogHint')}</p>}
+        {scope === 'catalog' && dq.trim() && <CatalogResults q={dq} data={catData} fetching={catFetching} />}
+        {scope === 'library' && dq.trim() && !data && isFetching && <TrackListSkeleton />}
+        {scope === 'library' && dq.trim() && data && !hasResults && <EmptyState icon="search_off" title={`${t('nothingFound')} «${dq}»`} hint={t('tryAnother')} />}
+
+        {data && hasResults && type === 'all' && (
+          <div className="fade-in">
+            <div className="grid md:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] gap-6 mb-6">
+              {data.top && <TopResult top={data.top} />}
+              {data.tracks.length > 0 && (
+                <div>
+                  <h2 className="md-title-lg emph mb-2">{t('tracks')}</h2>
+                  <TrackList tracks={data.tracks.slice(0, 5)} context={`search:${dq}`} showAlbum={false} numbered={false} header={false} compact />
+                  {data.tracks.length > 5 && <M3eButton variant="text" onClick={() => withTab(() => setType('track'))}>{t('showAll')}</M3eButton>}
+                </div>
+              )}
+            </div>
+            {data.artists.length > 0 && <Shelf title={t('artists')}>{data.artists.map((a) => <ArtistCard key={a.id} artist={a} />)}</Shelf>}
+            {data.albums.length > 0 && <Shelf title={t('albums')}>{data.albums.map((a) => <AlbumCard key={a.id} album={a} />)}</Shelf>}
+            {data.playlists.length > 0 && <Shelf title={t('playlists')}>{data.playlists.map((p) => <PlaylistCard key={p.id} playlist={p} />)}</Shelf>}
+            {!!data.lyrics?.length && <LyricsHits hits={data.lyrics.slice(0, 5)} q={dq} />}
+          </div>
+        )}
+        {data && type === 'lyrics' && (data.lyrics?.length ? <LyricsHits hits={data.lyrics} q={dq} /> : <EmptyState icon="lyrics" title={tr('Ни в одной песне нет такой строчки', 'No song has that line')} hint={tr('Попробуйте пару слов из припева', 'Try a couple of words from the chorus')} />)}
+        {data && type === 'track' && <TrackList tracks={data.tracks} context={`search:${dq}`} />}
+        {data && type !== 'all' && type !== 'track' && type !== 'lyrics' && (
+          <FlipGrid className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2 fade-in [&>*]:w-full">
+            {type === 'artist' && data.artists.map((a) => <ArtistCard key={a.id} artist={a} />)}
+            {type === 'album' && data.albums.map((a) => <AlbumCard key={a.id} album={a} />)}
+            {type === 'playlist' && data.playlists.map((p) => <PlaylistCard key={p.id} playlist={p} />)}
+          </FlipGrid>
+        )}
+      </div>
     </div>
   );
 }

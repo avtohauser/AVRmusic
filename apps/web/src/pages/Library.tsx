@@ -7,8 +7,10 @@ import { useUI } from '@/stores/ui';
 import { useLikePrefs, useLikes } from '@/stores/likes';
 import { SuperStar } from '@/components/LikeButton';
 import { useT } from '@/lib/i18n';
+import { withTab } from '@/lib/viewTransition';
 import { AlbumCard, ArtistCard, GenreCard, PlaylistCard } from '@/components/Cards';
 import { ShelfSkeleton } from '@/components/Skeleton';
+import { FlipGrid } from '@/components/Shelf';
 import { EmptyState } from '@/components/EmptyState';
 import { blendWith, radar, useTr } from '@/lib/social';
 import { SmartEditor } from '@/components/SmartEditor';
@@ -26,23 +28,25 @@ export default function Library() {
   return (
     <div className="page pt-2">
       <div className="flex items-center gap-2 mb-5 flex-wrap">
-        <M3eFilterChipSet onChange={(e: Event) => { const v = (e.target as any)?.value as Tab | undefined; if (v) setParams({ tab: v }); }}>
+        <M3eFilterChipSet className="vt-tab" style={{ ['--vt' as any]: 'lib-tabs' }} onChange={(e: Event) => { const v = (e.target as any)?.value as Tab | undefined; if (v) withTab(() => setParams({ tab: v })); }}>
           {tabs.map(([k, label, icon]) => <M3eFilterChip key={k} value={k} selected={tab === k || undefined}><m3e-icon variant="rounded" slot="icon" name={icon} />{label}</M3eFilterChip>)}
         </M3eFilterChipSet>
         {user && <M3eButton variant="text" className="ml-auto" href="/transfer"><m3e-icon variant="rounded" slot="icon" name="swap_horiz" />{t('transferMusic')}</M3eButton>}
         {user && tab === 'playlists' && <M3eButton variant="tonal" onClick={() => setEditor({ initial: { title: '', description: '', isPublic: true } })}><m3e-icon variant="rounded" slot="icon" name="add" />{t('createPlaylist')}</M3eButton>}
       </div>
-      {tab === 'playlists' && <Playlists />}
-      {tab === 'albums' && <Albums />}
-      {tab === 'artists' && <Artists />}
-      {tab === 'genres' && <Genres />}
+      <div className="vt-tab" style={{ ['--vt' as any]: 'tab-body' }}>
+        {tab === 'playlists' && <Playlists />}
+        {tab === 'albums' && <Albums />}
+        {tab === 'artists' && <Artists />}
+        {tab === 'genres' && <Genres />}
+      </div>
     </div>
   );
 }
 
 function AutoTile({ icon, title, sub, color, onClick }: { icon: string; title: string; sub: string; color: string; onClick: () => void }) {
   return (
-    <button onClick={onClick} className="media-tile !w-full text-left">
+    <button onClick={onClick} data-flip={`auto:${icon}`} className="media-tile !w-full text-left">
       <div className="w-full aspect-square rounded-[16px] flex items-center justify-center text-white" style={{ background: color }}><m3e-icon variant="rounded" name={icon} style={{ ['--m3e-icon-size' as any]: '48px' }} /></div>
       <div className="mt-2 md-title-sm line-1">{title}</div>
       <div className="md-body-sm muted line-1">{sub}</div>
@@ -69,15 +73,15 @@ function Playlists() {
     <>
       {user && (
         <>
-          <div className={grid}>
+          <FlipGrid className={grid}>
             {likeTiles.map((tile) => tile === 'liked' ? (
-              <Link key="liked" to="/liked" className="media-tile !w-full">
+              <Link key="liked" to="/liked" data-flip="liked" className="media-tile !w-full">
                 <div className="w-full aspect-square rounded-[16px] text-on-primary flex items-center justify-center" style={{ background: 'linear-gradient(135deg, var(--md-sys-color-primary), var(--md-sys-color-tertiary))', viewTransitionName: 'likes-box' }}><span className="flex" style={{ viewTransitionName: 'likes-mark' }}><m3e-icon variant="rounded" name="favorite" filled style={{ ['--m3e-icon-size' as any]: '48px' }} /></span></div>
                 <div className="mt-2 md-title-sm" style={{ viewTransitionName: 'likes-title', width: 'fit-content' }}>{t('likedSongs')}</div>
                 <div className="md-body-sm muted">{t('playlist')}</div>
               </Link>
             ) : (
-              <Link key="super" to="/superliked" className="media-tile !w-full">
+              <Link key="super" to="/superliked" data-flip="super" className="media-tile !w-full">
                 <div className="w-full aspect-square rounded-[16px] flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #0B4248, #1d5d63)', viewTransitionName: 'super-box' }}><span className="flex" style={{ viewTransitionName: 'super-mark' }}><SuperStar className="w-14 h-14" /></span></div>
                 <div className="mt-2 md-title-sm" style={{ viewTransitionName: 'super-title', width: 'fit-content' }}>{tr('Суперлайки', 'Superlikes')}</div>
                 <div className="md-body-sm muted">{tr(`Треков: ${supers}`, `Tracks: ${supers}`)}</div>
@@ -87,12 +91,12 @@ function Playlists() {
             <AutoTile icon="blender" title={tr('Блендер', 'Blend')} sub={tr('Общий плейлист с друзьями', 'One playlist with friends')} color="var(--md-sys-color-secondary)" onClick={() => blendWith(nav, tr)} />
             <AutoTile icon="tune" title={tr('Умный плейлист', 'Smart playlist')} sub={tr('Собирается сам по правилам', 'Builds itself by rules')} color="var(--md-sys-color-primary)" onClick={() => setSmart(true)} />
             {(mine.data ?? []).map((p) => <PlaylistCard key={p.id} playlist={p} />)}
-          </div>
+          </FlipGrid>
           {smart && <SmartEditor open={smart} onClose={() => setSmart(false)} />}
           {others.length > 0 && <h2 className="md-headline-sm emph flow-soft mt-8 mb-3">{t('communityPlaylists')}</h2>}
         </>
       )}
-      <div className={grid}>{others.map((p) => <PlaylistCard key={p.id} playlist={p} />)}</div>
+      <FlipGrid className={grid}>{others.map((p) => <PlaylistCard key={p.id} playlist={p} />)}</FlipGrid>
       {!user && !others.length && <EmptyState title={t('nothingFound')} />}
     </>
   );
@@ -106,8 +110,8 @@ function Albums() {
   if (all.isLoading) return <ShelfSkeleton />;
   return (
     <>
-      {user && liked.data && liked.data.length > 0 && (<><h2 className="md-headline-sm emph flow-soft mb-3">{t('like')}</h2><div className={grid}>{liked.data.map((a) => <AlbumCard key={a.id} album={a} />)}</div><h2 className="md-headline-sm emph flow-soft mt-8 mb-3">{t('all')}</h2></>)}
-      <div className={grid}>{(all.data?.items ?? []).map((a) => <AlbumCard key={a.id} album={a} />)}</div>
+      {user && liked.data && liked.data.length > 0 && (<><h2 className="md-headline-sm emph flow-soft mb-3">{t('like')}</h2><FlipGrid className={grid}>{liked.data.map((a) => <AlbumCard key={a.id} album={a} />)}</FlipGrid><h2 className="md-headline-sm emph flow-soft mt-8 mb-3">{t('all')}</h2></>)}
+      <FlipGrid className={grid}>{(all.data?.items ?? []).map((a) => <AlbumCard key={a.id} album={a} />)}</FlipGrid>
     </>
   );
 }
@@ -120,8 +124,8 @@ function Artists() {
   if (all.isLoading) return <ShelfSkeleton round />;
   return (
     <>
-      {user && liked.data && liked.data.length > 0 && (<><h2 className="md-headline-sm emph flow-soft mb-3">{t('following')}</h2><div className={grid}>{liked.data.map((a) => <ArtistCard key={a.id} artist={a} />)}</div><h2 className="md-headline-sm emph flow-soft mt-8 mb-3">{t('all')}</h2></>)}
-      <div className={grid}>{(all.data?.items ?? []).map((a) => <ArtistCard key={a.id} artist={a} />)}</div>
+      {user && liked.data && liked.data.length > 0 && (<><h2 className="md-headline-sm emph flow-soft mb-3">{t('following')}</h2><FlipGrid className={grid}>{liked.data.map((a) => <ArtistCard key={a.id} artist={a} />)}</FlipGrid><h2 className="md-headline-sm emph flow-soft mt-8 mb-3">{t('all')}</h2></>)}
+      <FlipGrid className={grid}>{(all.data?.items ?? []).map((a) => <ArtistCard key={a.id} artist={a} />)}</FlipGrid>
     </>
   );
 }
@@ -129,5 +133,5 @@ function Artists() {
 function Genres() {
   const { data, isLoading } = useGenres();
   if (isLoading) return <ShelfSkeleton />;
-  return <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 fade-in">{(data ?? []).map((g) => <GenreCard key={g.slug} genre={g} wide />)}</div>;
+  return <FlipGrid className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 fade-in">{(data ?? []).map((g) => <GenreCard key={g.slug} genre={g} wide />)}</FlipGrid>;
 }

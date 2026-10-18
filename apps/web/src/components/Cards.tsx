@@ -11,9 +11,9 @@ import { api } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 
 /** A card as in the app: no box around it — the cover, the title and a line under it; it squashes when pressed. */
-function MediaCard({ to, onContextMenu, children, center }: { to: string; onContextMenu?: (e: any) => void; children: React.ReactNode; center?: boolean }) {
+function MediaCard({ to, flip = to, onContextMenu, children, center }: { to: string; flip?: string; onContextMenu?: (e: any) => void; children: React.ReactNode; center?: boolean }) {
   return (
-    <Link to={to} className={`media-tile group ${center ? 'text-center' : ''}`} onContextMenu={onContextMenu}>
+    <Link to={to} data-flip={flip} className={`media-tile group ${center ? 'text-center' : ''}`} onContextMenu={onContextMenu}>
       {children}
     </Link>
   );
@@ -87,7 +87,7 @@ export function TrackCard({ track, list, index }: { track: Track; list?: Track[]
     else p.playTracks(list ?? [track], index ?? 0, 'card');
   };
   return (
-    <MediaCard to={track.album ? `/album/${track.album.id}` : `/artist/${track.artist.id}`} onContextMenu={(e) => { e.preventDefault(); openMenu(e.clientX, e.clientY, { kind: 'track', track }); }}>
+    <MediaCard to={track.album ? `/album/${track.album.id}` : `/artist/${track.artist.id}`} flip={`track:${track.id}`} onContextMenu={(e) => { e.preventDefault(); openMenu(e.clientX, e.clientY, { kind: 'track', track }); }}>
       <div className="relative">
         <div data-vt="cover"><Cover src={track.coverUrl} alt={track.title} className="w-full aspect-square !rounded-[16px]" /></div>
         <span className="tile-play" data-on={isCur || undefined}><MorphPlay playing={isCur && playing} onClick={play} size={48} /></span>
@@ -108,8 +108,8 @@ const FAN = [
 export function GenreCard({ genre, wide = false }: { genre: Genre; wide?: boolean }) {
   const covers = (genre.covers?.length ? genre.covers : genre.coverUrl ? [genre.coverUrl] : []).slice(0, FAN.length);
   return (
-    <Link to={`/genre/${genre.slug}`} className={`group relative shrink-0 snap-start overflow-hidden rounded-[28px] spring hover:rounded-[36px] ${wide ? 'w-full aspect-[16/9]' : 'w-48 h-32'} p-4 md-title-lg emph text-white`} style={{ background: `linear-gradient(135deg, ${genre.color}, color-mix(in srgb, ${genre.color} 62%, black))` }}>
-      <span className="relative z-10 drop-shadow line-2 pr-14 block">{genre.name}</span>
+    <Link to={`/genre/${genre.slug}`} data-vt="genre" data-flip={`genre:${genre.slug}`} className={`group relative shrink-0 snap-start overflow-hidden rounded-[28px] spring hover:rounded-[36px] ${wide ? 'w-full aspect-[16/9]' : 'w-48 h-32'} p-4 md-title-lg emph text-white`} style={{ background: `linear-gradient(135deg, ${genre.color}, color-mix(in srgb, ${genre.color} 62%, black))` }}>
+      <span data-vt="title" className="relative z-10 drop-shadow line-2 pr-14 block w-fit">{genre.name}</span>
       <span className="absolute z-10 left-4 bottom-3 md-label-md text-white/80">♪ {genre.trackCount}</span>
       {covers.map((c, i) => (
         <img key={c} src={c} alt="" loading="lazy" className={`absolute w-20 h-20 rounded-[16px] ${FAN[i].z} ${FAN[i].cls} object-cover elev-2 spring`} />

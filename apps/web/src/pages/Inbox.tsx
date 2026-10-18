@@ -26,7 +26,7 @@ export default function Inbox() {
   }, [unread, qc]);
   return (
     <div className="page pt-4 max-w-3xl">
-      <h1 className="md-headline-lg emph mb-4">{tr('Входящие', 'Inbox')}</h1>
+      <h1 data-vt-dest="title" style={{ viewTransitionName: 'vt-title' }} className="w-fit md-headline-lg emph mb-4">{tr('Входящие', 'Inbox')}</h1>
       {isLoading && <TrackListSkeleton />}
       {data && !data.length && <EmptyState icon="inbox" title={tr('Пока пусто', 'Nothing yet')} hint={tr('Здесь появится то, что пришлют друзья, и новинки ваших исполнителей', 'What friends send and new releases of your artists show up here')} />}
       <div className="space-y-2 fade-in">{(data ?? []).map((s) => <ShareCard key={s.id} s={s} />)}</div>

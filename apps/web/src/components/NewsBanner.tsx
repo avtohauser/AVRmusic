@@ -5,6 +5,7 @@ import { M3eButton } from '@/md';
 import { api } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { useAuth } from '@/stores/auth';
+import { withTransition } from '@/lib/viewTransition';
 
 const KEY = 'avr.news.seen';
 const seenAt = () => { try { return localStorage.getItem(KEY) ?? ''; } catch { return ''; } };
@@ -20,10 +21,10 @@ export function NewsBanner() {
   const read = () => {
     const newest = unread[0].createdAt;
     try { localStorage.setItem(KEY, newest); } catch { /* private mode */ }
-    setSeen(newest);
+    void withTransition(() => setSeen(newest));
   };
   return (
-    <div className="mx-4 md:mx-6 mt-3 rounded-[24px] bg-primary-container text-on-primary-container px-4 py-3 flex gap-3 items-start">
+    <div className="mx-4 md:mx-6 mt-3 rounded-[24px] bg-primary-container text-on-primary-container px-4 py-3 flex gap-3 items-start fade-in" style={{ viewTransitionName: 'news-banner' }}>
       <m3e-icon variant="rounded" name="campaign" />
       <div className="min-w-0 flex-1 space-y-2">
         {unread.slice(0, 3).map((n) => (

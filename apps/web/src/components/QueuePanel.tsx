@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { M3eIconButton } from '@/md';
 import { usePlayer } from '@/stores/player';
 import { Cover } from './Cover';
 import { useT } from '@/lib/i18n';
 import { fmtMs } from '@/lib/format';
+import { useFlip } from '@/lib/hooks';
 
 export function QueuePanel({ onClose, embedded = false }: { onClose?: () => void; embedded?: boolean }) {
   const queue = usePlayer((s) => s.queue);
@@ -16,6 +17,12 @@ export function QueuePanel({ onClose, embedded = false }: { onClose?: () => void
   const [drag, setDrag] = useState<number | null>(null);
   const current = queue[index];
   const upcoming = queue.slice(index + 1);
+  // a track's place in the queue by its id and which time it comes: a moved or skipped-to row glides there
+  // (the next one rises into "now playing") instead of the list redrawing
+  const seen = new Map<string, number>();
+  const keys = queue.map((tr) => { const n = (seen.get(tr.id) ?? 0) + 1; seen.set(tr.id, n); return `${tr.id}#${n}`; });
+  const listRef = useRef<HTMLDivElement>(null);
+  useFlip(listRef, [queue, index]);
   return (
     <div className="flex flex-col h-full">
       {!embedded && (
@@ -27,18 +34,18 @@ export function QueuePanel({ onClose, embedded = false }: { onClose?: () => void
           </div>
         </div>
       )}
-      <div className="flex-1 overflow-y-auto p-2">
+      <div ref={listRef} className="flex-1 overflow-y-auto p-2">
         {current && (
           <>
             <p className="md-label-md muted px-2 pt-2 pb-1 uppercase tracking-wider">{t('nowPlaying')}</p>
-            <Row cover={current.coverUrl} title={current.title} artist={current.artist.name} duration={current.durationMs} active />
+            <div data-flip={keys[index]}><Row cover={current.coverUrl} title={current.title} artist={current.artist.name} duration={current.durationMs} active /></div>
           </>
         )}
         {upcoming.length > 0 && <p className="md-label-md muted px-2 pt-4 pb-1 uppercase tracking-wider">{t('next')}</p>}
         {upcoming.map((tr, i) => {
           const qi = index + 1 + i;
           return (
-            <div key={`${tr.id}-${qi}`} draggable onDragStart={() => setDrag(qi)} onDragOver={(e) => e.preventDefault()} onDrop={() => { if (drag != null) move(drag, qi); setDrag(null); }} className={drag === qi ? 'opacity-40' : ''}>
+            <div key={keys[qi]} data-flip={keys[qi]} draggable onDragStart={() => setDrag(qi)} onDragOver={(e) => e.preventDefault()} onDrop={() => { if (drag != null) move(drag, qi); setDrag(null); }} className={drag === qi ? 'opacity-40' : ''}>
               <Row cover={tr.coverUrl} title={tr.title} artist={tr.artist.name} duration={tr.durationMs} onClick={() => jumpTo(qi)} onRemove={() => remove(qi)} />
             </div>
           );

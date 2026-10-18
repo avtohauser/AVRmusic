@@ -87,7 +87,7 @@ export default function Game() {
       <div className="flex items-center gap-3 mb-6">
         <span className="w-12 h-12 rounded-2xl bg-tertiary text-on-tertiary flex items-center justify-center"><m3e-icon variant="rounded" name="quiz" /></span>
         <div>
-          <h1 className="md-headline-md emph">{tr('Угадай мелодию', 'Guess the song')}</h1>
+          <h1 data-vt-dest="title" style={{ viewTransitionName: 'vt-title' }} className="w-fit md-headline-md emph">{tr('Угадай мелодию', 'Guess the song')}</h1>
           {v && v.state !== 'lobby' && <div className="md-body-md text-on-surface-variant">{tr(`Раунд ${v.round} из ${v.rounds}`, `Round ${v.round} of ${v.rounds}`)}</div>}
         </div>
       </div>

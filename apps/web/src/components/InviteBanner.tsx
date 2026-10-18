@@ -7,6 +7,7 @@ import { api } from '@/lib/api';
 import { joinJam } from '@/lib/jam';
 import { useTr, type Share } from '@/lib/social';
 import { useAuth } from '@/stores/auth';
+import { withTransition } from '@/lib/viewTransition';
 
 export function InviteBanner() {
   const tr = useTr();
@@ -36,17 +37,17 @@ export function InviteBanner() {
     return () => { alive = false; clearInterval(t); };
   }, [user?.id]);
   useEffect(() => { if (!invite) return; const t = setTimeout(() => setInvite(null), 60_000); return () => clearTimeout(t); }, [invite?.id]);
-  const open = (s: Share) => { setInvite(null); if (s.kind === 'game') nav(`/game?join=${s.refId}`); else void joinJam(s.refId); };
+  const open = (s: Share) => { void withTransition(() => { setInvite(null); if (s.kind === 'game') nav(`/game?join=${s.refId}`); }); if (s.kind !== 'game') void joinJam(s.refId); };
   if (!invite) return null;
   const who = invite.from?.displayName ?? tr('Друг', 'A friend');
   const game = invite.kind === 'game';
   return (
     <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[80] w-[min(560px,calc(100vw-24px))] flex items-center gap-3 pl-4 pr-1 py-2 rounded-3xl bg-tertiary-container text-on-tertiary-container elev-3 fade-in"
-      style={{ top: 'calc(var(--safe-t) + 12px)' }}>
+      style={{ top: 'calc(var(--safe-t) + 12px)', viewTransitionName: 'invite-banner' }}>
       <m3e-icon variant="rounded" name={game ? 'quiz' : 'groups'} />
       <span className="flex-1 md-body-md">{game ? tr(`${who} зовёт в «Угадай мелодию»`, `${who} invites you to “Guess the song”`) : tr(`${who} зовёт слушать вместе`, `${who} invites you to listen together`)}</span>
       <M3eButton variant="filled" onClick={() => open(invite)}>{game ? tr('Играть', 'Play') : tr('Войти', 'Join')}</M3eButton>
-      <M3eIconButton aria-label={tr('Закрыть', 'Close')} onClick={() => setInvite(null)}><m3e-icon variant="rounded" name="close" /></M3eIconButton>
+      <M3eIconButton aria-label={tr('Закрыть', 'Close')} onClick={() => void withTransition(() => setInvite(null))}><m3e-icon variant="rounded" name="close" /></M3eIconButton>
     </div>
   );
 }

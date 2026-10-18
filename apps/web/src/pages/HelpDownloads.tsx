@@ -24,7 +24,7 @@ export default function HelpDownloads() {
   const take = async (id: string) => { await api.del(`/api/me/youtube-accounts/${id}`).catch(() => {}); await qc.invalidateQueries({ queryKey: ['given-accounts'] }); };
   return (
     <div className="page pt-4 max-w-2xl">
-      <h1 className="md-headline-lg emph mb-3">{tr('Помочь с загрузками', 'Help with downloads')}</h1>
+      <h1 data-vt-dest="title" style={{ viewTransitionName: 'vt-title' }} className="w-fit md-headline-lg emph mb-3">{tr('Помочь с загрузками', 'Help with downloads')}</h1>
       <p className="md-body-lg text-on-surface-variant mb-4">{tr('Треки качаются с YouTube. Каждый аккаунт — это ещё две загрузки одновременно на каждом сервере и меньше «докажите, что вы не робот». Дайте запасной (не основной!) аккаунт Google — его cookies хранятся только на сервере, забрать можно в любой момент.', 'Tracks come from YouTube. Each account adds two downloads at once on every server and fewer “prove you are not a robot” checks. Give a spare (not your main!) Google account — its cookies stay on the server only, and you can take it back any time.')}</p>
       <h2 className="md-title-md mb-1">{tr('Как получить cookies.txt', 'How to get cookies.txt')}</h2>
       <ol className="md-body-md list-decimal pl-5 mb-4 space-y-1">

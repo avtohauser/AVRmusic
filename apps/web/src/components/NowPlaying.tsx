@@ -19,7 +19,7 @@ import { notificationsSupported, setShadeLike, shadeLikeSetting } from '@/lib/sh
 import { M3eAssistChip } from '@/md';
 import { useLikes } from '@/stores/likes';
 import { FlowText } from '@/components/FlowText';
-import { canTransition } from '@/lib/viewTransition';
+import { canTransition, withTab } from '@/lib/viewTransition';
 import { WAVE_CONTEXT, dislikeInWave, useWave } from '@/lib/wave';
 import { ReactButton, ReactionBubbles, ReactionMarks } from './Reactions';
 import { listenTogether, useJam } from '@/lib/jam';
@@ -135,7 +135,7 @@ export function NowPlaying() {
               </div>
             )}
           </div>
-          <div className={`min-h-0 h-full ${tab === 'cover' ? 'hidden md:block' : ''}`}>
+          <div className={`min-h-0 h-full vt-tab ${tab === 'cover' ? 'hidden md:block' : ''}`} style={{ ['--vt' as any]: 'np-panel' }}>
             {tab === 'queue' ? (
               <div className="h-full rounded-[28px] surface-low overflow-hidden"><QueuePanel embedded /></div>
             ) : (
@@ -173,11 +173,11 @@ export function NowPlaying() {
             <M3eIconButton toggle selected={repeat !== 'off' || undefined} aria-label={t('repeat')} onClick={p.cycleRepeat}><m3e-icon variant="rounded" name="repeat" /><m3e-icon variant="rounded" slot="selected" name={repeat === 'one' ? 'repeat_one' : 'repeat'} filled style={{ color: 'var(--md-sys-color-primary)' }} /></M3eIconButton>
           </div>
           <div className="flex justify-center mt-4">
-            <div className="np-toolbar">
+            <div className="np-toolbar vt-tab" style={{ ['--vt' as any]: 'np-tools' }}>
               {inWave && <M3eIconButton aria-label={tr('Не нравится', 'Dislike')} title={tr('Не нравится — больше не попадётся в волне', 'Dislike — it won’t come up in the wave again')} onClick={() => void dislikeInWave(track.id)}><m3e-icon variant="rounded" name="thumb_down" /></M3eIconButton>}
               <LikeButton type="track" id={track.id} alwaysVisible />
-              <M3eIconButton toggle selected={tab === 'lyrics' || undefined} disabled={(!track.hasLyrics && !lyrics?.plain) || undefined} aria-label={t('lyrics')} onClick={() => setTab(tab === 'lyrics' ? 'cover' : 'lyrics')}><m3e-icon variant="rounded" name="lyrics" /><m3e-icon variant="rounded" slot="selected" name="lyrics" filled style={{ color: 'var(--md-sys-color-primary)' }} /></M3eIconButton>
-              <M3eIconButton toggle selected={tab === 'queue' || undefined} aria-label={t('queue')} onClick={() => setTab(tab === 'queue' ? 'cover' : 'queue')}><m3e-icon variant="rounded" name="queue_music" /><m3e-icon variant="rounded" slot="selected" name="queue_music" filled style={{ color: 'var(--md-sys-color-primary)' }} /></M3eIconButton>
+              <M3eIconButton toggle selected={tab === 'lyrics' || undefined} disabled={(!track.hasLyrics && !lyrics?.plain) || undefined} aria-label={t('lyrics')} onClick={() => withTab(() => setTab(tab === 'lyrics' ? 'cover' : 'lyrics'))}><m3e-icon variant="rounded" name="lyrics" /><m3e-icon variant="rounded" slot="selected" name="lyrics" filled style={{ color: 'var(--md-sys-color-primary)' }} /></M3eIconButton>
+              <M3eIconButton toggle selected={tab === 'queue' || undefined} aria-label={t('queue')} onClick={() => withTab(() => setTab(tab === 'queue' ? 'cover' : 'queue'))}><m3e-icon variant="rounded" name="queue_music" /><m3e-icon variant="rounded" slot="selected" name="queue_music" filled style={{ color: 'var(--md-sys-color-primary)' }} /></M3eIconButton>
               <ReactButton track={track} />
               <M3eIconButton toggle selected={!!sleepAt || undefined} title={t('sleepTimer')} onClick={() => p.setSleep(sleepAt ? null : 30)}><m3e-icon variant="rounded" name="bedtime" /><m3e-icon variant="rounded" slot="selected" name="bedtime" filled style={{ color: 'var(--md-sys-color-primary)' }} /></M3eIconButton>
               <M3eIconButton className="hidden md:inline-flex" width="wide" title={t('speed')} onClick={() => p.setRate(rate >= 2 ? 0.75 : Math.round((rate + 0.25) * 100) / 100)}><span className="md-label-md">{rate}×</span></M3eIconButton>

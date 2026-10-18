@@ -127,13 +127,13 @@ function FriendsNow() {
   return (
     <Shelf title={tr('Друзья', 'Friends')} subtitle={listening ? tr(`Сейчас слушают: ${listening}`, `Listening now: ${listening}`) : undefined} to="/friends">
       {friends.map((f) => (
-        <Link key={f.id} to={`/user/${f.id}`} className="w-[92px] shrink-0 snap-start flex flex-col items-center py-1.5 rounded-[20px] press state-layer">
+        <Link key={f.id} to={`/user/${f.id}`} data-flip={`user:${f.id}`} className="w-[92px] shrink-0 snap-start flex flex-col items-center py-1.5 rounded-[20px] press state-layer">
           <span className="relative">
-            <Avatar user={f} className="w-[72px] h-[72px]" />
+            <span data-vt="avatar" className="flex"><Avatar user={f} className="w-[72px] h-[72px]" /></span>
             {f.now && <Cover src={f.now.track.coverUrl} className="absolute -right-1 -bottom-0.5 w-[30px] h-[30px] !rounded-[9px] ring-2 ring-[var(--md-sys-color-background)]" />}
             {f.jamId && <span className="absolute -right-1 -top-1 w-6 h-6 rounded-full bg-tertiary text-on-tertiary grid place-items-center"><m3e-icon variant="rounded" name="headphones" style={{ ['--m3e-icon-size' as any]: '14px' }} /></span>}
           </span>
-          <span className="mt-1.5 md-label-lg line-1 max-w-full">{f.displayName}</span>
+          <span data-vt="title" className="mt-1.5 md-label-lg line-1 max-w-full">{f.displayName}</span>
           <span className={`md-label-sm line-1 max-w-full ${f.now?.playing ? 'text-primary' : 'muted'}`}>{f.now ? f.now.track.title : ''}</span>
         </Link>
       ))}

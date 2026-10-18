@@ -293,6 +293,16 @@ HMAC прокси потоков `/proxy` с белым списком хост�
 
 Друзья присылают баги — чини, прогоняй проверки, выпускай APK (push в `android/**`), давай ссылку на релиз.
 
+Пользователь просит, чтобы **всё перетекало одно в другое** — новый элемент делай так же:
+
+- **Сайт** (`apps/web/src/lib/viewTransition.ts`): ссылки внутри сайта сами идут через view transition. Часть карточки
+  с `data-vt="cover|title|genre|avatar"` летит в шапку новой страницы с `data-vt-dest="…"` и
+  `viewTransitionName: 'vt-…'`. Смена состояния — `withTransition(() => …)`, вкладки и чипы — `withTab(() => …)`
+  (элементы с `.vt-tab` и `--vt`). Списки и сетки — `useFlip` / `FlipGrid` с `data-flip="<id>"` на строке или карточке.
+- **Приложение** (`android/shared/.../ui/Motion.kt`): `sharedCover` / `sharedTitle` / `sharedBox` между экранами,
+  `LoadedPage` вместо голого загрузчика, `Glide` / `animateItem` в списках, кнопки — M3 Expressive с
+  `shapes = …Defaults.shapes()`.
+
 ## 10. Чего не делать
 
 - Не трогать kgs, lks54 и old. Не ломать чужие сайты на nginx.

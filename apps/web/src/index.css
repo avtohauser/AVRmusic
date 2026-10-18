@@ -219,6 +219,10 @@ img { display: block; }
 .fade-in { animation: fade-in .35s cubic-bezier(.2,.8,.2,1) both; }
 @keyframes slide-up { from { transform: translateY(100%) } to { transform: none } }
 .slide-up { animation: slide-up .42s cubic-bezier(.2,.8,.2,1) both; }
+/* the next track's cover and name come in where the last one was */
+@keyframes swap-in { from { opacity: 0; transform: translateX(12px) scale(.94); } }
+.swap-in { animation: swap-in .38s cubic-bezier(.2, .9, .25, 1.04) both; }
+@media (prefers-reduced-motion: reduce) { .swap-in { animation: none; } }
 /* equalizer bars: scaled (compositor) instead of resized (a re-layout every frame) */
 @keyframes eq1 { 0%,100% { transform: scaleY(.3) } 50% { transform: scaleY(1) } }
 @keyframes eq2 { 0%,100% { transform: scaleY(1) } 50% { transform: scaleY(.4) } }
@@ -532,8 +536,35 @@ input.slim-range::-moz-range-thumb { width: 4px; height: 18px; border: 0; border
 
 /* a header that gave its names up for a moment (the page it opens takes them) */
 .vt-off { view-transition-name: none !important; }
+/* the full player comes over the page or leaves it: the page's own covers and titles stay out of that move
+   (they would float over the player), only the bar's and the player's fly */
+html[data-vt-kind="np"] .app-body :is([data-vt-dest], [style*="view-transition-name"]) { view-transition-name: none !important; }
 ::view-transition-old(vt-cover), ::view-transition-new(vt-cover), ::view-transition-old(np-cover), ::view-transition-new(np-cover) { height: 100%; width: 100%; object-fit: cover; }
 ::view-transition-group(np-cover), ::view-transition-group(np-title), ::view-transition-group(np-play) { animation-duration: .55s; }
+::view-transition-old(vt-genre), ::view-transition-new(vt-genre), ::view-transition-old(vt-avatar), ::view-transition-new(vt-avatar) { height: 100%; width: 100%; object-fit: cover; }
+/* the genre tile becomes the page's colour: the tile fades early so the page's text shows through soon */
+::view-transition-old(vt-genre) { animation-duration: .3s; }
+
+/* a switch inside a page (tabs, chips, the player's lyrics and queue): the controls keep their own motion,
+   the content under them gives way and rises in */
+.vt-tab { view-transition-name: none; }
+html[data-vt-kind="tab"] .vt-tab { view-transition-name: var(--vt); }
+::view-transition-old(lib-tabs), ::view-transition-old(search-scope), ::view-transition-old(search-type), ::view-transition-old(np-tools) { display: none; }
+::view-transition-new(lib-tabs), ::view-transition-new(search-scope), ::view-transition-new(search-type), ::view-transition-new(np-tools),
+::view-transition-group(lib-tabs), ::view-transition-group(search-scope), ::view-transition-group(search-type), ::view-transition-group(np-tools) { animation: none; }
+::view-transition-group(tab-body) { animation: none; }
+::view-transition-old(tab-body), ::view-transition-old(np-panel) { animation: vt-give .18s cubic-bezier(.3, 0, .8, .15) both; }
+::view-transition-new(tab-body), ::view-transition-new(np-panel) { animation: vt-rise .45s cubic-bezier(.2, .9, .25, 1.04) both; }
+@keyframes vt-give { to { opacity: 0; transform: translateY(-6px) scale(.99); } }
+@keyframes vt-rise { from { opacity: 0; transform: translateY(18px) scale(.98); } }
+
+/* what comes and goes on its own (a banner read, the queue at the side): it grows in and gives way */
+::view-transition-old(news-banner):only-child, ::view-transition-old(invite-banner):only-child { animation: vt-go .28s cubic-bezier(.3, 0, .8, .15) both; }
+::view-transition-new(queue-side):only-child { animation: vt-side-in .45s cubic-bezier(.2, .9, .25, 1.04) both; }
+::view-transition-old(queue-side):only-child { animation: vt-side-out .25s cubic-bezier(.3, 0, .8, .15) both; }
+@keyframes vt-go { to { opacity: 0; transform: scale(.9); } }
+@keyframes vt-side-in { from { opacity: 0; transform: translateX(48px) scale(.97); } }
+@keyframes vt-side-out { to { opacity: 0; transform: translateX(48px) scale(.97); } }
 
 /* icons slide their colour instead of switching it */
 m3e-icon { transition: color .3s cubic-bezier(.2, 0, 0, 1); }

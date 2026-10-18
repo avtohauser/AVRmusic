@@ -30,9 +30,9 @@ export default function Friend() {
   return (
     <div className="page pt-4">
       <div className="flex items-center gap-5 mb-6">
-        <BadgeOrbit badges={(f as any).badges ?? []} size={128}><Avatar user={f} className="w-24 h-24 md:w-32 md:h-32 md-display-sm" /></BadgeOrbit>
+        <BadgeOrbit badges={(f as any).badges ?? []} size={128}><span data-vt-dest="avatar" className="flex" style={{ viewTransitionName: 'vt-avatar' }}><Avatar user={f} className="w-24 h-24 md:w-32 md:h-32 md-display-sm" /></span></BadgeOrbit>
         <div className="min-w-0">
-          <h1 className="md-display-sm emph line-1">{f.displayName}</h1>
+          <h1 data-vt-dest="title" className="md-display-sm emph line-1 w-fit max-w-full" style={{ viewTransitionName: 'vt-title' }}>{f.displayName}</h1>
           {!!(f as any).badges?.length && <div className="mt-1 mb-1"><BadgeChips badges={(f as any).badges} /></div>}
           <div className="md-body-md muted">@{f.username}{!f.now && f.lastSeenAt ? ` · ${tr(`был(а) ${ago(f.lastSeenAt)}`, `seen ${ago(f.lastSeenAt)}`)}` : ''}</div>
           <div className="flex flex-wrap gap-2 mt-3">

@@ -28,7 +28,7 @@ export default function Admin() {
   const tabs: Array<[Tab, string, string]> = [['overview', t('overview'), 'bar_chart'], ['server', 'Сервер', 'monitor_heart'], ['upload', t('upload'), 'upload'], ['import', 'Импорт по ссылке', 'link'], ['tracks', t('manageTracks'), 'queue_music'], ['users', t('users'), 'group'], ['reports', 'Жалобы и Spotify', 'flag'], ['services', 'Сервисы', 'hub'], ['badges', 'Ачивки', 'military_tech']];
   return (
     <div className="page pt-4">
-      <h1 className="md-headline-lg emph mb-4">{t('admin')}</h1>
+      <h1 data-vt-dest="title" style={{ viewTransitionName: 'vt-title' }} className="w-fit md-headline-lg emph mb-4">{t('admin')}</h1>
       <M3eFilterChipSet className="mb-6" onChange={(e: Event) => { const v = (e.target as any)?.value as Tab | undefined; if (v) setParams({ tab: v }); }}>
         {tabs.map(([k, label, icon]) => <M3eFilterChip key={k} value={k} selected={tab === k || undefined}><m3e-icon variant="rounded" slot="icon" name={icon} />{label}</M3eFilterChip>)}
       </M3eFilterChipSet>
